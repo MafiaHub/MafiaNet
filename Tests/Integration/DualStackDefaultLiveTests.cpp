@@ -20,6 +20,7 @@
 #define __APPLE_USE_RFC_3542 1 // IPV6_RECVHOPLIMIT / IPV6_HOPLIMIT
 #endif
 
+#include "mafianet/guid_util.h"
 #include <gtest/gtest.h>
 
 #include "TestHelpers.h"
@@ -261,8 +262,8 @@ TEST_F(DualStackDefaultLive, DefaultSocketServesIpv4ClientAtBoundAddress)
 		return;
 
 	const SystemAddress bound = server->GetMyBoundAddress();
-	ASSERT_EQ(bound.GetIPVersion(), 4) << bound.ToString(true);
-	ASSERT_EQ(std::string(bound.ToString(false)), "127.0.0.1");
+	ASSERT_EQ(bound.GetIPVersion(), 4) << MafiaNet::to_string(bound);
+	ASSERT_EQ(MafiaNet::to_string(bound, false), "127.0.0.1");
 	ASSERT_NE(bound.GetPort(), 0);
 
 	SocketDescriptor clientSd(0, "127.0.0.1");
@@ -297,9 +298,9 @@ TEST_F(DualStackDefaultLive, DefaultSocketServesIpv4ClientAtBoundAddress)
 		}
 		RakSleep(30);
 	}
-	ASSERT_TRUE(accepted) << "IPv4 client never connected to " << bound.ToString(true);
+	ASSERT_TRUE(accepted) << "IPv4 client never connected to " << MafiaNet::to_string(bound);
 	ASSERT_TRUE(incoming) << "server never saw the IPv4 client";
-	EXPECT_EQ(clientAsSeen.GetIPVersion(), 4) << clientAsSeen.ToString(true);
+	EXPECT_EQ(clientAsSeen.GetIPVersion(), 4) << MafiaNet::to_string(clientAsSeen);
 	EXPECT_EQ(clientAsSeen.GetPort(), client->GetMyBoundAddress().GetPort());
 }
 
@@ -312,7 +313,7 @@ TEST_F(DualStackDefaultLive, RequireDualStackOnWildcardIsDualStack)
 	if (IsSkipped() || HasFatalFailure())
 		return;
 	EXPECT_TRUE(IsDualStackPeer(server));
-	EXPECT_EQ(std::string(server->GetMyBoundAddress().ToString(false)), "127.0.0.1");
+	EXPECT_EQ(MafiaNet::to_string(server->GetMyBoundAddress(), false), "127.0.0.1");
 }
 
 #ifndef _WIN32

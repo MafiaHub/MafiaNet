@@ -86,12 +86,12 @@ int main()
 
 				case ID_NEW_INCOMING_CONNECTION:
 					// Somebody connected.  We have their IP now
-					printf("%i. ID_NEW_INCOMING_CONNECTION from %s. guid=%s.\n", i, packet->systemAddress.ToString(true), MafiaNet::to_string(packet->guid).c_str());
+					printf("%i. ID_NEW_INCOMING_CONNECTION from %s. guid=%s.\n", i, MafiaNet::to_string(packet->systemAddress).c_str(), MafiaNet::to_string(packet->guid).c_str());
 					break;
 
 				case ID_CONNECTION_REQUEST_ACCEPTED:
 					// Somebody connected.  We have their IP now
-					printf("%i. ID_CONNECTION_REQUEST_ACCEPTED from %s. guid=%s.\n", i, packet->systemAddress.ToString(true), MafiaNet::to_string(packet->guid).c_str());
+					printf("%i. ID_CONNECTION_REQUEST_ACCEPTED from %s. guid=%s.\n", i, MafiaNet::to_string(packet->systemAddress).c_str(), MafiaNet::to_string(packet->guid).c_str());
 					break;
 
 
@@ -106,7 +106,7 @@ int main()
 					if (packet->systemAddress == MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
 						printf("%i. Got new host (ourselves)\n", i);
 					else
-						printf("%i. Got new host %s, %s\n", i, packet->systemAddress.ToString(true), MafiaNet::to_string(packet->guid).c_str());
+						printf("%i. Got new host %s, %s\n", i, MafiaNet::to_string(packet->systemAddress).c_str(), MafiaNet::to_string(packet->guid).c_str());
 					break;
 				}
 			}

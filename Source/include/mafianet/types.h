@@ -209,12 +209,6 @@ struct RAK_DLL_EXPORT SystemAddress
 	/// \return If was set to 127.0.0.1 or ::1
 	bool IsLoopback(void) const;
 
-	// Return the systemAddress as a string in the format <IP>|<Port>
-	// Returns a static string
-	// NOT THREADSAFE
-	// portDelineator should not be '.', ':', '%', '-', '/', a number, or a-f
-	const char *ToString(bool writePort = true, char portDelineator = '|') const;
-
 	/// Buffer size that holds any ToString() result. The worst case is 63 bytes: the longest IPv6 text (45
 	/// characters), '%' and a scope id of up to 10 digits, the port delineator, a 5-digit port and the terminator.
 	/// (Not derived from INET6_ADDRSTRLEN, which differs between platforms: 46, or 65 on Windows.)
@@ -386,7 +380,6 @@ struct RAK_DLL_EXPORT AddressOrGUID
 		systemAddress = UNASSIGNED_SYSTEM_ADDRESS;
 	}
 	static unsigned long ToInteger(const AddressOrGUID &aog);
-	const char *ToString(bool writePort = true) const;
 	void ToString(bool writePort, char *dest) const;
 	void ToString(bool writePort, char *dest, size_t destLength) const;
 

@@ -12,6 +12,7 @@ Basic Usage
 
 .. code-block:: cpp
 
+   #include "mafianet/guid_util.h"
    #include "mafianet/tcp_interface.h"
 
    MafiaNet::TCPInterface tcp;
@@ -28,21 +29,21 @@ Basic Usage
        // Check for new connections
        MafiaNet::SystemAddress newConn = tcp.HasNewIncomingConnection();
        if (newConn != MafiaNet::UNASSIGNED_SYSTEM_ADDRESS) {
-           printf("New connection from %s\n", newConn.ToString());
+           printf("New connection from %s\n", MafiaNet::to_string(newConn).c_str());
        }
 
        // Check for received data
        MafiaNet::Packet* packet = tcp.Receive();
        if (packet) {
            printf("Received %d bytes from %s\n",
-                  packet->length, packet->systemAddress.ToString());
+                  packet->length, MafiaNet::to_string(packet->systemAddress).c_str());
            tcp.DeallocatePacket(packet);
        }
 
        // Check for disconnections
        MafiaNet::SystemAddress lost = tcp.HasLostConnection();
        if (lost != MafiaNet::UNASSIGNED_SYSTEM_ADDRESS) {
-           printf("Lost connection: %s\n", lost.ToString());
+           printf("Lost connection: %s\n", MafiaNet::to_string(lost).c_str());
        }
    }
 

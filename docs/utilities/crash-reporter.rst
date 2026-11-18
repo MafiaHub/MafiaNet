@@ -56,6 +56,7 @@ Basic Usage
 
 .. code-block:: cpp
 
+   #include "mafianet/guid_util.h"
    #include "mafianet/tcp_interface.h"
 
    // Simple crash report receiver
@@ -68,7 +69,7 @@ Basic Usage
            if (packet) {
                // Parse crash report
                SaveCrashReport(packet->data, packet->length,
-                              packet->systemAddress.ToString());
+                              MafiaNet::to_string(packet->systemAddress).c_str());
                tcp.DeallocatePacket(packet);
            }
        }

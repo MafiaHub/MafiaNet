@@ -150,7 +150,7 @@ Addresses
        addr.ToString(false, ip, sizeof(ip));
        printf("IPv6 client: %s\n", ip);
    } else {
-       printf("IPv4 client: %s\n", addr.ToString(false));
+       printf("IPv4 client: %s\n", MafiaNet::to_string(addr, false).c_str());
    }
 
 Valid IPv6 address formats:

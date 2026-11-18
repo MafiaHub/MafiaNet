@@ -5,6 +5,7 @@
  *  license.txt file in the root directory of this source tree.
  */
 
+#include "mafianet/guid_util.h"
 #include <gtest/gtest.h>
 
 #include "mafianet/types.h"
@@ -72,7 +73,7 @@ TEST(SystemAddressParse, Ipv6WithPipePort)
 	SystemAddress sa;
 	ASSERT_TRUE(sa.FromString("2001:db8::5|60000"));
 	EXPECT_EQ(sa.GetPort(), 60000);
-	EXPECT_STREQ(sa.ToString(true), "2001:db8::5|60000");
+	EXPECT_EQ(MafiaNet::to_string(sa), "2001:db8::5|60000");
 }
 
 TEST(SystemAddressParse, OverlongStringDoesNotOverflow)
@@ -89,7 +90,7 @@ TEST(SystemAddressParse, ScopedLinkLocalRoundTrips)
 {
 	SystemAddress sa;
 	ASSERT_TRUE(sa.FromString("fe80::1%1"));
-	EXPECT_EQ(std::string(sa.ToString(false)).rfind("fe80::1", 0), 0u);
+	EXPECT_EQ(MafiaNet::to_string(sa, false).rfind("fe80::1", 0), 0u);
 }
 
 TEST(SystemAddressLoopback, Ipv6LoopbackDetected)
@@ -99,7 +100,7 @@ TEST(SystemAddressLoopback, Ipv6LoopbackDetected)
 
 	SystemAddress sa;
 	sa.SetToLoopback(6);
-	EXPECT_STREQ(sa.ToString(false), "::1");
+	EXPECT_EQ(MafiaNet::to_string(sa, false), "::1");
 }
 
 TEST(SystemAddressParse, MappedLiteralIsCanonicalIpv4)
@@ -248,10 +249,10 @@ TEST(SystemAddressToString, ScopeIdIsPrintedNumerically)
 	SystemAddress sa;
 	ASSERT_TRUE(sa.FromStringExplicitPort("fe80::1", 5));
 	sa.address.addr6.sin6_scope_id = 7;
-	EXPECT_STREQ(sa.ToString(true), "fe80::1%7|5");
+	EXPECT_EQ(MafiaNet::to_string(sa), "fe80::1%7|5");
 
 	sa.address.addr6.sin6_scope_id = 0;
-	EXPECT_STREQ(sa.ToString(true), "fe80::1|5");
+	EXPECT_EQ(MafiaNet::to_string(sa), "fe80::1|5");
 }
 
 // --- Host/port splitting (FromString) ---

@@ -13,6 +13,7 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
+#include "mafianet/guid_util.h"
 #include "MasterServer.h"
 #include "MasterServerMessageIDs.h"
 #include "mafianet/peer_interface.h"
@@ -56,7 +57,7 @@ void MasterServer::Update(RakPeerInterface *peer)
 			if (gameServerList.serverList[serverIndex]->failedPingResponses >= NUMBER_OF_MISSED_PINGS_TO_DROP)
 			{
 #ifdef _SHOW_MASTER_SERVER_PRINTF
-				printf("Deleting %s for lack of ping response.\n", (char *) gameServerList.serverList[serverIndex]->connectionIdentifier.ToString(false));
+				printf("Deleting %s for lack of ping response.\n", MafiaNet::to_string(gameServerList.serverList[serverIndex]->connectionIdentifier, false).c_str());
 #endif
 				gameServerList.serverList[serverIndex]->Clear();
 				delete gameServerList.serverList[serverIndex];
@@ -68,18 +69,18 @@ void MasterServer::Update(RakPeerInterface *peer)
 
 				if (rakPeer->GetIndexFromSystemAddress(gameServerList.serverList[serverIndex]->connectionIdentifier) == -1)
 				{
-					rakPeer->Ping((char *) gameServerList.serverList[serverIndex]->connectionIdentifier.ToString(false),
+					rakPeer->Ping(MafiaNet::to_string(gameServerList.serverList[serverIndex]->connectionIdentifier, false).c_str(),
 					              gameServerList.serverList[serverIndex]->connectionIdentifier.GetPort(), false);
 
 					gameServerList.serverList[serverIndex]->failedPingResponses++;
 #ifdef _SHOW_MASTER_SERVER_PRINTF
-					printf("Pinging %s. Waiting on %i repl(ies) so far.\n", (char *) gameServerList.serverList[serverIndex]->connectionIdentifier.ToString(false), gameServerList.serverList[serverIndex]->failedPingResponses);
+					printf("Pinging %s. Waiting on %i repl(ies) so far.\n", MafiaNet::to_string(gameServerList.serverList[serverIndex]->connectionIdentifier, false).c_str(), gameServerList.serverList[serverIndex]->failedPingResponses);
 #endif
 				}
 				else
 				{
 #ifdef _SHOW_MASTER_SERVER_PRINTF
-					printf("Not pinging %s since they are currently connected.\n", (char *) gameServerList.serverList[serverIndex]->connectionIdentifier.ToString(false));
+					printf("Not pinging %s since they are currently connected.\n", MafiaNet::to_string(gameServerList.serverList[serverIndex]->connectionIdentifier, false).c_str());
 #endif
 				}
 				serverIndex++;
@@ -111,9 +112,9 @@ bool MasterServer::OnReceive(RakPeerInterface *peer, Packet *packet)
 		{
 			rakPeer->CloseConnection(packet->systemAddress, true, 0);
 #ifdef _SHOW_MASTER_SERVER_PRINTF
-			printf("%s banned for session due to for flood attack\n", (char *) packet->systemAddress.ToString(false));
+			printf("%s banned for session due to for flood attack\n", MafiaNet::to_string(packet->systemAddress, false).c_str());
 #endif
-			rakPeer->AddToBanList(packet->systemAddress.ToString(false));
+			rakPeer->AddToBanList(MafiaNet::to_string(packet->systemAddress, false).c_str());
 
 			// Find all servers with this IP and kill them.
 			serverIndex = 0;
@@ -349,14 +350,14 @@ void MasterServer::HandleRelayedConnectionNotification(Packet *packet)
 	if (serverIndex >= 0)
 	{
 #ifdef _SHOW_MASTER_SERVER_PRINTF
-		printf("ID_RELAYED_CONNECTION_NOTIFICATION sent to %s:%i from %s:%i\n", str, serverGamePort, packet->systemAddress.ToString(false), packet->systemAddress.GetPort());
+		printf("ID_RELAYED_CONNECTION_NOTIFICATION sent to %s:%i from %s:%i\n", str, serverGamePort, MafiaNet::to_string(packet->systemAddress, false).c_str(), packet->systemAddress.GetPort());
 #endif
 		rakPeer->Send(&outgoingBitStream, MafiaNet::Priority::High, MafiaNet::Reliability::Reliable, 0, gameServerList.serverList[serverIndex]->originationId, false);
 	}
 	else
 	{
 #ifdef _SHOW_MASTER_SERVER_PRINTF
-		printf("ID_RELAYED_CONNECTION_NOTIFICATION not sent to %s:%i from %s:%i.\nMaster server does not know about target system.\n", str, serverGamePort, packet->systemAddress.ToString(false), packet->systemAddress.GetPort());
+		printf("ID_RELAYED_CONNECTION_NOTIFICATION not sent to %s:%i from %s:%i.\nMaster server does not know about target system.\n", str, serverGamePort, MafiaNet::to_string(packet->systemAddress, false).c_str(), packet->systemAddress.GetPort());
 #endif
 	}
 }

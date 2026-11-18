@@ -13,6 +13,7 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
+#include "mafianet/guid_util.h"
 #include "MasterCommon.h"
 #include "mafianet/peer_interface.h"
 #include "mafianet/defines.h"
@@ -293,7 +294,7 @@ void MasterCommon::AddDefaultRulesToServer(GameServer *gameServer, SystemAddress
 	gameServerRule->key = new char[strlen("IP") + 1];
 	strcpy(gameServerRule->key, "IP");
 	gameServerRule->stringValue = new char[22]; // Should be enough to hold an IP address
-	strncpy(gameServerRule->stringValue, systemAddress.ToString(false), 21);
+	strncpy(gameServerRule->stringValue, MafiaNet::to_string(systemAddress, false).c_str(), 21);
 	gameServerRule->stringValue[21] = 0;
 	gameServer->serverRules.push_back(gameServerRule);
 

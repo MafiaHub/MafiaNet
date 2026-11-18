@@ -13,6 +13,7 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
+#include "mafianet/guid_util.h"
 #include "mafianet/peer_interface.h"
 #include "mafianet/sleep.h"
 #include <stdio.h>
@@ -452,7 +453,7 @@ int main(int argc, char **argv)
 	{
 		ipList[i] = rakPeer->GetLocalIP(i);
 		if (ipList[i] != UNASSIGNED_SYSTEM_ADDRESS)
-			printf("%i. %s\n", i + 1, ipList[i].ToString(false));
+			printf("%i. %s\n", i + 1, MafiaNet::to_string(ipList[i], false).c_str());
 		else
 			break;
 	}
@@ -489,12 +490,12 @@ int main(int argc, char **argv)
 	// allow enforcing single IP address mode by specifying second/third argument to the same IP address
 	if ((i >= 2 && argc <= 3) || (argc > 3))
 	{
-		const char *ipAddress1 = (argc > 2) ? argv[2] : ipList[0].ToString(false);
-		const char *ipAddress2 = (argc > 3) ? argv[3] : ipList[1].ToString(false);
-		strcpy_s(sd[0].hostAddress, ipAddress1);
+		const std::string ipAddress1 = (argc > 2) ? argv[2] : MafiaNet::to_string(ipList[0], false);
+		const std::string ipAddress2 = (argc > 3) ? argv[3] : MafiaNet::to_string(ipList[1], false);
+		strcpy_s(sd[0].hostAddress, ipAddress1.c_str());
 		sd[1].port = DEFAULT_RAKPEER_PORT + 1;
-		strcpy_s(sd[1].hostAddress, ipAddress2);
-		printf("Dual IP address mode.\nFirst IP Address: '%s' (port: %u)\nSecond IP Address: '%s' (port: %u)\n", ipAddress1, sd[0].port, ipAddress2, sd[1].port);
+		strcpy_s(sd[1].hostAddress, ipAddress2.c_str());
+		printf("Dual IP address mode.\nFirst IP Address: '%s' (port: %u)\nSecond IP Address: '%s' (port: %u)\n", ipAddress1.c_str(), sd[0].port, ipAddress2.c_str(), sd[1].port);
 		sdLen = 2;
 	}
 	else
@@ -510,7 +511,7 @@ int main(int argc, char **argv)
 		return 1;
 	}
 	rakPeer->SetTimeoutTime(5000, UNASSIGNED_SYSTEM_ADDRESS);
-	printf("Started on %s\n\n", rakPeer->GetMyBoundAddress().ToString(true));
+	printf("Started on %s\n\n", MafiaNet::to_string(rakPeer->GetMyBoundAddress()).c_str());
 
 	rakPeer->SetMaximumIncomingConnections(8096);
 

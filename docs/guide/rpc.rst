@@ -25,6 +25,7 @@ Basic Usage
 
 .. code-block:: cpp
 
+   #include "mafianet/guid_util.h"
    #include "mafianet/remote_procedure_call.h"
 
    void MyCallback(MafiaNet::BitStream* parameters, MafiaNet::Packet* packet, void* context) {
@@ -32,7 +33,7 @@ Basic Usage
        if (!parameters->Read(value))
            return;
        printf("Received value: %d from %s\n", value,
-              packet->systemAddress.ToString());
+              MafiaNet::to_string(packet->systemAddress).c_str());
    }
 
    MafiaNet::RPC &rpc = peer->GetRPC();

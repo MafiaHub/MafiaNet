@@ -97,7 +97,7 @@ int main()
 					for (unsigned int i = 0; i < guids.size(); i++)
 					{
 						printf("%s:", MafiaNet::to_string(guids[i]).c_str());
-						ConnectionAttemptResult car = rakPeer[peerIndex]->Connect(addresses[i].ToString(false), addresses[i].GetPort(), 0, 0);
+						ConnectionAttemptResult car = rakPeer[peerIndex]->Connect(MafiaNet::to_string(addresses[i], false).c_str(), addresses[i].GetPort(), 0, 0);
 						switch (car)
 						{
 						case CONNECTION_ATTEMPT_STARTED:

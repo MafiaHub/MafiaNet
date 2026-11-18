@@ -10,6 +10,7 @@
  *  here rather than in the hermetic unit suite. Every bind uses an OS-assigned port.
  */
 
+#include "mafianet/guid_util.h"
 #include <gtest/gtest.h>
 
 #include <cstdlib> // getenv
@@ -124,7 +125,7 @@ TEST(BoundAddressReportingLive, DefaultWildcardReportsIpv4Loopback)
 	SystemAddress bound;
 	EXPECT_EQ(StartOnce(SocketDescriptor(0, nullptr), nullptr, &bound), RAKNET_STARTED);
 	EXPECT_EQ(bound.GetIPVersion(), 4);
-	EXPECT_EQ(std::string(bound.ToString(false)), "127.0.0.1");
+	EXPECT_EQ(MafiaNet::to_string(bound, false), "127.0.0.1");
 	EXPECT_NE(bound.GetPort(), 0);
 }
 
@@ -134,7 +135,7 @@ TEST(BoundAddressReportingLive, ExplicitIpv4WildcardReportsIpv4Loopback)
 	sd.socketFamily = AF_INET;
 	SystemAddress bound;
 	EXPECT_EQ(StartOnce(sd, nullptr, &bound), RAKNET_STARTED);
-	EXPECT_EQ(std::string(bound.ToString(false)), "127.0.0.1");
+	EXPECT_EQ(MafiaNet::to_string(bound, false), "127.0.0.1");
 	EXPECT_NE(bound.GetPort(), 0);
 }
 
@@ -152,7 +153,7 @@ TEST(BoundAddressReportingLive, ExplicitIpv6WildcardReportsIpv6Loopback)
 	}
 	ASSERT_EQ(result, RAKNET_STARTED);
 	EXPECT_EQ(bound.GetIPVersion(), 6);
-	EXPECT_EQ(std::string(bound.ToString(false)), "::1");
+	EXPECT_EQ(MafiaNet::to_string(bound, false), "::1");
 	EXPECT_NE(bound.GetPort(), 0);
 }
 
@@ -165,8 +166,8 @@ TEST(UnspecSpecificHostLive, NameWithBothFamiliesBindsIpv4)
 	SystemAddress bound;
 	ASSERT_EQ(StartOnce(SocketDescriptor(0, "localhost"), &dualStack, &bound), RAKNET_STARTED);
 	EXPECT_FALSE(dualStack);
-	EXPECT_EQ(bound.GetIPVersion(), 4) << bound.ToString(true);
-	EXPECT_EQ(std::string(bound.ToString(false)), "127.0.0.1");
+	EXPECT_EQ(bound.GetIPVersion(), 4) << MafiaNet::to_string(bound);
+	EXPECT_EQ(MafiaNet::to_string(bound, false), "127.0.0.1");
 }
 
 // An IPv6 literal has no IPv4 form and binds IPv6 on the second attempt.
@@ -183,8 +184,8 @@ TEST(UnspecSpecificHostLive, Ipv6LiteralBindsIpv6)
 	}
 	ASSERT_EQ(result, RAKNET_STARTED);
 	EXPECT_FALSE(dualStack);
-	EXPECT_EQ(bound.GetIPVersion(), 6) << bound.ToString(true);
-	EXPECT_EQ(std::string(bound.ToString(false)), "::1");
+	EXPECT_EQ(bound.GetIPVersion(), 6) << MafiaNet::to_string(bound);
+	EXPECT_EQ(MafiaNet::to_string(bound, false), "::1");
 }
 
 // "0.0.0.0" is the IPv4 wildcard: with AF_UNSPEC it is an IPv4-only socket,
@@ -195,7 +196,7 @@ TEST(UnspecSpecificHostLive, Ipv4WildcardLiteralIsIpv4Only)
 	SystemAddress bound;
 	ASSERT_EQ(StartOnce(SocketDescriptor(0, "0.0.0.0"), &dualStack, &bound), RAKNET_STARTED);
 	EXPECT_FALSE(dualStack);
-	EXPECT_EQ(bound.GetIPVersion(), 4) << bound.ToString(true);
+	EXPECT_EQ(bound.GetIPVersion(), 4) << MafiaNet::to_string(bound);
 }
 
 // "::" is the IPv6 wildcard, not a specific address: still dual-stack.
@@ -210,7 +211,7 @@ TEST(UnspecSpecificHostLive, Ipv6WildcardLiteralIsDualStack)
 			FAIL() << "socket is not dual-stack but MAFIANET_REQUIRE_IPV6 is set";
 		GTEST_SKIP() << "no dual-stack socket on this host";
 	}
-	EXPECT_EQ(std::string(bound.ToString(false)), "127.0.0.1");
+	EXPECT_EQ(MafiaNet::to_string(bound, false), "127.0.0.1");
 }
 
 // An IPv4-mapped literal names an IPv4 host, which an IPv6-only socket cannot send to: no candidate.
@@ -247,6 +248,6 @@ TEST(SocketResolveLive, MappedLiteralOnDualStackSocketResolvesToIpv4)
 	SystemAddress out[4];
 	ASSERT_EQ(socket->Resolve("::ffff:127.0.0.1", 9, out, 4), 1);
 	EXPECT_EQ(out[0].GetIPVersion(), 4);
-	EXPECT_EQ(std::string(out[0].ToString(false)), "127.0.0.1");
+	EXPECT_EQ(MafiaNet::to_string(out[0], false), "127.0.0.1");
 	EXPECT_EQ(out[0].GetPort(), 9);
 }

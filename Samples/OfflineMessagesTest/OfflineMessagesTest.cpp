@@ -92,11 +92,11 @@ int main(void)
 				bsIn.IgnoreBytes(1);
 				bsIn.Read(packetTime);
 				dataLength = packet->length - sizeof(unsigned char) - sizeof(MafiaNet::TimeMS);
-				if (peer2->IsLocalIP(packet->systemAddress.ToString(false)))
+				if (peer2->IsLocalIP(MafiaNet::to_string(packet->systemAddress, false).c_str()))
 					printf("ID_UNCONNECTED_PONG from our own");
 				else
 					printf("ID_UNCONNECTED_PONG from");
-				printf(" %s on %p.\nPing is %i\nData is %i bytes long.\n", packet->systemAddress.ToString(), peer2, curTime - packetTime, dataLength);
+				printf(" %s on %p.\nPing is %i\nData is %i bytes long.\n", MafiaNet::to_string(packet->systemAddress).c_str(), peer2, curTime - packetTime, dataLength);
 				printf("Was sent from GUID %s\n", MafiaNet::to_string(packet->guid).c_str());
 
 				if (dataLength > 0)

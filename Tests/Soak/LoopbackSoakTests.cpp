@@ -14,6 +14,7 @@
  *  Knob (environment): MAFIANET_SOAK_LOOPBACK_SECONDS (default 150).
  */
 
+#include "mafianet/guid_util.h"
 #include <gtest/gtest.h>
 
 #include <algorithm>
@@ -277,7 +278,7 @@ TEST_F(LoopbackSoak, ThreadedPeersUnderTrafficChurnAndRealCrossConnects)
 				case ID_CONNECTION_REQUEST_ACCEPTED:
 				case ID_NEW_INCOMING_CONNECTION:
 					if (!current)
-						violation("connection from an unknown address", name(i) + " " + packet->systemAddress.ToString());
+						violation("connection from an unknown address", name(i) + " " + MafiaNet::to_string(packet->systemAddress));
 					else
 						onConnected(i, remote, now);
 					break;

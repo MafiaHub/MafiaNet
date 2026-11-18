@@ -117,14 +117,14 @@ int main(void)
 	printf("Socket addresses used by RakNet:\n");
 	for (unsigned int i = 0; i < sockets.size(); i++)
 	{
-		printf("%i. %s\n", i + 1, sockets[i]->GetBoundAddress().ToString(true));
+		printf("%i. %s\n", i + 1, MafiaNet::to_string(sockets[i]->GetBoundAddress()).c_str());
 	}
 
 	printf("\nMy IP addresses:\n");
 	for (unsigned int i = 0; i < server->GetNumberOfAddresses(); i++)
 	{
 		MafiaNet::SystemAddress sa = server->GetInternalID(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, i);
-		printf("%i. %s (LAN=%i)\n", i + 1, sa.ToString(false), sa.IsLANAddress());
+		printf("%i. %s (LAN=%i)\n", i + 1, MafiaNet::to_string(sa, false).c_str(), sa.IsLANAddress());
 	}
 
 	printf("\nMy GUID is %s\n", MafiaNet::to_string(server->GetGuidFromSystemAddress(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)).c_str());
@@ -201,7 +201,7 @@ int main(void)
 				server->GetConnectionList((MafiaNet::SystemAddress *) &systems, &numConnections);
 				for (int i = 0; i < numConnections; i++)
 				{
-					printf("%i. %s\n", i + 1, systems[i].ToString(true));
+					printf("%i. %s\n", i + 1, MafiaNet::to_string(systems[i]).c_str());
 				}
 				continue;
 			}
@@ -249,14 +249,14 @@ int main(void)
 			{
 			case ID_DISCONNECTION_NOTIFICATION:
 				// Connection lost normally
-				printf("ID_DISCONNECTION_NOTIFICATION from %s\n", p->systemAddress.ToString(true));
+				printf("ID_DISCONNECTION_NOTIFICATION from %s\n", MafiaNet::to_string(p->systemAddress).c_str());
 				;
 				break;
 
 
 			case ID_NEW_INCOMING_CONNECTION:
 				// Somebody connected.  We have their IP now
-				printf("ID_NEW_INCOMING_CONNECTION from %s with GUID %s\n", p->systemAddress.ToString(true), MafiaNet::to_string(p->guid).c_str());
+				printf("ID_NEW_INCOMING_CONNECTION from %s with GUID %s\n", MafiaNet::to_string(p->systemAddress).c_str(), MafiaNet::to_string(p->guid).c_str());
 				clientID = p->systemAddress; // Record the player ID of the client
 
 				printf("Remote internal IDs:\n");
@@ -265,7 +265,7 @@ int main(void)
 					MafiaNet::SystemAddress internalId = server->GetInternalID(p->systemAddress, index);
 					if (internalId != MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
 					{
-						printf("%i. %s\n", index + 1, internalId.ToString(true));
+						printf("%i. %s\n", index + 1, MafiaNet::to_string(internalId).c_str());
 					}
 				}
 
@@ -277,13 +277,13 @@ int main(void)
 
 			case ID_CONNECTED_PING:
 			case ID_UNCONNECTED_PING:
-				printf("Ping from %s\n", p->systemAddress.ToString(true));
+				printf("Ping from %s\n", MafiaNet::to_string(p->systemAddress).c_str());
 				break;
 
 			case ID_CONNECTION_LOST:
 				// Couldn't deliver a reliable packet - i.e. the other system was abnormally
 				// terminated
-				printf("ID_CONNECTION_LOST from %s\n", p->systemAddress.ToString(true));
+				printf("ID_CONNECTION_LOST from %s\n", MafiaNet::to_string(p->systemAddress).c_str());
 				;
 				break;
 

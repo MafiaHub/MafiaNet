@@ -274,7 +274,7 @@ int main(void)
 					}
 					else
 					{
-						printf("ID_CONNECTION_REQUEST_ACCEPTED from %s\n", p->systemAddress.ToString());
+						printf("ID_CONNECTION_REQUEST_ACCEPTED from %s\n", MafiaNet::to_string(p->systemAddress).c_str());
 						rakVoice.RequestVoiceChannel(p->guid);
 					}
 				}
@@ -293,7 +293,7 @@ int main(void)
 				}
 				else if (p->data[0] == ID_RAKVOICE_OPEN_CHANNEL_REQUEST || p->data[0] == ID_RAKVOICE_OPEN_CHANNEL_REPLY)
 				{
-					printf("Got new channel from %s\n", p->systemAddress.ToString());
+					printf("Got new channel from %s\n", MafiaNet::to_string(p->systemAddress).c_str());
 				}
 				else if (p->data[0] == ID_NAT_TARGET_NOT_CONNECTED)
 				{
@@ -334,7 +334,7 @@ int main(void)
 				else if (p->data[0] == ID_NAT_PUNCHTHROUGH_SUCCEEDED)
 				{
 					printf("ID_NAT_PUNCHTHROUGH_SUCCEEDED for %s. Connecting...\n", MafiaNet::to_string(p->guid).c_str());
-					rakPeer->Connect(p->systemAddress.ToString(false), p->systemAddress.GetPort(), 0, 0);
+					rakPeer->Connect(MafiaNet::to_string(p->systemAddress, false).c_str(), p->systemAddress.GetPort(), 0, 0);
 				}
 				else if (p->data[0] == ID_ALREADY_CONNECTED)
 				{

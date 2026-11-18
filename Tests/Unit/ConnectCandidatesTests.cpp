@@ -5,6 +5,7 @@
  *  license.txt file in the root directory of this source tree.
  */
 
+#include "mafianet/guid_util.h"
 #include <gtest/gtest.h>
 
 #include <vector>
@@ -34,7 +35,7 @@ void ExpectSame(const std::vector<SystemAddress> &actual, const std::vector<Syst
 {
 	ASSERT_EQ(actual.size(), expected.size());
 	for (size_t i = 0; i < actual.size(); ++i)
-		EXPECT_TRUE(actual[i] == expected[i]) << "index " << i << ": " << actual[i].ToString(true) << " != " << expected[i].ToString(true);
+		EXPECT_TRUE(actual[i] == expected[i]) << "index " << i << ": " << MafiaNet::to_string(actual[i]) << " != " << MafiaNet::to_string(expected[i]);
 }
 } // namespace
 

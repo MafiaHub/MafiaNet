@@ -13,6 +13,7 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
+#include "mafianet/guid_util.h"
 #include "mafianet/peer_interface.h"
 #include "mafianet/sleep.h"
 #include <stdio.h>
@@ -72,10 +73,10 @@ int main()
 
 	MafiaNet::SystemAddress boundAddress;
 	MafiaNet::SocketLayer::GetSystemAddress(forwardingSocket, &boundAddress);
-	printf("UDPForwarder bound on %s\n", boundAddress.ToString(false));
+	printf("UDPForwarder bound on %s\n", MafiaNet::to_string(boundAddress, false).c_str());
 
 	// Send a connect message to the forwarder, on the port to forward to rakPeer[1]
-	SLNET_VERIFY(rakPeer[0]->Connect(boundAddress.ToString(false), fowardPort, 0, 0) == MafiaNet::CONNECTION_ATTEMPT_STARTED);
+	SLNET_VERIFY(rakPeer[0]->Connect(MafiaNet::to_string(boundAddress, false).c_str(), fowardPort, 0, 0) == MafiaNet::CONNECTION_ATTEMPT_STARTED);
 
 	printf("'q'uit.\n");
 	MafiaNet::Packet *p;
@@ -87,17 +88,17 @@ int main()
 			while (p)
 			{
 				if (p->data[0] == ID_DISCONNECTION_NOTIFICATION)
-					printf("%s disconnected\n", p->systemAddress.ToString(true));
+					printf("%s disconnected\n", MafiaNet::to_string(p->systemAddress).c_str());
 				else if (p->data[0] == ID_CONNECTION_LOST)
-					printf("Lost connection to %s (failure)\n", p->systemAddress.ToString(true));
+					printf("Lost connection to %s (failure)\n", MafiaNet::to_string(p->systemAddress).c_str());
 				else if (p->data[0] == ID_NO_FREE_INCOMING_CONNECTIONS)
-					printf("%s has no free incoming connections.\n", p->systemAddress.ToString(true));
+					printf("%s has no free incoming connections.\n", MafiaNet::to_string(p->systemAddress).c_str());
 				else if (p->data[0] == ID_NEW_INCOMING_CONNECTION)
-					printf("%s connected to us (success)\n", p->systemAddress.ToString(true));
+					printf("%s connected to us (success)\n", MafiaNet::to_string(p->systemAddress).c_str());
 				else if (p->data[0] == ID_CONNECTION_REQUEST_ACCEPTED)
-					printf("Connection request accepted from %s (success)\n", p->systemAddress.ToString(true));
+					printf("Connection request accepted from %s (success)\n", MafiaNet::to_string(p->systemAddress).c_str());
 				else if (p->data[0] == ID_CONNECTION_ATTEMPT_FAILED)
-					printf("Failed to connect to %s (failure)\n", p->systemAddress.ToString(true));
+					printf("Failed to connect to %s (failure)\n", MafiaNet::to_string(p->systemAddress).c_str());
 
 				rakPeer[i]->DeallocatePacket(p);
 				p = rakPeer[i]->Receive();

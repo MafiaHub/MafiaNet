@@ -95,7 +95,7 @@ Check for connection packets in your receive loop:
        switch (packet->data[0]) {
            case ID_CONNECTION_REQUEST_ACCEPTED:
                printf("Connected to %s\n",
-                      packet->systemAddress.ToString());
+                      MafiaNet::to_string(packet->systemAddress).c_str());
                break;
 
            case ID_CONNECTION_ATTEMPT_FAILED:
@@ -143,7 +143,7 @@ Handle new connections:
 
    case ID_NEW_INCOMING_CONNECTION:
        printf("New client connected: %s\n",
-              packet->systemAddress.ToString());
+              MafiaNet::to_string(packet->systemAddress).c_str());
        break;
 
 Disconnecting

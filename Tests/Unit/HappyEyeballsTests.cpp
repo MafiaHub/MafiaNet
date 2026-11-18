@@ -10,6 +10,7 @@
  *  host names resolve through the network's own table, so nothing touches DNS.
  */
 
+#include "mafianet/guid_util.h"
 #include <gtest/gtest.h>
 
 #include <cstdint>
@@ -123,7 +124,7 @@ TEST(HappyEyeballs, PrefersIpv6WhenBothWork)
 	EXPECT_EQ(log.CountTo(server4), 1u);
 	ASSERT_FALSE(log.secondRequests.empty());
 	for (const RequestLog::Entry &e : log.secondRequests)
-		EXPECT_TRUE(e.to == server6) << e.to.ToString(true);
+		EXPECT_TRUE(e.to == server6) << MafiaNet::to_string(e.to);
 	EXPECT_EQ(net.Inbox(client).size(), Count(net, client, ID_CONNECTION_REQUEST_ACCEPTED)) << "unexpected extra message";
 }
 
@@ -199,10 +200,10 @@ TEST(HappyEyeballs, ConnectionStateOfFirstAddressIgnoresAnEarlierClosedConnectio
 
 	// Slot 0: other, slot 1: server6 by literal (not raced). Close both, server6 first, so the race below reuses
 	// slot 0 and slot 1 keeps server6 as a closed slot.
-	ASSERT_EQ(client->Connect(other4.ToString(false), other4.GetPort(), nullptr, 0), CONNECTION_ATTEMPT_STARTED);
+	ASSERT_EQ(client->Connect(MafiaNet::to_string(other4, false).c_str(), other4.GetPort(), nullptr, 0), CONNECTION_ATTEMPT_STARTED);
 	ASSERT_TRUE(net.RunUntil([&]
 	                         { return client->GetConnectionState(other4) == IS_CONNECTED; }, 5000));
-	ASSERT_EQ(client->Connect(server6.ToString(false), server6.GetPort(), nullptr, 0), CONNECTION_ATTEMPT_STARTED);
+	ASSERT_EQ(client->Connect(MafiaNet::to_string(server6, false).c_str(), server6.GetPort(), nullptr, 0), CONNECTION_ATTEMPT_STARTED);
 	ASSERT_TRUE(net.RunUntil([&]
 	                         { return client->GetConnectionState(server6) == IS_CONNECTED; }, 5000));
 	client->CloseConnection(server6, true);
@@ -268,7 +269,7 @@ TEST(HappyEyeballs, SingleFailureAfterAllCandidatesFail)
 	EXPECT_EQ(Count(net, client, ID_CONNECTION_ATTEMPT_FAILED), 1u);
 	const SimulatedNetwork::Message *failed = net.Find(client, ID_CONNECTION_ATTEMPT_FAILED);
 	ASSERT_NE(failed, nullptr);
-	EXPECT_TRUE(failed->systemAddress == server6) << failed->systemAddress.ToString(true);
+	EXPECT_TRUE(failed->systemAddress == server6) << MafiaNet::to_string(failed->systemAddress);
 	// Both candidates spent their whole budget.
 	EXPECT_EQ(log.CountTo(server6), 7u);
 	EXPECT_EQ(log.CountTo(server4), 7u);
@@ -376,7 +377,7 @@ TEST(HappyEyeballs, ServerRejectionEndsTheRace)
 	EXPECT_EQ(Count(net, client, ID_CONNECTION_BANNED), 1u);
 	EXPECT_TRUE(net.Find(client, ID_CONNECTION_BANNED)->systemAddress == server6);
 	for (const RequestLog::Entry &e : log.entries)
-		EXPECT_LT(e.at, bannedAt) << "request to " << e.to.ToString(true) << " after the rejection";
+		EXPECT_LT(e.at, bannedAt) << "request to " << MafiaNet::to_string(e.to) << " after the rejection";
 	EXPECT_TRUE(log.secondRequests.empty());
 	EXPECT_EQ(Count(net, client, ID_CONNECTION_ATTEMPT_FAILED), 0u);
 	EXPECT_EQ(Count(net, client, ID_CONNECTION_REQUEST_ACCEPTED), 0u);
@@ -403,7 +404,7 @@ TEST(HappyEyeballs, LiteralAddressNotRaced)
 
 	ASSERT_FALSE(log.entries.empty());
 	for (const RequestLog::Entry &e : log.entries)
-		EXPECT_TRUE(e.to == server6) << e.to.ToString(true);
+		EXPECT_TRUE(e.to == server6) << MafiaNet::to_string(e.to);
 	EXPECT_EQ(Count(net, client, ID_CONNECTION_ATTEMPT_FAILED), 1u);
 }
 

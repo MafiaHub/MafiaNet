@@ -98,10 +98,10 @@ Handling Results
        case ID_NAT_PUNCHTHROUGH_SUCCEEDED: {
            // Can now connect directly!
            MafiaNet::SystemAddress addr = packet->systemAddress;
-           printf("NAT punch succeeded to %s\n", addr.ToString());
+           printf("NAT punch succeeded to %s\n", MafiaNet::to_string(addr).c_str());
 
            // Connect directly
-           peer->Connect(addr.ToString(false), addr.GetPort(),
+           peer->Connect(MafiaNet::to_string(addr, false).c_str(), addr.GetPort(),
                         nullptr, 0);
            break;
        }

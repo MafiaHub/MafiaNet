@@ -5,6 +5,7 @@
  *  license.txt file in the root directory of this source tree.
  */
 
+#include "mafianet/guid_util.h"
 #include <gtest/gtest.h>
 
 #include "mafianet/types.h"
@@ -30,5 +31,5 @@ TEST(SystemAddressResolverLive, SetBinaryAddressHostnameResolvesToIpv4)
 	SystemAddress sa("10.9.8.7", 4321);
 	ASSERT_TRUE(sa.SetBinaryAddress("localhost"));
 	EXPECT_EQ(sa.GetIPVersion(), 4);
-	EXPECT_STREQ(sa.ToString(false), "127.0.0.1");
+	EXPECT_EQ(MafiaNet::to_string(sa, false), "127.0.0.1");
 }

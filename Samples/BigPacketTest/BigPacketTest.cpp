@@ -13,6 +13,7 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
+#include "mafianet/guid_util.h"
 #include "mafianet/peer_interface.h"
 #include "mafianet/bit_stream.h"
 #include <stdlib.h> // For atoi
@@ -97,7 +98,7 @@ int main(void)
 		}
 		// server->SetPerConnectionOutgoingBandwidthLimit(40000);
 
-		printf("Started server on %s\n", server->GetMyBoundAddress().ToString(true));
+		printf("Started server on %s\n", MafiaNet::to_string(server->GetMyBoundAddress()).c_str());
 	}
 	if (client)
 	{
@@ -114,7 +115,7 @@ int main(void)
 		client->SetSplitMessageProgressInterval(10000); // Get ID_DOWNLOAD_PROGRESS notifications
 		//	client->SetPerConnectionOutgoingBandwidthLimit(28800);
 
-		printf("Started client on %s\n", client->GetMyBoundAddress().ToString(true));
+		printf("Started client on %s\n", MafiaNet::to_string(client->GetMyBoundAddress()).c_str());
 
 		client->Connect(text, 3000, 0, 0);
 	}
@@ -166,13 +167,13 @@ int main(void)
 					nextStatTime = MafiaNet::GetTimeMS() + 1000;
 				}
 				if (packet->data[0] == ID_CONNECTION_LOST)
-					printf("ID_CONNECTION_LOST from %s\n", packet->systemAddress.ToString());
+					printf("ID_CONNECTION_LOST from %s\n", MafiaNet::to_string(packet->systemAddress).c_str());
 				else if (packet->data[0] == ID_DISCONNECTION_NOTIFICATION)
-					printf("ID_DISCONNECTION_NOTIFICATION from %s\n", packet->systemAddress.ToString());
+					printf("ID_DISCONNECTION_NOTIFICATION from %s\n", MafiaNet::to_string(packet->systemAddress).c_str());
 				else if (packet->data[0] == ID_NEW_INCOMING_CONNECTION)
-					printf("ID_NEW_INCOMING_CONNECTION from %s\n", packet->systemAddress.ToString());
+					printf("ID_NEW_INCOMING_CONNECTION from %s\n", MafiaNet::to_string(packet->systemAddress).c_str());
 				else if (packet->data[0] == ID_CONNECTION_REQUEST_ACCEPTED)
-					printf("ID_CONNECTION_REQUEST_ACCEPTED from %s\n", packet->systemAddress.ToString());
+					printf("ID_CONNECTION_REQUEST_ACCEPTED from %s\n", MafiaNet::to_string(packet->systemAddress).c_str());
 			}
 
 			if (_kbhit())
@@ -256,18 +257,18 @@ int main(void)
 					printf("Got high priority message.\n");
 				}
 				else if (packet->data[0] == ID_CONNECTION_LOST)
-					printf("ID_CONNECTION_LOST from %s\n", packet->systemAddress.ToString());
+					printf("ID_CONNECTION_LOST from %s\n", MafiaNet::to_string(packet->systemAddress).c_str());
 				else if (packet->data[0] == ID_DISCONNECTION_NOTIFICATION)
-					printf("ID_DISCONNECTION_NOTIFICATION from %s\n", packet->systemAddress.ToString());
+					printf("ID_DISCONNECTION_NOTIFICATION from %s\n", MafiaNet::to_string(packet->systemAddress).c_str());
 				else if (packet->data[0] == ID_NEW_INCOMING_CONNECTION)
-					printf("ID_NEW_INCOMING_CONNECTION from %s\n", packet->systemAddress.ToString());
+					printf("ID_NEW_INCOMING_CONNECTION from %s\n", MafiaNet::to_string(packet->systemAddress).c_str());
 				else if (packet->data[0] == ID_CONNECTION_REQUEST_ACCEPTED)
 				{
 					start = MafiaNet::GetTimeMS();
-					printf("ID_CONNECTION_REQUEST_ACCEPTED from %s\n", packet->systemAddress.ToString());
+					printf("ID_CONNECTION_REQUEST_ACCEPTED from %s\n", MafiaNet::to_string(packet->systemAddress).c_str());
 				}
 				else if (packet->data[0] == ID_CONNECTION_ATTEMPT_FAILED)
-					printf("ID_CONNECTION_ATTEMPT_FAILED from %s\n", packet->systemAddress.ToString());
+					printf("ID_CONNECTION_ATTEMPT_FAILED from %s\n", MafiaNet::to_string(packet->systemAddress).c_str());
 
 				client->DeallocatePacket(packet);
 				packet = client->Receive();

@@ -38,6 +38,7 @@ Create ``ChatServer.cpp``:
 
 .. code-block:: cpp
 
+   #include "mafianet/guid_util.h"
    #include "mafianet/peer_interface.h"
    #include "mafianet/bit_stream.h"
    #include <string>
@@ -68,13 +69,13 @@ Create ``ChatServer.cpp``:
                switch (packet->data[0]) {
                    case ID_NEW_INCOMING_CONNECTION:
                        printf("Client connected: %s\n",
-                              packet->systemAddress.ToString());
+                              MafiaNet::to_string(packet->systemAddress).c_str());
                        break;
 
                    case ID_DISCONNECTION_NOTIFICATION:
                    case ID_CONNECTION_LOST:
                        printf("Client disconnected: %s\n",
-                              packet->systemAddress.ToString());
+                              MafiaNet::to_string(packet->systemAddress).c_str());
                        break;
 
                    case ID_CHAT_MESSAGE: {
@@ -86,7 +87,7 @@ Create ``ChatServer.cpp``:
                        bs.Read(message);
 
                        printf("[%s]: %s\n",
-                              packet->systemAddress.ToString(),
+                              MafiaNet::to_string(packet->systemAddress).c_str(),
                               message.c_str());
 
                        // Broadcast to all clients

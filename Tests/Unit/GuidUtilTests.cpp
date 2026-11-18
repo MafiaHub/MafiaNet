@@ -34,6 +34,30 @@ TEST(GuidUtil, ToStringMatchesLegacyMember)
 	}
 }
 
+TEST(GuidUtil, AddressStringsKeepTheirPortAndDelimiterAcrossLaterCalls)
+{
+	SystemAddress address("192.0.2.7", 1000);
+	const auto saved = to_string(address, true, ':');
+	for (unsigned short port = 1001; port <= 1010; ++port)
+	{
+		address.SetPortHostOrder(port);
+		EXPECT_EQ("192.0.2.7|" + std::to_string(port), to_string(address));
+	}
+	EXPECT_EQ("192.0.2.7:1000", saved);
+	EXPECT_EQ("192.0.2.7", to_string(address, false));
+	EXPECT_EQ("UNASSIGNED_SYSTEM_ADDRESS", to_string(UNASSIGNED_SYSTEM_ADDRESS));
+}
+
+TEST(GuidUtil, AddressOrGuidPrefersAnAssignedGuid)
+{
+	AddressOrGUID value(SystemAddress("192.0.2.8", 42));
+	EXPECT_EQ("192.0.2.8|42", to_string(value));
+	EXPECT_EQ("192.0.2.8", to_string(value, false));
+	value.rakNetGuid = RakNetGUID(123);
+	EXPECT_EQ("123", to_string(value));
+	EXPECT_EQ("123", to_string(value, false));
+}
+
 TEST(GuidUtil, UnassignedSentinelStringifiesToDocumentedLabel)
 {
 	EXPECT_EQ(to_string(UNASSIGNED_RAKNET_GUID), std::string("UNASSIGNED_RAKNET_GUID"));

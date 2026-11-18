@@ -266,17 +266,17 @@ int serverMain(void)
 			switch (packet->data[0])
 			{
 			case ID_NEW_INCOMING_CONNECTION:
-				printf("ID_NEW_INCOMING_CONNECTION from %s. guid=%s.\n", packet->systemAddress.ToString(true), MafiaNet::to_string(packet->guid).c_str());
+				printf("ID_NEW_INCOMING_CONNECTION from %s. guid=%s.\n", MafiaNet::to_string(packet->systemAddress).c_str(), MafiaNet::to_string(packet->guid).c_str());
 				break;
 			case ID_CONNECTION_REQUEST_ACCEPTED:
-				printf("ID_CONNECTION_REQUEST_ACCEPTED from %s,guid=%s\n", packet->systemAddress.ToString(true), MafiaNet::to_string(packet->guid).c_str());
+				printf("ID_CONNECTION_REQUEST_ACCEPTED from %s,guid=%s\n", MafiaNet::to_string(packet->systemAddress).c_str(), MafiaNet::to_string(packet->guid).c_str());
 				break;
 			case ID_CONNECTION_LOST:
-				printf("ID_CONNECTION_LOST from %s,guid=%s\n", packet->systemAddress.ToString(true), MafiaNet::to_string(packet->guid).c_str());
+				printf("ID_CONNECTION_LOST from %s,guid=%s\n", MafiaNet::to_string(packet->systemAddress).c_str(), MafiaNet::to_string(packet->guid).c_str());
 				User::DeleteUserWithGuid(packet->guid);
 				break;
 			case ID_DISCONNECTION_NOTIFICATION:
-				printf("ID_DISCONNECTION_NOTIFICATION from %s,guid=%s\n", packet->systemAddress.ToString(true), MafiaNet::to_string(packet->guid).c_str());
+				printf("ID_DISCONNECTION_NOTIFICATION from %s,guid=%s\n", MafiaNet::to_string(packet->systemAddress).c_str(), MafiaNet::to_string(packet->guid).c_str());
 				User::DeleteUserWithGuid(packet->guid);
 				break;
 			// Login
@@ -321,11 +321,11 @@ int clientMain(void)
 			switch (packet->data[0])
 			{
 			case ID_NEW_INCOMING_CONNECTION:
-				printf("ID_NEW_INCOMING_CONNECTION from %s. guid=%s.\n", packet->systemAddress.ToString(true), MafiaNet::to_string(packet->guid).c_str());
+				printf("ID_NEW_INCOMING_CONNECTION from %s. guid=%s.\n", MafiaNet::to_string(packet->systemAddress).c_str(), MafiaNet::to_string(packet->guid).c_str());
 				break;
 			case ID_CONNECTION_REQUEST_ACCEPTED:
 			{
-				printf("ID_CONNECTION_REQUEST_ACCEPTED from %s,guid=%s\n", packet->systemAddress.ToString(true), MafiaNet::to_string(packet->guid).c_str());
+				printf("ID_CONNECTION_REQUEST_ACCEPTED from %s,guid=%s\n", MafiaNet::to_string(packet->systemAddress).c_str(), MafiaNet::to_string(packet->guid).c_str());
 				printf("Logging in...\n");
 				BitStream bsOut;
 				// Login
@@ -336,10 +336,10 @@ int clientMain(void)
 			}
 			break;
 			case ID_CONNECTION_LOST:
-				printf("ID_CONNECTION_LOST from %s,guid=%s\n", packet->systemAddress.ToString(true), MafiaNet::to_string(packet->guid).c_str());
+				printf("ID_CONNECTION_LOST from %s,guid=%s\n", MafiaNet::to_string(packet->systemAddress).c_str(), MafiaNet::to_string(packet->guid).c_str());
 				break;
 			case ID_DISCONNECTION_NOTIFICATION:
-				printf("ID_DISCONNECTION_NOTIFICATION from %s,guid=%s\n", packet->systemAddress.ToString(true), MafiaNet::to_string(packet->guid).c_str());
+				printf("ID_DISCONNECTION_NOTIFICATION from %s,guid=%s\n", MafiaNet::to_string(packet->systemAddress).c_str(), MafiaNet::to_string(packet->guid).c_str());
 				break;
 			}
 		}
