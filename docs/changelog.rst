@@ -14,6 +14,8 @@ Unreleased — breaking
 
 **Removed extensions**
 
+* Removed the exported ``CSHA1`` class and ``mafianet/dr_sha1.h``. Applications that used this header directly must supply their own SHA-1 implementation.
+
 * Removed the Lobby2 CMake target, Rooms plugin, Steam lobby adapter and their samples. Games using them must supply their own lobby implementation. The six lobby and room wire IDs have been removed.
 
 * RPC3 and its Boost build dependency have been removed. Port named calls to :doc:`guide/rpc` and serialize their arguments into a bit stream.

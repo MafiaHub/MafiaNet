@@ -162,6 +162,23 @@ TEST(FileListDirectory, PopulateDataFromDiskReadsEveryFile)
 	}
 }
 
+TEST(FileListDirectory, PopulateHashOnlyWritesFourByteSuperFastHash)
+{
+	TempTree tree;
+	FileList files;
+	files.AddFile("a.bin", "a.bin", nullptr, 0, 10, FileListNodeContext(0, 0, 0, 0));
+	files.PopulateDataFromDisk(tree.root.string().c_str(), false, true, false);
+
+	ASSERT_EQ(files.fileList.size(), 1u);
+	const auto &node = files.fileList.front();
+	ASSERT_EQ(node.dataLengthBytes, 4u);
+	ASSERT_NE(node.data, nullptr);
+	unsigned int expected = SuperFastHashFile((tree.root / "a.bin").string().c_str());
+	if (BitStream::DoEndianSwap())
+		BitStream::ReverseBytesInPlace(reinterpret_cast<unsigned char *>(&expected), sizeof(expected));
+	EXPECT_EQ(std::memcmp(node.data, &expected, sizeof(expected)), 0);
+}
+
 TEST(FileListDirectory, PopulateDataFromDiskWithoutDataOrHashTerminates)
 {
 	// With neither data nor hash requested, the loop used to skip i++ (and fclose) for every

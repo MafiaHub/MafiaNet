@@ -1,6 +1,4 @@
 # Files clang-format must not touch.
 
 # Third-party code kept as upstream wrote it
-Source/include/mafianet/dr_sha1.h
 Source/include/mafianet/kbhit.h
-Source/src/dr_sha1.cpp

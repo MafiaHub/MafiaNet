@@ -17,7 +17,6 @@ set(MAFIANET_SOURCES
     src/connection_graph2.cpp
     src/data_compressor.cpp
     src/directory_delta_transfer.cpp
-    src/dr_sha1.cpp
     src/huffman_encoding_tree.cpp
     src/dyn_dns.cpp
     src/file_list.cpp
@@ -128,7 +127,6 @@ set(MAFIANET_HEADERS
     include/mafianet/define_overrides.h
     include/mafianet/defines.h
     include/mafianet/directory_delta_transfer.h
-    include/mafianet/dr_sha1.h
     include/mafianet/huffman_encoding_tree.h
     include/mafianet/huffman_encoding_tree_node.h
     include/mafianet/range_list.h
