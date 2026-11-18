@@ -264,9 +264,6 @@ struct RAK_DLL_EXPORT SystemAddress
 
 	/// Old version, for crap platforms that don't support newer socket functions
 	bool SetBinaryAddress(const char *str, char portDelineator = ':');
-	/// Old version, for crap platforms that don't support newer socket functions
-	void ToString_Old(bool writePort, char *dest, char portDelineator = ':') const;
-	void ToString_Old(bool writePort, char *dest, size_t destLength, char portDelineator = ':') const;
 
 	/// \internal sockaddr_in6 requires extra data beyond just the IP and port. Copy that extra data from an existing SystemAddress that already has it
 	void FixForIPVersion(const SystemAddress &boundAddressToSocket);

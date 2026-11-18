@@ -196,6 +196,16 @@ TEST(SystemAddressToString, SizedOverloadWritesTheWholeAddressWhenItFits)
 	EXPECT_STREQ(buf, LONG_IPV6);
 }
 
+TEST(SystemAddressToString, ExplicitColonPreservesLegacyIpv4PortSpelling)
+{
+	const SystemAddress address("192.0.2.1", 65535);
+	char text[sizeof("192.0.2.1:65535")];
+	address.ToString(true, text, sizeof(text), ':');
+	EXPECT_STREQ("192.0.2.1:65535", text);
+	address.ToString(true, text, sizeof(text) - 1, ':');
+	EXPECT_STREQ("", text);
+}
+
 TEST(SystemAddressToString, ExactFitIsWrittenOneByteLessIsEmpty)
 {
 	const SystemAddress sa("192.0.2.1", 7);
