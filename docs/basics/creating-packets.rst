@@ -148,9 +148,14 @@ Oversized writes throw ``std::length_error``. Reads report failure for
 incomplete or oversized input. For standalone compressed streams, hold a
 ``StringCompressor`` reference for the duration of encoding and decoding.
 
+For Unicode text, encode the field as UTF-8 in a ``std::string``. The length
+counts bytes. Applications migrating a former wide-string field must update
+both its writer and its reader together. Version persisted messages separately
+if they contain the old 16-bit representation.
+
 .. code-block:: cpp
 
-   std::string str = "Hello, World!";
+   std::string str = u8"Hello, World!";
    bs.Write(str);
 
    // Or C-strings

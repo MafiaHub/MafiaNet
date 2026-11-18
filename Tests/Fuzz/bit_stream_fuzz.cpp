@@ -7,8 +7,7 @@
  *  Fuzzes BitStream deserialization: every Read* that game code applies to
  *  bytes received from the network. The first byte of each step picks the
  *  operation, so the fuzzer explores sequences of reads over one stream, as a
- *  real message handler does. Only bounded/safe read APIs are driven; the
- *  legacy unbounded ones (Read(char*), Read(wchar_t*&)) are unsafe by contract.
+ *  real message handler does. String reads use owning strings or bounded buffers.
  */
 
 #include <cstddef>
@@ -18,13 +17,12 @@
 #include "mafianet/bit_stream.h"
 #include "mafianet/string_compressor.h"
 #include <string>
-#include "mafianet/wstring.h"
 
 using namespace MafiaNet;
 
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
 {
-	// DeserializeCompressed uses the shared Huffman tables, which normally
+	// ReadCompressed uses the shared Huffman tables, which normally
 	// exist because a RakPeer holds a reference. Hold one for the process.
 	static const bool compressorReady = (StringCompressor::AddReference(), true);
 	(void) compressorReady;
@@ -101,8 +99,8 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
 		}
 		case 10:
 		{
-			RakWString s;
-			s.Deserialize(&in);
+			char text[64];
+			in.Read(text);
 			break;
 		}
 		case 11:

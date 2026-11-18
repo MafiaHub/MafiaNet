@@ -67,7 +67,6 @@ set(MAFIANET_SOURCES
     src/sleep.cpp
     src/thread.cpp
     src/voice.cpp
-    src/wstring.cpp
     src/rand.cpp
     src/rand_sync.cpp
     src/ready_event.cpp
@@ -249,7 +248,6 @@ set(MAFIANET_HEADERS
     include/mafianet/virtual_world_replica3.h
     include/mafianet/windows_includes.h
     include/mafianet/wsa_startup_singleton.h
-    include/mafianet/wstring.h
 )
 
 # Combine all sources

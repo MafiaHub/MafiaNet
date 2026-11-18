@@ -33,6 +33,25 @@ TEST(BitStreamString, Writes32BitLengthAndAlignedBytes)
 	EXPECT_EQ(std::memcmp(bytes, "a\0b\x2a", sizeof(bytes)), 0);
 }
 
+TEST(BitStreamString, UnicodeTextUsesItsUtf8ByteLength)
+{
+	const std::string text = u8"\u00E9\U0001F642";
+	BitStream stream;
+	stream.Write(text);
+
+	// U+00E9 takes two bytes and U+1F642 takes four.
+	uint32_t length;
+	ASSERT_TRUE(stream.Read(length));
+	ASSERT_EQ(length, 6u);
+	char payload[6];
+	ASSERT_TRUE(stream.Read(payload, sizeof(payload)));
+	EXPECT_EQ(std::memcmp(payload, "\xc3\xa9\xf0\x9f\x99\x82", sizeof(payload)), 0);
+	stream.ResetReadPointer();
+	std::string decoded;
+	ASSERT_TRUE(stream.Read(decoded));
+	EXPECT_EQ(decoded, text);
+}
+
 TEST(BitStreamString, CStringAndOwnedTextShareAnEncoding)
 {
 	BitStream stream;

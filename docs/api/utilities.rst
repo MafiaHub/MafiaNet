@@ -4,16 +4,7 @@ Utilities API Reference
 Strings and spatial helpers that ship with MafiaNet. Containers are the C++ standard
 library ones; see :doc:`../getting-started/system-overview`.
 
-Narrow text uses ``std::string``. See :doc:`../basics/creating-packets` for its wire encoding.
-
-RakWString
-----------
-
-Wide string class.
-
-.. doxygenclass:: MafiaNet::RakWString
-   :members:
-   :undoc-members:
+Use UTF-8 in ``std::string`` for application text. See :doc:`../basics/creating-packets` for its wire encoding.
 
 PointGridSectorizer
 -------------------
