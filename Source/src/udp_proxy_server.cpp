@@ -169,7 +169,8 @@ void UDPProxyServer::OnForwardingRequestFromCoordinatorToServer(Packet *packet)
 	outgoingBs.Write(targetAddress);
 	outgoingBs.Write(serverPublicIp);
 	outgoingBs.Write((unsigned char) success);
-	outgoingBs.Write(forwardingPort);
+	if (success == UDPFORWARDER_SUCCESS || success == UDPFORWARDER_FORWARDING_ALREADY_EXISTS)
+		outgoingBs.Write(forwardingPort);
 	rakPeerInterface->Send(&outgoingBs, MafiaNet::Priority::Medium, MafiaNet::Reliability::ReliableOrdered, 0, packet->systemAddress, false);
 }
 

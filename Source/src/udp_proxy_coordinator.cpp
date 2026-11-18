@@ -368,14 +368,21 @@ void UDPProxyCoordinator::OnForwardingReplyFromServerToCoordinator(Packet *packe
 		serverPublicIp = serverIP;
 	}
 
-	unsigned char c;
-	unsigned short forwardingPort;
-	if (!incomingBs.Read(c) || !incomingBs.Read(forwardingPort))
+	unsigned char result;
+	if (!incomingBs.Read(result) || result >= UDPFORWARDER_RESULT_COUNT)
 		return;
-	const auto success = static_cast<UDPForwarderResult>(c);
+	if (result != UDPFORWARDER_SUCCESS && result != UDPFORWARDER_FORWARDING_ALREADY_EXISTS)
+	{
+		TryNextServer(sata, fw);
+		return;
+	}
+
+	unsigned short forwardingPort;
+	if (!incomingBs.Read(forwardingPort))
+		return;
 
 	MafiaNet::BitStream outgoingBs;
-	if (success == UDPFORWARDER_SUCCESS)
+	if (result == UDPFORWARDER_SUCCESS)
 	{
 		outgoingBs.Write((MessageID) ID_UDP_PROXY_GENERAL);
 		outgoingBs.Write((MessageID) ID_UDP_PROXY_FORWARDING_SUCCEEDED);
@@ -403,15 +410,8 @@ void UDPProxyCoordinator::OnForwardingReplyFromServerToCoordinator(Packet *packe
 
 		return;
 	}
-	else if (success == UDPFORWARDER_NO_SOCKETS)
-	{
-		// Try next server
-		TryNextServer(sata, fw);
-	}
 	else
 	{
-		RakAssert(success == UDPFORWARDER_FORWARDING_ALREADY_EXISTS);
-
 		// Return in progress
 		outgoingBs.Write((MessageID) ID_UDP_PROXY_GENERAL);
 		outgoingBs.Write((MessageID) ID_UDP_PROXY_IN_PROGRESS);

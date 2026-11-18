@@ -268,6 +268,22 @@ TEST_F(UdpProxy, ForwardingRequestFromASystemNotLoggedInToIsLeftToTheApplication
 	EXPECT_TRUE(net.RunUntilReceived(serverPeers[0], ID_UDP_PROXY_GENERAL, 2000));
 }
 
+TEST_F(UdpProxy, UnavailableForwarderReleasesTheRequestForAnotherAttempt)
+{
+	ASSERT_TRUE(LogIn(0));
+	servers[0].udpForwarder.Shutdown();
+
+	for (int attempt = 0; attempt < 2; ++attempt)
+	{
+		clientResults[0].events.clear();
+		ASSERT_TRUE(clients[0].RequestForwarding(net.AddressOf(coordinatorPeer), UNASSIGNED_SYSTEM_ADDRESS, clientPeers[1]->GetMyGUID(), 1000));
+		ASSERT_TRUE(net.RunUntil([this]
+		                         { return !clientResults[0].events.empty(); },
+		                         2000));
+		EXPECT_EQ(clientResults[0].events, (std::vector<std::string>{"allbusy"}));
+	}
+}
+
 TEST_F(UdpProxy, ServersThatLeaveDuringPingsLeaveAllServersBusy)
 {
 	ASSERT_TRUE(LogIn(0));
