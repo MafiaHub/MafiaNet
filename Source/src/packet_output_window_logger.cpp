@@ -35,17 +35,16 @@ void PacketOutputWindowLogger::WriteLog([[maybe_unused]] const char *str) // onl
 #if defined(_WIN32)
 	const std::string line = std::string(str ? str : "") + '\n';
 	const int length = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, line.c_str(), -1, nullptr, 0);
-	if (length > 0)
+	if (length == 0)
 	{
-		std::wstring wide(static_cast<size_t>(length), L'\0');
-		if (MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, line.c_str(), -1, wide.data(), length))
-		{
-			OutputDebugStringW(wide.c_str());
-			return;
-		}
+		if (GetLastError() == ERROR_NO_UNICODE_TRANSLATION)
+			OutputDebugStringA(line.c_str());
+		return;
 	}
-	// Legacy callers may log text in the Windows ANSI code page.
-	OutputDebugStringA(line.c_str());
+
+	std::wstring wide(static_cast<size_t>(length), L'\0');
+	if (MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, line.c_str(), -1, wide.data(), length))
+		OutputDebugStringW(wide.c_str());
 #endif
 }
 

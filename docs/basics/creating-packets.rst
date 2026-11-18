@@ -150,8 +150,14 @@ incomplete or oversized input. For standalone compressed streams, hold a
 
 For Unicode text, encode the field as UTF-8 in a ``std::string``. The length
 counts bytes. Applications migrating a former wide-string field must update
-both its writer and its reader together. Version persisted messages separately
-if they contain the old 16-bit representation.
+both its writer and its reader together. The protocol 11 handshake accepts
+peers using either application field format. Use an application-level version
+if peers with different formats can connect.
+
+For stored records in the old 16-bit format, use the old build to decode and
+rewrite them as UTF-8 before upgrading, or keep an application-owned legacy
+decoder for records you can identify as old. Record the format version on
+new writes.
 
 .. code-block:: cpp
 

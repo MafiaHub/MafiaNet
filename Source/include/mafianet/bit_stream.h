@@ -743,6 +743,10 @@ public:
 	static void ReverseBytesInPlace(unsigned char *inOutData, const unsigned int length);
 
 private:
+	template <class T>
+	static constexpr bool IsWideText = std::is_convertible_v<const T &, std::wstring_view> ||
+	                                   (std::is_pointer_v<std::decay_t<T>> && std::is_convertible_v<std::decay_t<T>, const volatile wchar_t *>);
+
 	BitStream(const BitStream &invalid)
 	{
 		(void) invalid;
@@ -930,7 +934,7 @@ inline bool BitStream::SerializeBits(bool writeToBitstream, unsigned char *inOut
 template <class templateType>
 inline void BitStream::Write(const templateType &inTemplateVar)
 {
-	static_assert(!std::is_convertible_v<const templateType &, std::wstring_view>, "Encode wide text as a UTF-8 std::string for BitStream.");
+	static_assert(!IsWideText<templateType>, "Encode wide text as a UTF-8 std::string for BitStream.");
 	static_assert(std::is_trivially_copyable<templateType>::value,
 	              "BitStream::Write cannot serialize this type: the generic template "
 	              "copies the raw object representation, which is only valid for "
@@ -1139,7 +1143,7 @@ inline void BitStream::WriteDelta(const templateType &currentValue)
 template <class templateType>
 inline void BitStream::WriteCompressed(const templateType &inTemplateVar)
 {
-	static_assert(!std::is_convertible_v<const templateType &, std::wstring_view>, "Encode wide text as a UTF-8 std::string for BitStream.");
+	static_assert(!IsWideText<templateType>, "Encode wide text as a UTF-8 std::string for BitStream.");
 #ifdef _MSC_VER
 #pragma warning(disable : 4127) // conditional expression is constant
 #endif
@@ -1298,7 +1302,7 @@ inline void BitStream::WriteCompressedDelta(const bool &currentValue)
 template <class templateType>
 inline bool BitStream::Read(templateType &outTemplateVar)
 {
-	static_assert(!std::is_convertible_v<const templateType &, std::wstring_view>, "Encode wide text as a UTF-8 std::string for BitStream.");
+	static_assert(!IsWideText<templateType>, "Encode wide text as a UTF-8 std::string for BitStream.");
 	static_assert(std::is_trivially_copyable<templateType>::value,
 	              "BitStream::Read cannot deserialize this type: the generic template "
 	              "overwrites the raw object representation, which is only valid for "
@@ -1473,7 +1477,7 @@ inline bool BitStream::ReadDelta(bool &outTemplateVar)
 template <class templateType>
 inline bool BitStream::ReadCompressed(templateType &outTemplateVar)
 {
-	static_assert(!std::is_convertible_v<const templateType &, std::wstring_view>, "Encode wide text as a UTF-8 std::string for BitStream.");
+	static_assert(!IsWideText<templateType>, "Encode wide text as a UTF-8 std::string for BitStream.");
 #ifdef _MSC_VER
 #pragma warning(disable : 4127) // conditional expression is constant
 #endif
