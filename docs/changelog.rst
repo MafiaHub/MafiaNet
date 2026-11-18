@@ -25,6 +25,7 @@ Unreleased — breaking
 
 **Strings and wire protocol 11**
 
+* Register table entries with ``StringTable::AddString(text)``. Remove the old ``copyString`` argument and rebuild. The table owns every entry and uses its sorted position as its wire ID.
 * Replace ``RakString`` with ``std::string`` and include ``<string>``. Rebuild applications and upgrade both peers together.
 * The public ``RakWString`` type, ``mafianet/wstring.h`` and the wide-string BitStream overloads have been removed. Migrate both ends of application-defined wide fields to UTF-8 in ``std::string``.
 * BitStream strings now use a 32-bit byte count and preserve embedded NULs. Compressed strings also preserve all bytes. Both encodings accept up to 16 MiB per string. See :doc:`basics/creating-packets`.

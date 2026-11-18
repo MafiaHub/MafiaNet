@@ -368,8 +368,8 @@ BitStream, compression and strings
 * ``StringCompressor`` stores its trees in
   ``std::map<int, std::unique_ptr<HuffmanEncodingTree>>`` and is
   non-copyable. The ``_CSTRING_COMPRESSOR`` overloads are removed.
-* ``StringTable`` keeps its strings in a sorted ``std::vector`` and is
-  non-copyable.
+* ``StringTable::AddString(text)`` copies the supplied C string into a sorted
+  ``std::vector<std::string>``. Drop the former ownership flag from registrations.
 * Protocol 11 uses ``std::string`` for narrow strings and removes the custom free list.
 * ``std::hash<RakNetGUID>`` (``types.h``) allows GUIDs to key a ``std::unordered_map``.
   ``std::hash<AddressOrGUID>`` is intentionally **not** provided:

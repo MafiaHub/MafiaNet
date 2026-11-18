@@ -22,7 +22,7 @@
 
 using namespace MafiaNet;
 
-static_assert(!std::is_copy_constructible_v<StringTable>, "StringTable owns the strings it copied");
+static_assert(!std::is_copy_constructible_v<StringTable>, "StringTable is non-copyable");
 
 namespace
 {
@@ -44,9 +44,9 @@ void Extract(const std::vector<VariadicSQLParser::IndexAndType> &indices, char *
 TEST(StringTable, RegisteredStringsTravelAsTheirSortedIndex)
 {
 	StringTable table;
-	table.AddString("zeta", false);
-	table.AddString("alpha", true);
-	table.AddString("mid", true);
+	table.AddString("zeta");
+	table.AddString("alpha");
+	table.AddString("mid");
 
 	BitStream bs;
 	table.EncodeString("mid", 64, &bs);
@@ -63,11 +63,63 @@ TEST(StringTable, RegisteredStringsTravelAsTheirSortedIndex)
 	EXPECT_STREQ("mid", out);
 }
 
+TEST(StringTable, RegistrationOwnsTheCallersText)
+{
+	StringTable table;
+	char name[] = "first registered name";
+	table.AddString(name);
+	name[0] = 'x';
+
+	BitStream bs;
+	bs.Write(true);
+	bs.Write(StringTableType{0});
+	char out[32];
+	ASSERT_TRUE(table.DecodeString(out, sizeof(out), &bs));
+	EXPECT_STREQ("first registered name", out);
+}
+
+TEST(StringTable, WireIndicesUseUnsignedByteOrderAndPutPrefixesFirst)
+{
+	StringTable table;
+	table.AddString("\x80");
+	table.AddString("ab");
+	table.AddString("");
+	table.AddString("\x7f");
+	table.AddString("a");
+
+	StringTableType expected = 0;
+	for (const char *name : {"", "a", "ab", "\x7f", "\x80"})
+	{
+		BitStream bs;
+		table.EncodeString(name, 8, &bs);
+		ASSERT_EQ(bs.GetNumberOfBitsUsed(), 9u);
+		bool hasIndex;
+		StringTableType index;
+		ASSERT_TRUE(bs.Read(hasIndex));
+		ASSERT_TRUE(hasIndex);
+		ASSERT_TRUE(bs.Read(index));
+		EXPECT_EQ(index, expected++);
+	}
+}
+
+TEST(StringTable, RegisteredStringIsTerminatedWhenTheOutputIsSmall)
+{
+	StringTable table;
+	table.AddString("alphabet");
+
+	BitStream bs;
+	table.EncodeString("alphabet", 32, &bs);
+	char out[] = "xxxx!";
+	ASSERT_TRUE(table.DecodeString(out, 4, &bs));
+	EXPECT_STREQ(out, "alp");
+	EXPECT_EQ(out[4], '!');
+}
+
 TEST(StringTable, UnregisteredStringFallsBackToTheCompressor)
 {
 	CompressorRef ref;
 	StringTable table;
-	table.AddString("known", false);
+	table.AddString("known");
 
 	BitStream bs;
 	table.EncodeString("unknown", 64, &bs);
@@ -80,7 +132,7 @@ TEST(StringTable, UnregisteredStringFallsBackToTheCompressor)
 TEST(StringTable, OutOfRangeIndexIsRejected)
 {
 	StringTable table;
-	table.AddString("only", false);
+	table.AddString("only");
 
 	BitStream bs;
 	bs.Write(true);
