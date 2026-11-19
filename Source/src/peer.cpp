@@ -3191,6 +3191,14 @@ void RakPeer::ApplyNetworkSimulator(float packetloss, unsigned short minExtraPin
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
+bool RakPeer::SetOutgoingSchedulingPolicy(OutgoingSchedulingPolicy policy)
+{
+	if (!policy.IsValid())
+		return false;
+	outgoingSchedulingPolicy.store(policy, std::memory_order_relaxed);
+	return true;
+}
+
 void RakPeer::SetPerConnectionOutgoingBandwidthLimit(unsigned maxBitsPerSecond)
 {
 	maxOutgoingBPS = maxBitsPerSecond;
@@ -4118,7 +4126,7 @@ RakPeer::RemoteSystemStruct *RakPeer::AssignSystemAddressToRemoteSystemList(cons
 			// sends and drops every one that does not open; a layer left without keys sends and accepts
 			// nothing. There is no plaintext fallback.
 			remoteSystem->reliabilityLayer.SetEncryptionMode(encryptionMode);
-			remoteSystem->reliabilityLayer.Reset(true, mtuSize);
+			remoteSystem->reliabilityLayer.Reset(true, mtuSize, outgoingSchedulingPolicy.load(std::memory_order_relaxed));
 			if (sessionKeys != nullptr && !remoteSystem->reliabilityLayer.SetSessionKeys(*sessionKeys))
 			{
 				// Key installation failed: the slot stays inactive and nothing is allocated.

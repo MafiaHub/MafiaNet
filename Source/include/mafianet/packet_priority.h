@@ -22,8 +22,30 @@
 #ifndef __PACKET_PRIORITY_H
 #define __PACKET_PRIORITY_H
 
+#include <cstdint>
+
 namespace MafiaNet
 {
+
+/// Selects how a sender shares available bandwidth between queued first transmissions.
+/// Retransmissions continue to follow their congestion-control deadlines in both modes.
+enum class OutgoingSchedulingMode : uint8_t
+{
+	Legacy,       ///< Existing packet-count priority scheduler.
+	WeightedBytes ///< Immediate first, then share payload bytes according to the configured weights.
+};
+
+/// Relative weights for first transmissions of backlogged priorities. All three must be positive.
+struct OutgoingSchedulingPolicy
+{
+	OutgoingSchedulingMode mode = OutgoingSchedulingMode::Legacy;
+	uint8_t high = 3, medium = 2, low = 1;
+
+	bool IsValid() const
+	{
+		return (mode == OutgoingSchedulingMode::Legacy || mode == OutgoingSchedulingMode::WeightedBytes) && high && medium && low;
+	}
+};
 
 /// These enumerations are used to describe when packets are delivered.
 enum class Priority

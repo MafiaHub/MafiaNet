@@ -7,6 +7,7 @@
 #include <benchmark/benchmark.h>
 
 #include <array>
+#include <cstdlib>
 #include <cstring>
 #include <map>
 #include <random>
@@ -223,6 +224,25 @@ void RakPeer_MixedTraffic(benchmark::State &state)
 	SimulatedNetwork net(seed);
 	auto *server = net.AddPeer(1, 1);
 	auto *client = net.AddPeer(1);
+	// Run the same registered cases (and identical seeds) under either policy.
+	const char *policy = std::getenv("MAFIANET_BENCH_SCHEDULER");
+	OutgoingSchedulingPolicy scheduling;
+	if (policy && std::strcmp(policy, "legacy") != 0)
+	{
+		scheduling.mode = OutgoingSchedulingMode::WeightedBytes;
+		if (std::strcmp(policy, "7:2:1") == 0)
+			scheduling.high = 7;
+		else if (std::strcmp(policy, "3:2:1") != 0)
+		{
+			state.SkipWithError("MAFIANET_BENCH_SCHEDULER must be legacy, 3:2:1 or 7:2:1");
+			return;
+		}
+	}
+	server->SetOutgoingSchedulingPolicy(scheduling);
+	const bool weighted = scheduling.mode == OutgoingSchedulingMode::WeightedBytes;
+	state.counters["scheduler_high_weight"] = weighted ? scheduling.high : 0;
+	state.counters["scheduler_medium_weight"] = weighted ? scheduling.medium : 0;
+	state.counters["scheduler_low_weight"] = weighted ? scheduling.low : 0;
 	if (!net.Connect(client, server))
 	{
 		state.SkipWithError("handshake failed");

@@ -77,6 +77,31 @@ Priority and Reliability
    // Low priority (chat, non-critical)
    peer->Send(&bs, MafiaNet::Priority::Low, MafiaNet::Reliability::Reliable, 0, addr, false);
 
+**Sharing bandwidth by payload bytes**
+
+Before establishing connections, a sender can opt into weighted scheduling:
+
+.. code-block:: cpp
+
+   peer->SetOutgoingSchedulingPolicy({MafiaNet::OutgoingSchedulingMode::WeightedBytes, 3, 2, 1});
+
+The three positive integer weights apply to High, Medium and Low. While High
+and Low both have fresh data queued and Medium is idle, 3:2:1 assigns about
+75% of first-transmission payload bytes to High and 25% to Low. A single busy
+priority can use all available capacity. Large messages compete one fragment
+at a time. Immediate has strict precedence over fresh data and can starve it if
+used continuously. Due retransmissions follow the usual congestion-control
+budget and deadlines. Reliable ordering within a channel still applies at the
+receiver. Use separate ordering channels for independently delivered streams.
+
+The default is the legacy scheduler. Policy changes apply to subsequent
+connections. Raising High to 7 increases its share against Low to 87.5%
+when both are saturated. The weights redistribute available service among
+classes; the congestion window can still limit the total rate. To compare these
+policies manually, run the same ``RakPeer_MixedTraffic`` benchmark filter with
+``MAFIANET_BENCH_SCHEDULER`` set to ``legacy``, ``3:2:1`` and ``7:2:1``.
+The JSON counters record all three weights, or zeroes for legacy.
+
 **Reliability types:**
 
 * ``MafiaNet::Reliability::Reliable`` - Guaranteed delivery, any order

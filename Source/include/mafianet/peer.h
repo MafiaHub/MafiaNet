@@ -700,6 +700,7 @@ public:
 	/// Exceeding the limit queues up outgoing traffic
 	/// \param[in] maxBitsPerSecond Maximum bits per second to send.  Use 0 for unlimited (default). Once set, it takes effect immedately and persists until called again.
 	virtual void SetPerConnectionOutgoingBandwidthLimit(unsigned maxBitsPerSecond);
+	virtual bool SetOutgoingSchedulingPolicy(OutgoingSchedulingPolicy policy);
 
 	/// Returns if you previously called ApplyNetworkSimulator
 	/// \return If you previously called ApplyNetworkSimulator
@@ -1242,6 +1243,7 @@ protected:
 	RakNetGUID myGuid;
 
 	unsigned maxOutgoingBPS;
+	std::atomic<OutgoingSchedulingPolicy> outgoingSchedulingPolicy{OutgoingSchedulingPolicy{}};
 
 	// Nobody would use the internet simulator in a final build.
 #ifdef _DEBUG

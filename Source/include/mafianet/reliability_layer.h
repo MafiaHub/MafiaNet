@@ -175,6 +175,7 @@ public:
 	/// When the encryption mode is Required, DatagramCipher::kMaxOverhead bytes
 	/// of every datagram are reserved for the cipher, even before keys exist.
 	void Reset(bool resetVariables, int mtuSize);
+	void Reset(bool resetVariables, int mtuSize, OutgoingSchedulingPolicy policy);
 
 	/// The encryption mode of the owning peer. Call before Reset(); it decides
 	/// whether Reset() reserves the cipher overhead in the datagram budget.
@@ -601,7 +602,10 @@ private:
 	std::uint64_t outgoingPacketBufferNextSeq = 0; // never reset: ties stay FIFO across Reset()
 	reliabilityHeapWeightType outgoingPacketBufferNextWeights[MafiaNet::NUMBER_OF_PRIORITIES];
 	void InitHeapWeights(void);
-	reliabilityHeapWeightType GetNextWeight(int priorityLevel);
+	reliabilityHeapWeightType GetNextWeight(const InternalPacket &packet);
+	OutgoingSchedulingMode outgoingSchedulingMode = OutgoingSchedulingMode::Legacy;
+	uint32_t costPerByte[MafiaNet::NUMBER_OF_PRIORITIES] = {};
+	reliabilityHeapWeightType lastServedFinish = 0;
 	//	unsigned int messageInSendBuffer[MafiaNet::NUMBER_OF_PRIORITIES];
 	//	double bytesInSendBuffer[MafiaNet::NUMBER_OF_PRIORITIES];
 

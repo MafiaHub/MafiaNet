@@ -362,6 +362,16 @@ ReliabilityLayer::~ReliabilityLayer()
 //-------------------------------------------------------------------------------------------------------
 void ReliabilityLayer::Reset(bool resetVariables, int mtuSize)
 {
+	Reset(resetVariables, mtuSize, {});
+}
+
+void ReliabilityLayer::Reset(bool resetVariables, int mtuSize, OutgoingSchedulingPolicy policy)
+{
+	outgoingSchedulingMode = policy.IsValid() ? policy.mode : OutgoingSchedulingMode::Legacy;
+	// Integer reciprocals on a common scale: h*m*l divided by each weight.
+	costPerByte[static_cast<int>(Priority::High)] = policy.medium * policy.low;
+	costPerByte[static_cast<int>(Priority::Medium)] = policy.high * policy.low;
+	costPerByte[static_cast<int>(Priority::Low)] = policy.high * policy.medium;
 	FreeMemory(true); // true because making a memory reset pending in the update cycle causes resets after reconnects.  Instead, just call Reset from a single thread
 	if (resetVariables)
 	{
@@ -530,6 +540,7 @@ void ReliabilityLayer::InitializeVariables()
 
 	datagramHistoryPopCount = 0;
 
+	lastServedFinish = 0;
 	InitHeapWeights();
 	for (unsigned int i = 0; i < MafiaNet::NUMBER_OF_PRIORITIES; i++)
 	{
@@ -1754,7 +1765,7 @@ bool ReliabilityLayer::Send(char *data, BitSize_t numberOfBitsToSend, MafiaNet::
 
 	RakAssert(internalPacket->dataBitLength < BYTES_TO_BITS(MAXIMUM_MTU_SIZE));
 	RakAssert(internalPacket->messageNumberAssigned == false);
-	const reliabilityHeapWeightType weight = GetNextWeight((int) internalPacket->priority);
+	const reliabilityHeapWeightType weight = GetNextWeight(*internalPacket);
 	HeapPush(outgoingPacketBuffer, outgoingPacketBufferNextSeq, weight, internalPacket);
 	RakAssert(outgoingPacketBuffer.empty() || outgoingPacketBuffer.front().packet->dataBitLength < BYTES_TO_BITS(MAXIMUM_MTU_SIZE));
 	statistics.messageInSendBuffer[(int) internalPacket->priority]++;
@@ -2163,6 +2174,8 @@ void ReliabilityLayer::UpdateInternal(RakNetSocket2 *s, SystemAddress &systemAdd
 						isReliable = false;
 
 					//sendPacketSet[ i ].Pop();
+					if (outgoingSchedulingMode == OutgoingSchedulingMode::WeightedBytes && internalPacket->priority != Priority::Immediate)
+						lastServedFinish = outgoingPacketBuffer.front().weight;
 					HeapPop(outgoingPacketBuffer);
 					RakAssert(outgoingPacketBuffer.empty() || outgoingPacketBuffer.front().packet->dataBitLength < BYTES_TO_BITS(MAXIMUM_MTU_SIZE));
 					RakAssert(internalPacket->messageNumberAssigned == false);
@@ -3085,7 +3098,7 @@ void ReliabilityLayer::SplitPacket(InternalPacket *internalPacket)
 		//		sendPacketSet[ internalPacket->priority ].Push( internalPacketArray[ i ]);
 		RakAssert(internalPacketArray[i]->dataBitLength < BYTES_TO_BITS(MAXIMUM_MTU_SIZE));
 		RakAssert(internalPacketArray[i]->messageNumberAssigned == false);
-		const reliabilityHeapWeightType weight = GetNextWeight((int) internalPacketArray[i]->priority);
+		const reliabilityHeapWeightType weight = GetNextWeight(*internalPacketArray[i]);
 		HeapPush(outgoingPacketBuffer, outgoingPacketBufferNextSeq, weight, internalPacketArray[i]);
 		RakAssert(outgoingPacketBuffer.empty() || outgoingPacketBuffer.front().packet->dataBitLength < BYTES_TO_BITS(MAXIMUM_MTU_SIZE));
 		statistics.messageInSendBuffer[(int) internalPacketArray[i]->priority]++;
@@ -4422,8 +4435,37 @@ void ReliabilityLayer::InitHeapWeights(void)
 		outgoingPacketBufferNextWeights[priorityLevel] = (1 << priorityLevel) * priorityLevel + priorityLevel;
 }
 //-------------------------------------------------------------------------------------------------------
-reliabilityHeapWeightType ReliabilityLayer::GetNextWeight(int priorityLevel)
+reliabilityHeapWeightType ReliabilityLayer::GetNextWeight(const InternalPacket &packet)
 {
+	const auto priorityLevel = static_cast<int>(packet.priority);
+	if (outgoingSchedulingMode == OutgoingSchedulingMode::WeightedBytes)
+	{
+		// Each priority has a FIFO virtual finish time. Starting an idle priority
+		// at the last served finish prevents it from banking unused capacity.
+		if (outgoingPacketBuffer.empty())
+		{
+			lastServedFinish = 0;
+			std::fill_n(outgoingPacketBufferNextWeights, NUMBER_OF_PRIORITIES, 0);
+		}
+		if (packet.priority == Priority::Immediate)
+			return 0; // strictly before all positive finish times, with FIFO ties
+		const uint64_t cost = static_cast<uint64_t>(costPerByte[priorityLevel]) * BITS_TO_BYTES(packet.dataBitLength);
+		auto &finish = outgoingPacketBufferNextWeights[priorityLevel];
+		if (std::max(finish, lastServedFinish) > UINT64_MAX - cost)
+		{
+			// Rebase long-lived continuously busy queues. All queued non-Immediate
+			// tags are at least the last serviced tag, preserving their heap order.
+			for (auto &entry : outgoingPacketBuffer)
+				if (entry.packet->priority != Priority::Immediate)
+					entry.weight -= lastServedFinish;
+			for (auto &next : outgoingPacketBufferNextWeights)
+				next = std::max(next, lastServedFinish) - lastServedFinish;
+			lastServedFinish = 0;
+		}
+		finish = std::max(finish, lastServedFinish) + cost;
+		return finish;
+	}
+
 	uint64_t next = outgoingPacketBufferNextWeights[priorityLevel];
 	if (!outgoingPacketBuffer.empty())
 	{
