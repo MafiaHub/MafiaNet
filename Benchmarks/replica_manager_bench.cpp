@@ -65,6 +65,22 @@ public:
 	    : Connection_RM3(UNASSIGNED_SYSTEM_ADDRESS, guid) { isValidated = true; }
 	Replica3 *AllocReplica(BitStream *, ReplicaManager3 *) override { return nullptr; }
 };
+class DirtyListConnection final : public Connection
+{
+public:
+	DirtyListConnection(RakNetGUID guid, const std::vector<Replica3 *> &changed)
+	    : Connection(guid), changed(changed) {}
+
+	bool QuerySerializationList(std::vector<Replica3 *> &replicas) override
+	{
+		replicas = changed;
+		return true;
+	}
+
+private:
+	const std::vector<Replica3 *> &changed;
+};
+
 class Manager : public ReplicaManager3
 {
 public:
@@ -85,7 +101,7 @@ struct World
 	NetworkIDManager ids;
 	Manager manager;
 	std::vector<Replica> replicas;
-	explicit World(int clients, size_t replicaCount = 100)
+	explicit World(int clients, size_t replicaCount = 100, const std::vector<Replica3 *> *changed = nullptr)
 	    : replicas(replicaCount)
 	{
 		tickUS = 1000000;
@@ -94,7 +110,13 @@ struct World
 		manager.SetNetworkIDManager(&ids);
 		manager.SetAutoSerializeInterval(0);
 		for (int i = 0; i < clients; ++i)
-			manager.PushConnection(new Connection(RakNetGUID(100 + i)));
+		{
+			RakNetGUID guid(100 + i);
+			if (changed)
+				manager.PushConnection(new DirtyListConnection(guid, *changed));
+			else
+				manager.PushConnection(new Connection(guid));
+		}
 		for (auto &replica : replicas)
 			manager.Reference(&replica);
 	}
@@ -321,25 +343,37 @@ private:
 
 // A quiet or sparsely changing world. One iteration measures one server tick
 // after construction has been emitted for every client and the serializer is warm.
-void ReplicaManager3_LargeWorld(benchmark::State &state)
+template <bool useDirtyList>
+void MeasureLargeWorld(benchmark::State &state)
 {
 	const int clients = static_cast<int>(state.range(0));
 	const int changed = static_cast<int>(state.range(1));
-	World<PositionReplica> world(clients, 50000);
+	std::vector<Replica3 *> changedReplicas;
+	World<PositionReplica> world(clients, 50000, useDirtyList ? &changedReplicas : nullptr);
+	if constexpr (useDirtyList)
+		for (auto &replica : world.replicas)
+			changedReplicas.push_back(&replica);
 	world.Tick();
 	world.Tick();
 	world.peer.bytes = 0;
 	for (auto _ : state)
 	{
+		if constexpr (useDirtyList)
+			changedReplicas.clear();
 		for (int i = 0; i < changed; ++i)
+		{
 			world.replicas[i].x += 1.0f;
+			if constexpr (useDirtyList)
+				changedReplicas.push_back(&world.replicas[i]);
+		}
 		world.Tick();
 	}
 	if ((world.peer.bytes > 0) != (changed > 0))
 		state.SkipWithError("unexpected replication output");
 	state.counters["rm3_bytes_per_tick"] = benchmark::Counter(world.peer.bytes, benchmark::Counter::kAvgIterations);
 }
-BENCHMARK(ReplicaManager3_LargeWorld)->ArgsProduct({{1, 20}, {0, 500}})->ArgNames({"clients", "changed_of_50000"})->Iterations(20);
+BENCHMARK_TEMPLATE(MeasureLargeWorld, false)->Name("ReplicaManager3_LargeWorld")->ArgsProduct({{1, 20}, {0, 500}})->ArgNames({"clients", "changed_of_50000"})->Iterations(20);
+BENCHMARK_TEMPLATE(MeasureLargeWorld, true)->Name("ReplicaManager3_LargeWorldDirtyList")->ArgsProduct({{1, 20}, {0, 500}})->ArgNames({"clients", "changed_of_50000"})->Iterations(20);
 
 }
 #endif

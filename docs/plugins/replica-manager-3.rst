@@ -190,6 +190,40 @@ The manual ``ReplicaManager3_Construct1000`` benchmark exercises this pattern
 with a single four-byte field and reports bytes for construction records, download
 markers, initial state messages, and ordinary state messages.
 
+Serializing only changed replicas
+---------------------------------
+
+When the game already knows which replicas changed, each connection can return
+those candidates from ``QuerySerializationList()``. RM3 checks each candidate
+against that connection's constructed replicas and calls ``QuerySerialization()``
+only for those it holds. Returning ``true`` with an empty list skips the ordinary
+serialization checks for that connection. The manager still runs construction
+and the per-replica ``OnUserReplicaPreSerializeTick()`` callbacks.
+
+For example, a server can maintain a vector of unique, live replicas whose
+positions changed. All observers of an identical broadcast can share the same
+list for one serialization pass. In a connection subclass holding a reference
+to that list, implement:
+
+.. code-block:: cpp
+
+   bool QuerySerializationList(std::vector<MafiaNet::Replica3*>& out) override
+   {
+       out = changedPositions;
+       return true;
+   }
+
+On a server that drives RM3 at a fixed tick with ``SetAutoSerializeInterval(0)``,
+swap the pending changes into ``changedPositions`` just before ``Update()``.
+Collect new writes in the pending list and clear ``changedPositions`` after
+``Update()`` returns. All connections then see the same candidates, and writes
+made during callbacks survive for the next tick. If the auto-serialize interval
+is positive, retain changes across updates until an actual serialization pass
+has served them. Remove candidates before deleting their replicas.
+Include any replicas due for periodic updates. Give new observers the current
+state in their construction snapshot. A connection with its own list is served
+on the thread calling ``Update()``, including when using a serialize executor.
+
 Scoping
 -------
 
