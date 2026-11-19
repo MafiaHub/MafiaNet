@@ -393,8 +393,9 @@ private:
 	void UpdateWindowFromAck(CCTimeType time);
 
 	/// Parse an internalPacket and figure out how many header bits would be written.  Returns that number
-	BitSize_t GetMaxMessageHeaderLengthBits(void);
-	BitSize_t GetMessageHeaderLengthBits(const InternalPacket *const internalPacket);
+	friend class LatestStateQueue;
+	static BitSize_t GetMaxMessageHeaderLengthBits(void);
+	static BitSize_t GetMessageHeaderLengthBits(const InternalPacket *const internalPacket);
 
 	/// Returns true if newPacketOrderingIndex is older than the waitingForPacketOrderingIndex
 	bool IsOlderOrderedPacket(OrderingIndexType newPacketOrderingIndex, OrderingIndexType waitingForPacketOrderingIndex);

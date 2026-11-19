@@ -153,3 +153,29 @@ See Also
 * :doc:`debugging-disconnects` - Timeout issues
 * :doc:`preprocessor-directives` - Build options
 * :doc:`../basics/bitstreams` - Efficient serialization
+
+Fresh state under a bandwidth cap
+--------------------------------
+
+Use one application-owned ``LatestStateQueue`` (header
+``mafianet/latest_state_queue.h``) per recipient for replaceable state such as
+positions. Put the object ID, generation and complete value in each record.
+Pass ``LatestStateQueue::PayloadBudget(peer.GetMTUSize(address))`` as the
+last argument to ``Put(key, data, length, budget)``. An updated object keeps its position
+in the pending queue. Use the normal reliable send path for events and deltas
+that depend on earlier messages.
+
+Call ``SendOne(peer, address, userMessageId, key)`` once per network pump. It
+packs complete records into one unreliable message within the observed path
+MTU, reserving room for encrypted transport headers. A busy High priority
+queue defers admission, so pending values can still be replaced. A path MTU
+change between admission and transmission can still cause ordinary transport
+fragmentation. If a pending record no longer fits, ``RecordTooLarge`` identifies
+the object to repack or erase. Destroy the queue on disconnect and erase an
+object when it leaves visibility.
+
+On receipt, start after the message ID and call ``ReadRecord`` while bytes
+remain. A false return with bytes remaining indicates invalid framing.
+Check each record's object and generation before applying it, since UDP can
+reorder or lose messages. Send refreshed values periodically for objects whose
+last update must eventually reach a client.

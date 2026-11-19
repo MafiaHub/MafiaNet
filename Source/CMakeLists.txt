@@ -24,6 +24,7 @@ set(MAFIANET_SOURCES
     src/file_operations.cpp
     src/format_string.cpp
     src/fully_connected_mesh2.cpp
+    src/latest_state_queue.cpp
     src/getche.cpp
     src/gets.cpp
     src/get_time.cpp
