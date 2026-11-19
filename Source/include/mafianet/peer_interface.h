@@ -676,13 +676,7 @@ public:
 	/// sets a congestion window floor from recently acknowledged RTTs and charges resends to the cap.
 	/// Returns false for an unsupported controller or a minimum exceeding the maximum.
 	/// A zero minimum restores normal congestion control and the existing new-payload cap.
-	virtual bool SetPerConnectionOutgoingBandwidthRange(unsigned minBitsPerSecond, unsigned maxBitsPerSecond)
-	{
-		if (minBitsPerSecond != 0)
-			return false;
-		SetPerConnectionOutgoingBandwidthLimit(maxBitsPerSecond);
-		return true;
-	}
+	bool SetPerConnectionOutgoingBandwidthRange(unsigned minBitsPerSecond, unsigned maxBitsPerSecond);
 
 	/// Returns if you previously called ApplyNetworkSimulator
 	/// \return If you previously called ApplyNetworkSimulator

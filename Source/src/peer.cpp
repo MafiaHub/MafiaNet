@@ -3195,16 +3195,24 @@ void RakPeer::SetPerConnectionOutgoingBandwidthLimit(unsigned maxBitsPerSecond)
 	outgoingBandwidthRange.store(maxBitsPerSecond, std::memory_order_relaxed);
 }
 
-bool RakPeer::SetPerConnectionOutgoingBandwidthRange(unsigned minBitsPerSecond, unsigned maxBitsPerSecond)
+bool RakPeerInterface::SetPerConnectionOutgoingBandwidthRange(unsigned minBitsPerSecond, unsigned maxBitsPerSecond)
 {
-#if USE_SLIDING_WINDOW_CONGESTION_CONTROL == 0
-	if (minBitsPerSecond != 0)
-		return false;
+	if (minBitsPerSecond == 0)
+	{
+		SetPerConnectionOutgoingBandwidthLimit(maxBitsPerSecond);
+		return true;
+	}
+#if USE_SLIDING_WINDOW_CONGESTION_CONTROL == 1
+	// Positive reservations need the built-in peer's pacer. The nonvirtual
+	// extension leaves third-party implementations' existing vtable intact.
+	auto *peer = dynamic_cast<RakPeer *>(this);
+	if (peer && minBitsPerSecond <= maxBitsPerSecond)
+	{
+		peer->outgoingBandwidthRange.store((uint64_t{minBitsPerSecond} << 32) | maxBitsPerSecond, std::memory_order_relaxed);
+		return true;
+	}
 #endif
-	if (minBitsPerSecond > maxBitsPerSecond)
-		return false;
-	outgoingBandwidthRange.store((uint64_t{minBitsPerSecond} << 32) | maxBitsPerSecond, std::memory_order_relaxed);
-	return true;
+	return false;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
