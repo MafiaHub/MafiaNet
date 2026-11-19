@@ -393,7 +393,7 @@ private:
 	void UpdateWindowFromAck(CCTimeType time);
 
 	/// Parse an internalPacket and figure out how many header bits would be written.  Returns that number
-	friend class LatestStateQueue;
+	friend class StateUpdateQueue;
 	static BitSize_t GetMaxMessageHeaderLengthBits(void);
 	static BitSize_t GetMessageHeaderLengthBits(const InternalPacket *const internalPacket);
 

@@ -20,7 +20,7 @@
 #include "mafianet/reliability_layer.h"
 #include <vector>
 #include <cstdlib>
-#include "mafianet/latest_state_queue.h"
+#include "mafianet/state_update_queue.h"
 #include "mafianet/mmsg_batch.h"
 #include "mafianet/mtu_black_hole.h"
 #include "mafianet/get_time.h"
@@ -2721,7 +2721,7 @@ void ReliabilityLayer::SendAcknowledgementPacket(const DatagramSequenceNumberTyp
 // Parse an internalPacket and figure out how many header bits would be
 // written.  Returns that number
 //-------------------------------------------------------------------------------------------------------
-unsigned LatestStateQueue::PayloadBudget(int mtu)
+unsigned StateUpdateQueue::PayloadBudget(int mtu)
 {
 	const int overhead = UDP_HEADER_SIZE + DatagramCipher::kMaxOverhead + DatagramHeaderFormat::GetDataHeaderByteLength() + BITS_TO_BYTES(ReliabilityLayer::GetMaxMessageHeaderLengthBits());
 	return mtu > overhead ? static_cast<unsigned>(mtu - overhead) : 0;

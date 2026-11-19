@@ -154,28 +154,34 @@ See Also
 * :doc:`preprocessor-directives` - Build options
 * :doc:`../basics/bitstreams` - Efficient serialization
 
-Fresh state under a bandwidth cap
---------------------------------
+Packing state records under a bandwidth cap
+-------------------------------------------
 
-Use one application-owned ``LatestStateQueue`` (header
-``mafianet/latest_state_queue.h``) per recipient for replaceable state such as
-positions. Put the object ID, generation and complete value in each record.
-Pass ``LatestStateQueue::PayloadBudget(peer.GetMTUSize(address))`` as the
-last argument to ``Put(key, data, length, budget)``. An updated object keeps its position
-in the pending queue. Use the normal reliable send path for events and deltas
-that depend on earlier messages.
+Use one application-owned ``StateUpdateQueue`` from
+``mafianet/state_update_queue.h`` per recipient and ordering channel. Its
+constructor takes the maximum number of pending records. The default
+``ReliableOrdered`` policy retains each admitted record in FIFO order.
+When ``Put`` returns false, the producer retains the input and can retry once
+space is available. Keep events requiring a shared ordering guarantee in the
+same queue. Independent events can continue to use the normal send path.
 
-Call ``SendOne(peer, address, userMessageId, key)`` once per network pump. It
-packs complete records into one unreliable message within the observed path
-MTU, reserving room for encrypted transport headers. A busy High priority
-queue defers admission, so pending values can still be replaced. A path MTU
-change between admission and transmission can still cause ordinary transport
-fragmentation. If a pending record no longer fits, ``RecordTooLarge`` identifies
-the object to repack or erase. Destroy the queue on disconnect and erase an
-object when it leaves visibility.
+Call ``Put(key, data, length, budget)`` using the result of
+``StateUpdateQueue::PayloadBudget(peer.GetMTUSize(address))``. Call
+``SendOne(peer, address, userMessageId, key)`` once per network pump. It packs
+complete records into one message within the observed path MTU, allowing for
+encrypted transport headers. It defers admission while High priority traffic
+is already queued. If the MTU shrinks, previously admitted reliable records
+can still travel through ordinary reliable fragmentation.
+
+For independently usable state such as positions, a caller can explicitly
+select ``Delivery::LatestOnly``. Put the object ID, generation and complete
+value in each record. A newer pending value replaces an older value for the
+same object. These messages use unreliable delivery. Use ``Erase`` when an
+object leaves visibility. If a pending record no longer fits after a path
+change, ``RecordTooLarge`` identifies the key to repack or erase.
 
 On receipt, start after the message ID and call ``ReadRecord`` while bytes
-remain. A false return with bytes remaining indicates invalid framing.
-Check each record's object and generation before applying it, since UDP can
-reorder or lose messages. Send refreshed values periodically for objects whose
-last update must eventually reach a client.
+remain. A false return with bytes remaining indicates invalid framing. For
+latest-only records, check the generation before applying a value and send
+periodic refreshes to recover from loss. End the queue's lifetime with the
+connection. Reliable delivery assumes the connection stays established.
