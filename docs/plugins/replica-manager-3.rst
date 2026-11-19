@@ -219,7 +219,8 @@ Collect new writes in the pending list and clear ``changedPositions`` after
 ``Update()`` returns. All connections then see the same candidates, and writes
 made during callbacks survive for the next tick. If the auto-serialize interval
 is positive, retain changes across updates until an actual serialization pass
-has served them. Remove candidates before deleting their replicas.
+has served them. Remove a replica from pending changes before deleting it. If
+it appears in an active list, keep it alive until the pass returns.
 Include any replicas due for periodic updates. Give new observers the current
 state in their construction snapshot. A connection with its own list is served
 on the thread calling ``Update()``, including when using a serialize executor.

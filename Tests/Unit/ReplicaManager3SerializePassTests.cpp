@@ -221,6 +221,7 @@ protected:
 		return added;
 	}
 
+	std::vector<Replica3 *> candidates;
 	NetworkIDManager ids;
 	PassManager manager;
 	RakPeerInterface *peer = nullptr;
@@ -769,10 +770,10 @@ TEST_F(ReplicaManager3SerializePass, OwnListConnectionIsServedOnTheCallingThread
 	PassReplica *held = AddReplica(true);
 	PassReplica *notHeld = AddReplica(true);
 	std::vector<PassConnection *> others = AddConnections(4, {held, notHeld});
-	const std::vector<Replica3 *> list{held, notHeld};
+	candidates = {held, notHeld};
 	auto *picker = new PassConnection(RakNetGUID(200));
 	picker->wanted = {held};
-	picker->candidates = &list;
+	picker->candidates = &candidates;
 	manager.PushConnection(picker);
 	Tick();
 	Tick();
@@ -808,10 +809,9 @@ TEST_F(ReplicaManager3SerializePass, DirtyListSerializePassVisitsOnlySelectedRep
 	Tick();
 	Tick();
 
-	std::vector<Replica3 *> changed;
 	for (auto *observer : observers)
 	{
-		observer->candidates = &changed;
+		observer->candidates = &candidates;
 		observer->received.clear();
 	}
 	moving->serializeCalls = 0;
@@ -824,9 +824,9 @@ TEST_F(ReplicaManager3SerializePass, DirtyListSerializePassVisitsOnlySelectedRep
 		EXPECT_TRUE(observer->received.empty());
 
 	moving->value = 7;
-	changed.push_back(moving);
+	candidates.push_back(moving);
 	Tick();
-	changed.clear();
+	candidates.clear();
 	Tick();
 
 	EXPECT_EQ(moving->serializeCalls.load(), 1);
