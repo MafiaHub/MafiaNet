@@ -343,7 +343,34 @@ Benchmarks
 .. code-block:: bash
 
    cmake --preset bench && cmake --build --preset bench
-   ./build/bench/Benchmarks/MafiaNetBenchmarks --benchmark_filter=ReliabilityLayer
+   ./build/bench/Benchmarks/MafiaNetBenchmarks --benchmark_list_tests
+   ./build/bench/Benchmarks/MafiaNetBenchmarks --benchmark_filter=RakPeer_UrgentLatency
+   ./build/bench/Benchmarks/MafiaNetBenchmarks --benchmark_repetitions=5 \
+       --benchmark_out=baseline.json --benchmark_out_format=json
+
+Run the suite manually on the machine you want to measure. CI runs correctness
+tests, including the nightly fragmented-transfer reconnect soak. The manual
+suite covers the following workloads.
+
+* **Peer bandwidth.** Each send/receive case runs 64 batches. Forward and reverse
+  datagrams and UDP payload bytes are averages per batch. The observer includes
+  encryption, transport headers, control traffic and the final ACK drain. IP and
+  UDP headers are outside the observer. Divide combined UDP payload bytes by
+  delivered application bytes to get the reported expansion ratio.
+* **Latency under contention.** The simulator sends 100 high-priority probes
+  spaced 20 ms apart under a 2 Mibit/s sender cap, with and without a backlog of
+  low-priority reliable traffic on a separate ordering channel. Percentiles use
+  simulated milliseconds. Bulk goodput counts application bytes delivered during
+  the two-second send window. The CPU column measures the work of the simulation.
+* **Replication.** The construction case measures the first server tick for
+  100 replicas. Steady-state cases change zero, one or all 100 replicas per
+  tick, with one or eight clients. Bytes per tick count serialized RM3 messages
+  at the peer send boundary, before transport framing.
+* **Real UDP loopback.** A threaded peer sends bursts of 128 reliable 900-byte
+  messages at 10, 50 or 100 bursts per second. Compare offered bytes/s with
+  delivered bytes/s over the send and drain interval. The CPU column covers the
+  whole process, including both peers' network threads. On Linux this workload
+  exercises the batched socket path.
 
 Numbers only mean something against a baseline on the same machine: run the
 benchmarks on both revisions with ``--benchmark_out=<file>
