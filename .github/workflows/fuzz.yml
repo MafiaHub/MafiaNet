@@ -23,7 +23,7 @@ jobs:
   # fuzz: optimized, NDEBUG, as shipped. fuzz-debug: RakAssert enabled, so any
   # assert a remote can reach through crafted input is reported as a crash.
   fuzz:
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 120
     strategy:
       fail-fast: false
@@ -88,7 +88,7 @@ jobs:
   # is what ships; ASan + UBSan and TSan run the same soak instrumented. TSan is
   # advisory, as in build.yml: the by-design getter races live in ci/tsan.supp.
   soak:
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 120
     continue-on-error: ${{ matrix.preset == 'tsan' }}
     strategy:
