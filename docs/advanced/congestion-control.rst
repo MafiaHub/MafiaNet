@@ -24,11 +24,15 @@ Basic Configuration
 
    MafiaNet::RakPeerInterface* peer = MafiaNet::RakPeerInterface::GetInstance();
 
-   // Limit outgoing bandwidth (bytes per second)
-   peer->SetPerConnectionOutgoingBandwidthLimit(50000);  // 50 KB/s
+   // Pace new payload separately on each connection (bits per second).
+   peer->SetPerConnectionOutgoingBandwidthLimit(400000);  // 50,000 bytes/s
 
    // Set unlimited (default)
    peer->SetPerConnectionOutgoingBandwidthLimit(0);
+
+The sender spends its payload budget on each network update. A whole packet
+can use part of the next update's budget. Retransmissions, ACKs, and protocol
+headers add to the traffic observed at the socket.
 
 **Checking connection quality:**
 

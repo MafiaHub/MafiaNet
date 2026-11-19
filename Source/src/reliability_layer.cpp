@@ -479,7 +479,7 @@ void ReliabilityLayer::InitializeVariables()
 	mtuBlackHoleEvidence.Reset();
 	mtuStepDowns = 0;
 	splitPacketId = 0;
-	elapsedTimeSinceLastUpdate = 0;
+	outgoingCreditBitMicros = 0;
 	throughputCapCountdown = 0;
 	sendReliableMessageNumberIndex = 0;
 	internalOrderIndex = 0;
@@ -1934,7 +1934,17 @@ void ReliabilityLayer::UpdateInternal(RakNetSocket2 *s, SystemAddress &systemAdd
 	RakAssert(MafiaNet::NUMBER_OF_PRIORITIES == 4);
 	congestionManager.Update(time, hasDataToSendOrResend);
 
-	statistics.BPSLimitByOutgoingBandwidthLimit = BITS_TO_BYTES(bitsPerSecondLimit);
+	// Pace new payload over update ticks. Sending one whole packet may put the
+	// budget in debt; later ticks repay it. Idle time does not bank a burst.
+	if (bitsPerSecondLimit)
+	{
+		constexpr int microsPerTick = CC_TIME_TYPE_BYTES == 4 ? 1000 : 1;
+		const auto elapsedMicros = static_cast<int64_t>(timeSinceLastTick) * microsPerTick;
+		outgoingCreditBitMicros = std::min<int64_t>(0, outgoingCreditBitMicros) + elapsedMicros * bitsPerSecondLimit;
+	}
+	else
+		outgoingCreditBitMicros = 0;
+	statistics.BPSLimitByOutgoingBandwidthLimit = BITS_TO_BYTES(static_cast<uint64_t>(bitsPerSecondLimit));
 	statistics.BPSLimitByCongestionControl = congestionManager.GetBytesPerSecondLimitByCongestionControl();
 
 	unsigned int i;
@@ -2112,11 +2122,7 @@ void ReliabilityLayer::UpdateInternal(RakNetSocket2 *s, SystemAddress &systemAdd
 				//	{
 				pushedAnything = false;
 
-				statistics.isLimitedByOutgoingBandwidthLimit = bitsPerSecondLimit != 0 && BITS_TO_BYTES(bitsPerSecondLimit) < bpsMetrics[USER_MESSAGE_BYTES_SENT].GetBPS1(time);
-
-
-				while (!outgoingPacketBuffer.empty() &&
-				       statistics.isLimitedByOutgoingBandwidthLimit == false)
+				while (!outgoingPacketBuffer.empty() && (bitsPerSecondLimit == 0 || outgoingCreditBitMicros > 0))
 				//while ( sendPacketSet[ i ].Size() )
 				{
 					internalPacket = outgoingPacketBuffer.front().packet;
@@ -2218,7 +2224,10 @@ void ReliabilityLayer::UpdateInternal(RakNetSocket2 *s, SystemAddress &systemAdd
 
 					// If isReliable is false, the packet and its contents will be added to a list to be freed in ClearPacketsAndDatagrams
 					// However, the internalPacket structure will remain allocated and be in the resendBuffer list if it requires a receipt
-					bpsMetrics[(int) USER_MESSAGE_BYTES_SENT].Push1(time, BITS_TO_BYTES(internalPacket->dataBitLength));
+					const auto payloadBytes = BITS_TO_BYTES(internalPacket->dataBitLength);
+					bpsMetrics[(int) USER_MESSAGE_BYTES_SENT].Push1(time, payloadBytes);
+					if (bitsPerSecondLimit)
+						outgoingCreditBitMicros -= static_cast<int64_t>(payloadBytes) * 8 * 1000000;
 
 					// Testing1
 					// 					if (internalPacket->reliability==MafiaNet::Reliability::ReliableOrdered || internalPacket->reliability==MafiaNet::Reliability::ReliableOrderedWithAckReceipt)
@@ -2372,6 +2381,8 @@ void ReliabilityLayer::UpdateInternal(RakNetSocket2 *s, SystemAddress &systemAdd
 		// 			sendPacketSet[3].IsEmpty()==false;
 	}
 
+
+	statistics.isLimitedByOutgoingBandwidthLimit = bitsPerSecondLimit != 0 && outgoingCreditBitMicros <= 0 && !outgoingPacketBuffer.empty();
 
 	// Keep on top of deleting old unreliable split packets so they don't clog the list.
 	//DeleteOldUnreliableSplitPackets( time );
