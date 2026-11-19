@@ -709,7 +709,7 @@ private:
 	MafiaNet::TimeMS minExtraPing, extraPingVariance;
 #endif
 
-	CCTimeType elapsedTimeSinceLastUpdate;
+	int64_t outgoingCreditBitMicros; // One bit of new payload costs one million units.
 
 	CCTimeType nextAckTimeToSend;
 
