@@ -41,7 +41,7 @@ StateUpdateQueue::Result StateUpdateQueue::SendOne(RakPeerInterface &peer, Syste
 	if (pending.empty())
 		return Result::Empty;
 	RakNetStatistics stats;
-	if (target == UNASSIGNED_SYSTEM_ADDRESS || !peer.GetStatistics(target, &stats))
+	if (target == UNASSIGNED_SYSTEM_ADDRESS || peer.GetConnectionState(target) != IS_CONNECTED || !peer.GetStatistics(target, &stats))
 		return Result::Disconnected;
 	const int mtu = peer.GetMTUSize(target);
 	const auto high = static_cast<unsigned>(Priority::High);

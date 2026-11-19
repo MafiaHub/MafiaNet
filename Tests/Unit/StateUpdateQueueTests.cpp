@@ -182,3 +182,21 @@ TEST(StateUpdateQueue, DefaultDeliveryPreservesEveryGenerationUnderLossReorderAn
 	}
 	EXPECT_EQ(received, admitted);
 }
+
+TEST(StateUpdateQueue, RetainsAdmittedRecordsWhenRecipientHasDisconnected)
+{
+	SimulatedNetwork net;
+	auto *server = net.AddPeer(1, 1);
+	auto *client = net.AddPeer(1);
+	ASSERT_TRUE(net.Connect(client, server));
+	const auto target = net.AddressOf(client);
+	StateUpdateQueue queue(1);
+	const unsigned char value = 1;
+	ASSERT_TRUE(queue.Put(0, &value, 1, StateUpdateQueue::PayloadBudget(server->GetMTUSize(target))));
+	server->CloseConnection(target, false);
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return server->GetConnectionState(target) != IS_CONNECTED; }, 1000));
+	uint64_t key = 0;
+	EXPECT_EQ(queue.SendOne(*server, target, ID_USER_PACKET_ENUM, key), StateUpdateQueue::Result::Disconnected);
+	EXPECT_EQ(queue.Size(), 1u);
+}
