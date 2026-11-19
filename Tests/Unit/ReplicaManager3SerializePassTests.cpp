@@ -962,9 +962,9 @@ TEST_F(ReplicaManager3SerializePass, ReplacementRecordStartsWithFreshSerializati
 	{
 	public:
 		using PassConnection::PassConnection;
-		LastSerializationResult *Construct(Replica3 *replica, ReplicaManager3 *manager)
+		LastSerializationResult *Construct(Replica3 *replica, ReplicaManager3 *owner)
 		{
-			OnConstructToThisConnection(replica, manager);
+			OnConstructToThisConnection(replica, owner);
 			return queryToSerializeReplicaList.back();
 		}
 	};
