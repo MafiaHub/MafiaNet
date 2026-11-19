@@ -51,7 +51,7 @@ public:
 	};
 
 	/// Call once per network pump. Sends at most one packed message and waits
-	/// for previously enqueued High priority traffic to drain. On RecordTooLarge,
+	/// when earlier High priority traffic is backlogged. On RecordTooLarge,
 	/// the record no longer fits. LatestOnly can replace it. ReliableOrdered
 	/// sends an already admitted record on its own using reliable fragmentation.
 	Result SendOne(RakPeerInterface &peer, SystemAddress target, MessageID messageId, uint64_t &key);

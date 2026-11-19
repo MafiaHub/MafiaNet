@@ -169,8 +169,8 @@ Call ``Put(key, data, length, budget)`` using the result of
 ``StateUpdateQueue::PayloadBudget(peer.GetMTUSize(address))``. Call
 ``SendOne(peer, address, userMessageId, key)`` once per network pump. It packs
 complete records into one message within the observed path MTU, allowing for
-encrypted transport headers. It defers admission while High priority traffic
-is already queued. If the MTU shrinks, previously admitted reliable records
+encrypted transport headers. It holds reliable batches back when at least one MTU of High priority
+traffic is queued. The latest-only policy waits for that queue to drain. If the MTU shrinks, previously admitted reliable records
 can still travel through ordinary reliable fragmentation.
 
 For independently usable state such as positions, a caller can explicitly

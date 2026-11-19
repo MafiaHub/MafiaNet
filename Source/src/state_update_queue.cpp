@@ -43,9 +43,14 @@ StateUpdateQueue::Result StateUpdateQueue::SendOne(RakPeerInterface &peer, Syste
 	RakNetStatistics stats;
 	if (target == UNASSIGNED_SYSTEM_ADDRESS || !peer.GetStatistics(target, &stats))
 		return Result::Disconnected;
-	if (stats.messageInSendBuffer[static_cast<unsigned>(Priority::High)] != 0)
+	const int mtu = peer.GetMTUSize(target);
+	const auto high = static_cast<unsigned>(Priority::High);
+	// Keep reliable records flowing behind a partial datagram. Latest-only
+	// records stay replaceable until the preceding packet leaves the queue.
+	const bool busy = delivery == Delivery::ReliableOrdered ? stats.bytesInSendBuffer[high] >= mtu : stats.messageInSendBuffer[high] != 0;
+	if (busy)
 		return Result::Busy;
-	const auto budget = PayloadBudget(peer.GetMTUSize(target));
+	const auto budget = PayloadBudget(mtu);
 	std::vector<unsigned char> packet{messageId};
 	size_t count = 0;
 	for (const auto &entry : pending)
