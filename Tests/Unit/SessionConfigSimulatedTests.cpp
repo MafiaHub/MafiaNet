@@ -1428,7 +1428,7 @@ TEST_F(SessionHeldMessagesSim, MessageLimitIsInclusive)
 {
 	// Both limits are build-time overridable: test the count boundary only when the byte budget lets it be
 	// reached first, or the test would hit (or pass on) the byte limit instead.
-	if ((uint64_t) MAXIMUM_HELD_SESSION_MESSAGES * kNumberedMessageBytes > MAXIMUM_HELD_SESSION_BYTES)
+	if constexpr ((uint64_t) MAXIMUM_HELD_SESSION_MESSAGES * kNumberedMessageBytes > MAXIMUM_HELD_SESSION_BYTES)
 		GTEST_SKIP() << "MAXIMUM_HELD_SESSION_BYTES is below the message-count boundary in this build";
 	RakPeer *server = nullptr;
 	RakPeer *client = nullptr;
@@ -1451,7 +1451,7 @@ TEST_F(SessionHeldMessagesSim, MessageLimitIsInclusive)
 // One message over the count bound fails the attempt instead of silently losing that message.
 TEST_F(SessionHeldMessagesSim, ExceedingTheMessageLimitFailsTheAttempt)
 {
-	if ((uint64_t) (MAXIMUM_HELD_SESSION_MESSAGES + 1u) * kNumberedMessageBytes > MAXIMUM_HELD_SESSION_BYTES)
+	if constexpr ((uint64_t) (MAXIMUM_HELD_SESSION_MESSAGES + 1u) * kNumberedMessageBytes > MAXIMUM_HELD_SESSION_BYTES)
 		GTEST_SKIP() << "MAXIMUM_HELD_SESSION_BYTES would overflow before the message count in this build";
 	RakPeer *server = nullptr;
 	RakPeer *client = nullptr;
@@ -1473,7 +1473,7 @@ TEST_F(SessionHeldMessagesSim, ExceedingTheMessageLimitFailsTheAttempt)
 TEST_F(SessionHeldMessagesSim, ByteLimitIsInclusive)
 {
 	// The byte boundary uses 4 messages (5 to overflow): the count budget must allow that.
-	if (MAXIMUM_HELD_SESSION_MESSAGES < 5u)
+	if constexpr (MAXIMUM_HELD_SESSION_MESSAGES < 5u)
 		GTEST_SKIP() << "MAXIMUM_HELD_SESSION_MESSAGES is below the byte-boundary scenario in this build";
 	RakPeer *server = nullptr;
 	RakPeer *client = nullptr;
@@ -1502,7 +1502,7 @@ TEST_F(SessionHeldMessagesSim, ByteLimitIsInclusive)
 
 TEST_F(SessionHeldMessagesSim, ExceedingTheByteLimitFailsTheAttempt)
 {
-	if (MAXIMUM_HELD_SESSION_MESSAGES < 5u)
+	if constexpr (MAXIMUM_HELD_SESSION_MESSAGES < 5u)
 		GTEST_SKIP() << "MAXIMUM_HELD_SESSION_MESSAGES would overflow before the bytes in this build";
 	RakPeer *server = nullptr;
 	RakPeer *client = nullptr;
@@ -1891,7 +1891,7 @@ TEST_F(SessionTerminalFailureSim, OversizedSessionConfigThenRemoteDisconnectRepo
 // has not answered the session request, so nothing queues behind its reply).
 TEST_F(SessionTerminalFailureSim, HeldByteLimitOverflowThenRemoteDisconnectReportsOnce)
 {
-	if (MAXIMUM_HELD_SESSION_MESSAGES < 5u)
+	if constexpr (MAXIMUM_HELD_SESSION_MESSAGES < 5u)
 		GTEST_SKIP() << "MAXIMUM_HELD_SESSION_MESSAGES would overflow before the bytes in this build";
 	RakPeer *server = nullptr;
 	RakPeer *client = nullptr;
