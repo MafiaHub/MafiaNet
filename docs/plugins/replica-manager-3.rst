@@ -166,6 +166,30 @@ Serialization Results
    * - ``RM3SR_DO_NOT_SERIALIZE``
      - Skip this serialization
 
+Initial state and late joiners
+------------------------------
+
+A newly constructed replica can produce three copies of the same field in its
+first server tick. ``SerializeConstruction()`` writes the construction record,
+the initial download calls ``Serialize()`` for the new connection, and the
+ordinary serialization pass checks for changes. The callbacks can describe
+different data, so the manager treats each result independently.
+
+For a replica that sends identical state to all observers, one option is to put
+a complete snapshot in ``SerializeConstruction()`` and apply it in
+``DeserializeConstruction()``. Opt into ``BroadcastsIdentically()`` and mark the
+replica dirty when its shared value changes. Initialize the flag to false. Its
+construction-time, directed ``Serialize()`` call can return
+``RM3SR_DO_NOT_SERIALIZE``. The shared broadcast call returns that result while clean. When dirty, it writes the value
+once, clears the flag, and returns
+``RM3SR_BROADCAST_IDENTICALLY``. A joining client receives the current snapshot.
+Reading that snapshot must leave any pending broadcast available to existing
+observers.
+
+The manual ``ReplicaManager3_Construct1000`` benchmark exercises this pattern
+with a single four-byte field and reports bytes for construction records, download
+markers, initial state messages, and ordinary state messages.
+
 Scoping
 -------
 

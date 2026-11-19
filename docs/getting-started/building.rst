@@ -364,8 +364,21 @@ suite covers the following workloads.
   the two-second send window. The CPU column measures the work of the simulation.
 * **Replication.** The construction case measures the first server tick for
   100 replicas. Steady-state cases change zero, one or all 100 replicas per
-  tick, with one or eight clients. Bytes per tick count serialized RM3 messages
-  at the peer send boundary, before transport framing.
+  tick, with one or eight clients. ``ReplicaManager3_LargeWorld`` measures a
+  warmed world of 50,000 three-float positions, with one or 20 clients and
+  either zero or 500 positions changed per tick. Bytes per tick count serialized
+  RM3 messages at the peer send boundary, before transport framing.
+* **Mixed traffic.** ``RakPeer_MixedTraffic`` runs 60 simulated seconds with
+  bidirectional gameplay traffic, urgent probes, and a backlogged download.
+  Compare the same seed with zero or 2% loss and 16 or 512 KiB blocks. Check
+  delivered counts alongside latency. Only messages delivered within the window
+  contribute to delivery time. The counters trace enqueue, first transmission,
+  retransmission, fragment completion and application delivery. Compare
+  ``game_upgraded_to_reliable`` with ``game_unreliable_started`` to see how
+  often fragmentation promoted an unreliable gameplay message to reliable.
+* **Construction bandwidth.** ``ReplicaManager3_Construct1000`` compares
+  unconditional scalar serialization with a full construction snapshot and
+  subsequent dirty updates. See :doc:`../plugins/replica-manager-3`.
 * **Real UDP loopback.** A threaded peer sends bursts of 128 reliable 900-byte
   messages at 10, 50 or 100 bursts per second. Compare offered bytes/s with
   delivered bytes/s over the send and drain interval. The CPU column covers the

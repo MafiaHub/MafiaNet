@@ -37,6 +37,8 @@ struct MessageTrace
 	int complete = -1;
 	int delivered = -1;
 	int resends = 0;
+	bool requestedUnreliable = false;
+	bool promotedToReliable = false;
 	std::vector<bool> receivedFragments;
 	unsigned received = 0;
 };
@@ -116,7 +118,10 @@ public:
 		if (sender)
 		{
 			if (trace.firstSent < 0)
+			{
 				trace.firstSent = traces.now;
+				trace.promotedToReliable = trace.requestedUnreliable && packet->reliability == Reliability::Reliable;
+			}
 			if (packet->timesSent > 1)
 			{
 				if (trace.firstResent < 0)
@@ -154,12 +159,15 @@ private:
 void Report(benchmark::State &state, const std::string &prefix, const std::vector<MessageTrace> &messages)
 {
 	unsigned started = 0, retried = 0, complete = 0, delivered = 0, resends = 0;
+	unsigned unreliable = 0, promoted = 0;
 	double queue = 0, retry = 0, assembly = 0, delivery = 0, total = 0;
 	for (const auto &m : messages)
 	{
 		if (m.firstSent >= 0)
 		{
 			++started;
+			unreliable += m.requestedUnreliable;
+			promoted += m.promotedToReliable;
 			queue += m.firstSent - m.queued;
 		}
 		if (m.firstResent >= 0)
@@ -187,6 +195,11 @@ void Report(benchmark::State &state, const std::string &prefix, const std::vecto
 	state.counters[prefix + "_delivered"] = delivered;
 	state.counters[prefix + "_retried_messages"] = retried;
 	state.counters[prefix + "_fragment_resends"] = resends;
+	if (unreliable)
+	{
+		state.counters[prefix + "_unreliable_started"] = unreliable;
+		state.counters[prefix + "_upgraded_to_reliable"] = promoted;
+	}
 	if (started)
 		state.counters[prefix + "_queue_ms"] = queue / started;
 	if (retried)
@@ -238,7 +251,9 @@ void RakPeer_MixedTraffic(benchmark::State &state)
 		{
 			auto &messages = traces.messages[lane];
 			index = static_cast<uint32_t>(messages.size());
-			messages.emplace_back().queued = traces.now;
+			auto &trace = messages.emplace_back();
+			trace.queued = traces.now;
+			trace.requestedUnreliable = reliability == Reliability::Unreliable;
 		}
 		payload[0] = static_cast<unsigned char>(ID_USER_PACKET_ENUM + lane);
 		std::memcpy(payload.data() + 1, &index, sizeof(index));
