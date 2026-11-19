@@ -310,3 +310,66 @@ TEST(SimulatedPeer, OutgoingLimitCarriesSubByteCreditAndRespondsToRateChanges)
 	ASSERT_TRUE(client->GetStatistics(address, &stats));
 	EXPECT_EQ(stats.BPSLimitByOutgoingBandwidthLimit, 536870912u);
 }
+
+#if USE_SLIDING_WINDOW_CONGESTION_CONTROL == 1
+TEST(SimulatedPeer, SendBudgetSeparatesWindowPressureFromApplicationPacing)
+{
+	SimulatedNetwork net;
+	auto *client = net.AddPeer(1);
+	auto *server = net.AddPeer(1, 1);
+	const auto address = net.AddressOf(server);
+	SimulatedNetwork::SendBudget budget;
+	EXPECT_FALSE(net.ReadSendBudget(client, address, budget));
+	ASSERT_TRUE(net.Connect(client, server));
+	net.Step(100);
+	ASSERT_TRUE(net.ReadSendBudget(client, address, budget));
+	EXPECT_FALSE(budget.queued);
+	EXPECT_GT(budget.windowBytes, 0u);
+
+	client->SetPerConnectionOutgoingBandwidthLimit(8000);
+	for (unsigned i = 0; i < 100; ++i)
+		SendNumbered(client, address, i, 195);
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return net.ReadSendBudget(client, address, budget) && budget.queued && budget.capBlocked && budget.inFlightBytes < budget.windowBytes; }, 100, 1));
+
+	// With acknowledgements delayed and the application cap lifted, the same
+	// backlog can run out of congestion window before the peer hears back.
+	SimulatedNetwork::LinkRule slow;
+	slow.delayMs = 80;
+	net.SetLink(server, client, slow);
+	client->SetPerConnectionOutgoingBandwidthLimit(0);
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return net.ReadSendBudget(client, address, budget) && budget.queued && !budget.capBlocked && budget.inFlightBytes >= budget.windowBytes; }, 500, 1));
+}
+#endif
+
+TEST(SimulatedPeer, BudgetQueueVisitorOmitsExpiredUnreliablePayloads)
+{
+	SimulatedNetwork net;
+	auto *client = net.AddPeer(1);
+	auto *server = net.AddPeer(1, 1);
+	ASSERT_TRUE(net.Connect(client, server));
+	net.Step(100);
+	const auto address = net.AddressOf(server);
+	client->SetUnreliableTimeout(10);
+	client->SetPerConnectionOutgoingBandwidthLimit(8);
+	for (unsigned i = 0; i < 8; ++i)
+		SendNumbered(client, address, i, 64, Reliability::Unreliable);
+
+	SimulatedNetwork::SendBudget budget;
+	auto queuedUserBytes = [&]
+	{
+		unsigned bytes = 0;
+		EXPECT_TRUE(net.ReadSendBudget(client, address, budget, [&](const InternalPacket &p)
+		                               {
+			if (p.data[0] == ID_TEST_PAYLOAD)
+				bytes += BITS_TO_BYTES(p.dataBitLength); }));
+		return bytes;
+	};
+	net.Step(1);
+	const auto queued = queuedUserBytes();
+	ASSERT_GT(queued, 0u);
+	ASSERT_TRUE(budget.queued);
+	net.Step(600); // includes the first periodic cull after changing the timeout
+	EXPECT_EQ(queuedUserBytes(), 0u);
+}
