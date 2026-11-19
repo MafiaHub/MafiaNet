@@ -672,13 +672,6 @@ public:
 	/// \param[in] maxBitsPerSecond Maximum bits per second to send.  Use 0 for unlimited (default). Once set, it takes effect immedately and persists until called again.
 	virtual void SetPerConnectionOutgoingBandwidthLimit(unsigned maxBitsPerSecond) = 0;
 
-	/// Scheduling for subsequently established connections, including incoming connections.
-	/// Defaults to Legacy. WeightedBytes serves Immediate first, then shares available first-send
-	/// fragment payload bytes between backlogged High, Medium and Low priorities by their weights.
-	/// Idle priorities leave their capacity to other traffic. The setting is local to the sender.
-	/// Returns false for an unknown mode or any zero weight, retaining the previous policy.
-	virtual bool SetOutgoingSchedulingPolicy(OutgoingSchedulingPolicy policy) = 0;
-
 	/// Returns if you previously called ApplyNetworkSimulator
 	/// \return If you previously called ApplyNetworkSimulator
 	virtual bool IsNetworkSimulatorActive(void) = 0;
@@ -715,6 +708,17 @@ public:
 
 	/// \internal
 	virtual bool SendOutOfBand(const char *host, unsigned short remotePort, const char *data, BitSize_t dataLength, unsigned connectionSocketIndex = 0) = 0;
+
+	/// Scheduling for subsequently established connections, including incoming connections.
+	/// Defaults to Legacy. WeightedBytes serves Immediate first, then shares available first-send
+	/// fragment payload bytes between backlogged High, Medium and Low priorities by their weights.
+	/// Idle priorities leave their capacity to other traffic. The setting is local to the sender.
+	/// Returns false for an unknown mode or any zero weight, retaining the previous policy.
+	/// Interface implementations that only support Legacy may use this default.
+	virtual bool SetOutgoingSchedulingPolicy(OutgoingSchedulingPolicy policy)
+	{
+		return policy.IsValid() && policy.mode == OutgoingSchedulingMode::Legacy;
+	}
 };
 
 } // namespace MafiaNet
