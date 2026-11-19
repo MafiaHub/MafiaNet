@@ -272,29 +272,32 @@ MafiaNet automatically fetches required dependencies via CMake FetchContent:
 
 ## Running Tests
 
-All tests are GoogleTest, built with `MAFIANET_BUILD_TESTS=ON` and run through CTest. Two suites live under `Tests/`:
-
-- **Unit tests** (`Tests/Unit/`, label `unit`): deterministic and hermetic — no loopback networking, no timing.
-- **Integration tests** (`Tests/Integration/`, label `integration`): real UDP over loopback. Each test runs in its own process, serially, with a timeout.
+From the repository root with CMake 3.25+ and a single-configuration generator, configure, build and run the Debug suite in one command:
 
 ```bash
-cmake -DMAFIANET_BUILD_TESTS=ON ..
-cmake --build .
-
-# Run everything
-ctest --output-on-failure
-
-# Only the fast, hermetic unit suite
-ctest -L unit
-
-# Only the loopback integration suite
-ctest -L integration
+cmake --workflow --preset debug
 ```
 
-To debug a single test, run the binary directly with a filter:
+After editing code, rebuild and run the suite you need:
 
 ```bash
-./Tests/IntegrationTests --gtest_filter='DispatcherLive.*' --gtest_repeat=100 --gtest_break_on_failure
+cmake --build --preset debug --parallel
+ctest --preset unit         # Hermetic GoogleTests and fuzz corpus replays
+ctest --preset integration  # Loopback GoogleTests with OS-assigned ports
+```
+
+CTest runs each GoogleTest case in its own process. Add `--parallel 4` to either test command to run up to four cases at once. To repeat a single integration scenario under GoogleTest:
+
+```bash
+./build/debug/Tests/IntegrationTests --gtest_filter='DispatcherLive.*' --gtest_repeat=100 --gtest_break_on_failure
+```
+
+For CMake 3.21–3.24 or a multi-configuration generator such as Visual Studio, use the explicit commands:
+
+```bash
+cmake -S . -B build -DMAFIANET_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Debug
+cmake --build build --config Debug
+ctest --test-dir build -C Debug --output-on-failure
 ```
 
 ## Changelog
