@@ -284,6 +284,10 @@ public:
 	                        std::vector<PluginInterface2 *> &messageHandlerList,
 	                        RakNetRandom *rnr, BitStream &updateBitStream);
 
+#if USE_SLIDING_WINDOW_CONGESTION_CONTROL == 1
+	void SetOutgoingBandwidthFloor(unsigned bitsPerSecond) { outgoingBandwidthFloor = bitsPerSecond; }
+#endif
+
 	/// Were you ever unable to deliver a packet despite retries?
 	/// \return true means the connection has been lost.  Otherwise not.
 	bool IsDeadConnection(void) const;
@@ -710,6 +714,7 @@ private:
 	MafiaNet::TimeMS minExtraPing, extraPingVariance;
 #endif
 
+	unsigned outgoingBandwidthFloor = 0;
 	int64_t outgoingCreditBitMicros; // One bit of new payload costs one million units.
 
 	CCTimeType nextAckTimeToSend;

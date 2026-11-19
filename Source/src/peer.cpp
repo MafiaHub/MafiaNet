@@ -332,7 +332,6 @@ RakPeer::RakPeer()
 	splitMessageProgressInterval = 0;
 	//unreliableTimeout=0;
 	unreliableTimeout = 1000;
-	maxOutgoingBPS = 0;
 	firstExternalID = UNASSIGNED_SYSTEM_ADDRESS;
 	myGuid = UNASSIGNED_RAKNET_GUID;
 	userUpdateThreadPtr = 0;
@@ -3193,7 +3192,19 @@ void RakPeer::ApplyNetworkSimulator(float packetloss, unsigned short minExtraPin
 
 void RakPeer::SetPerConnectionOutgoingBandwidthLimit(unsigned maxBitsPerSecond)
 {
-	maxOutgoingBPS = maxBitsPerSecond;
+	outgoingBandwidthRange.store(maxBitsPerSecond, std::memory_order_relaxed);
+}
+
+bool RakPeer::SetPerConnectionOutgoingBandwidthRange(unsigned minBitsPerSecond, unsigned maxBitsPerSecond)
+{
+#if USE_SLIDING_WINDOW_CONGESTION_CONTROL == 0
+	if (minBitsPerSecond != 0)
+		return false;
+#endif
+	if (minBitsPerSecond > maxBitsPerSecond)
+		return false;
+	outgoingBandwidthRange.store((uint64_t{minBitsPerSecond} << 32) | maxBitsPerSecond, std::memory_order_relaxed);
+	return true;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -6513,6 +6524,11 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 			}
 		}
 
+		const uint64_t rateRange = outgoingBandwidthRange.load(std::memory_order_relaxed);
+		const auto maxOutgoingBPS = static_cast<unsigned>(rateRange);
+#if USE_SLIDING_WINDOW_CONGESTION_CONTROL == 1
+		remoteSystem->reliabilityLayer.SetOutgoingBandwidthFloor(static_cast<unsigned>(rateRange >> 32));
+#endif
 		if (endThreads)
 			// for the final call, make sure we send out any outstanding ACKs
 			remoteSystem->reliabilityLayer.UpdateAndForceACKs(remoteSystem->rakNetSocket, systemAddress, remoteSystem->MTUSize, timeNS, maxOutgoingBPS, pluginListNTS, &rnr, updateBitStream); // systemAddress only used for the internet simulator test

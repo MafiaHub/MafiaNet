@@ -1933,6 +1933,10 @@ void ReliabilityLayer::UpdateInternal(RakNetSocket2 *s, SystemAddress &systemAdd
 	const bool hasDataToSendOrResend = IsResendQueueEmpty() == false || bandwidthExceededStatistic;
 	RakAssert(MafiaNet::NUMBER_OF_PRIORITIES == 4);
 	congestionManager.Update(time, hasDataToSendOrResend);
+	const auto reservedRate = std::min(outgoingBandwidthFloor, bitsPerSecondLimit);
+#if USE_SLIDING_WINDOW_CONGESTION_CONTROL == 1
+	congestionManager.UpdateWindowFloor(time, reservedRate);
+#endif
 
 	// Pace new payload over update ticks. Sending one whole packet may put the
 	// budget in debt; later ticks repay it. Idle time does not bank a burst.
@@ -2037,7 +2041,7 @@ void ReliabilityLayer::UpdateInternal(RakNetSocket2 *s, SystemAddress &systemAdd
 					RakAssert(internalPacket->messageNumberAssigned == true);
 
 					//if ( internalPacket->nextActionTime < time )
-					if (time - internalPacket->nextActionTime < (((CCTimeType) -1) / 2))
+					if (time - internalPacket->nextActionTime < (((CCTimeType) -1) / 2) && (reservedRate == 0 || outgoingCreditBitMicros > 0))
 					{
 						nextPacketBitLength = internalPacket->headerLength + internalPacket->dataBitLength;
 						if (datagramSizeSoFar + nextPacketBitLength > GetMaxDatagramSizeExcludingMessageHeaderBits())
@@ -2051,7 +2055,10 @@ void ReliabilityLayer::UpdateInternal(RakNetSocket2 *s, SystemAddress &systemAdd
 
 						CC_DEBUG_PRINTF_2("Rs %i ", internalPacket->reliableMessageNumber.val);
 
-						bpsMetrics[(int) USER_MESSAGE_BYTES_RESENT].Push1(time, BITS_TO_BYTES(internalPacket->dataBitLength));
+						const auto resentBytes = BITS_TO_BYTES(internalPacket->dataBitLength);
+						bpsMetrics[(int) USER_MESSAGE_BYTES_RESENT].Push1(time, resentBytes);
+						if (reservedRate != 0)
+							outgoingCreditBitMicros -= static_cast<int64_t>(resentBytes) * 8 * 1000000;
 
 						// Testing1
 						// 						if (internalPacket->reliability==MafiaNet::Reliability::ReliableOrdered || internalPacket->reliability==MafiaNet::Reliability::ReliableOrderedWithAckReceipt)

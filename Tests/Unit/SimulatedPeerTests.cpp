@@ -312,6 +312,56 @@ TEST(SimulatedPeer, OutgoingLimitCarriesSubByteCreditAndRespondsToRateChanges)
 }
 
 #if USE_SLIDING_WINDOW_CONGESTION_CONTROL == 1
+TEST(SimulatedPeer, ReservedRatePacesRetriesAndDrainsOrderedFragmentsAfterBlackout)
+{
+	SimulatedNetwork net(42);
+	auto *server = net.AddPeer(1, 1);
+	auto *client = net.AddPeer(1);
+	ASSERT_TRUE(net.Connect(client, server));
+	const auto address = net.AddressOf(server);
+	constexpr unsigned rate = 1024000;
+	ASSERT_TRUE(client->SetPerConnectionOutgoingBandwidthRange(rate, rate));
+	EXPECT_FALSE(client->SetPerConnectionOutgoingBandwidthRange(rate + 1, rate));
+	SimulatedNetwork::LinkRule delayed;
+	delayed.delayMs = 50;
+	net.SetLinkBothWays(client, server, delayed);
+	constexpr unsigned count = 24;
+	for (unsigned i = 0; i < count; ++i)
+		SendNumbered(client, address, i, 5000);
+	ASSERT_TRUE(net.RunUntil([&]
+	                         {
+		SimulatedNetwork::SendBudget budget;
+		return net.ReadSendBudget(client, address, budget) && budget.inFlightBytes > 8000; }, 3000, 1));
+	SimulatedNetwork::LinkRule blackout;
+	blackout.lossPercent = 100;
+	net.SetLink(server, client, blackout);
+	constexpr unsigned reducedRate = 8000;
+	ASSERT_TRUE(client->SetPerConnectionOutgoingBandwidthRange(reducedRate, reducedRate));
+	RakNetStatistics before, after;
+	ASSERT_TRUE(client->GetStatistics(address, &before));
+	net.Step(2000);
+	ASSERT_TRUE(client->GetStatistics(address, &after));
+	const auto retransmitted = after.runningTotal[USER_MESSAGE_BYTES_RESENT] - before.runningTotal[USER_MESSAGE_BYTES_RESENT];
+	const auto fresh = after.runningTotal[USER_MESSAGE_BYTES_SENT] - before.runningTotal[USER_MESSAGE_BYTES_SENT];
+	EXPECT_GT(retransmitted, 0u);
+	EXPECT_LE(fresh + retransmitted, 2 * reducedRate / 8 + MAXIMUM_MTU_SIZE);
+	EXPECT_EQ(after.BPSLimitByOutgoingBandwidthLimit, reducedRate / 8);
+
+	ASSERT_TRUE(client->SetPerConnectionOutgoingBandwidthRange(rate, rate));
+	net.SetLink(server, client, {});
+	ASSERT_TRUE(net.RunUntil([&]
+	                         {
+		SimulatedNetwork::SendBudget budget;
+		return net.ReadSendBudget(client, address, budget) && !budget.queued && budget.inFlightBytes == 0 && NumbersReceived(net, server).size() == count; }, 20000));
+	const auto numbers = NumbersReceived(net, server);
+	for (unsigned i = 0; i < count; ++i)
+		EXPECT_EQ(numbers[i], i);
+	client->SetPerConnectionOutgoingBandwidthLimit(0);
+	net.Step(10);
+	ASSERT_TRUE(client->GetStatistics(address, &after));
+	EXPECT_EQ(after.BPSLimitByOutgoingBandwidthLimit, 0u);
+}
+
 TEST(SimulatedPeer, SendBudgetSeparatesWindowPressureFromApplicationPacing)
 {
 	SimulatedNetwork net;

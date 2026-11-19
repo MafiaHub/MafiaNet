@@ -386,7 +386,13 @@ suite covers the following workloads.
   With the sliding-window controller, the window, in-flight and available byte
   counters are means sampled over the complete run. The four queue-time buckets
   partition the ticks ending with queued data by exhausted window, exhausted
-  application pacing credit, both, or neither.
+  application pacing credit, both, or neither. ``RakPeer_MixedTrafficReservedRate``
+  runs the same workloads with a reserved minimum and maximum of 256 KiB/s,
+  charging retransmissions to the same payload budget. ``RakPeer_MixedTrafficReliable``
+  requests reliable ordered delivery for all gameplay, reports workload latency
+  at the 60-second cutoff, then measures the time until every message arrives
+  in order and both connections have empty send and retransmission queues.
+  The same link impairments apply throughout the drain.
 * **Construction bandwidth.** ``ReplicaManager3_Construct1000`` compares
   unconditional scalar serialization with a full construction snapshot and
   subsequent dirty updates. See :doc:`../plugins/replica-manager-3`.

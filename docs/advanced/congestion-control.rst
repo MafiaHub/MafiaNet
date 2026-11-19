@@ -34,6 +34,22 @@ The sender spends its payload budget on each network update. A whole packet
 can use part of the next update's budget. Retransmissions, ACKs, and protocol
 headers add to the traffic observed at the socket.
 
+For a connection on a provisioned link, the sliding-window controller can
+reserve a minimum send rate. Both arguments are in bits per second. The sender
+paces new payload and retransmitted payload against one shared cap. Set the
+minimum to the capacity available to *each* connection sharing the path.
+
+.. code-block:: cpp
+
+   const unsigned rate = 256 * 1024 * 8;
+   bool applied = peer->SetPerConnectionOutgoingBandwidthRange(rate, rate);
+
+The minimum reserves a flight of data using the recent minimum acknowledged
+round-trip time plus one delayed-ACK interval, bounded to one second. The
+reservation lapses when ACKs stop for one retransmission timeout. Protocol
+headers and ACKs still add traffic at the socket. A minimum above the maximum
+is rejected. Setting a maximum alone restores ordinary adaptive congestion control.
+
 **Checking connection quality:**
 
 .. code-block:: cpp

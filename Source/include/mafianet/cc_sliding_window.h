@@ -175,7 +175,8 @@ public:
 	double GetRTT(void) const;
 
 	bool GetIsInSlowStart(void) const { return IsInSlowStart(); }
-	uint32_t GetCWNDLimit(void) const { return cwnd < UINT32_MAX ? static_cast<uint32_t>(cwnd) : UINT32_MAX; }
+	uint32_t GetCWNDLimit(void) const;
+	void UpdateWindowFloor(CCTimeType now, unsigned minBitsPerSecond);
 
 
 	/// Is a > b, accounting for variable overflow?
@@ -211,6 +212,9 @@ protected:
 	bool IsInSlowStart(void) const;
 
 	double lastRtt, estimatedRTT, deviationRtt;
+	CCTimeType previousMinRtt, currentMinRtt, rttBucketStart, lastAckTime;
+	uint32_t windowFloorBytes;
+	bool trackReservedRateRtt;
 };
 
 }

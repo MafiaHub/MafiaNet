@@ -17,6 +17,9 @@
 
 #if USE_SLIDING_WINDOW_CONGESTION_CONTROL == 1
 
+#include <algorithm>
+#include <limits>
+
 static const double UNSET_TIME_US = -1;
 
 #if CC_TIME_TYPE_BYTES == 4
@@ -45,7 +48,11 @@ CCRakNetSlidingWindow::~CCRakNetSlidingWindow()
 // ----------------------------------------------------------------------------------------------------------------------------
 void CCRakNetSlidingWindow::Init(CCTimeType curTime, uint32_t maxDatagramPayload)
 {
-	(void) curTime;
+	previousMinRtt = currentMinRtt = std::numeric_limits<CCTimeType>::max();
+	rttBucketStart = curTime;
+	lastAckTime = curTime;
+	windowFloorBytes = 0;
+	trackReservedRateRtt = false;
 
 	lastRtt = estimatedRTT = deviationRtt = UNSET_TIME_US;
 	RakAssert(maxDatagramPayload <= MAXIMUM_MTU_SIZE);
@@ -82,12 +89,41 @@ int CCRakNetSlidingWindow::GetTransmissionBandwidth(CCTimeType curTime, CCTimeTy
 
 	_isContinuousSend = isContinuousSend;
 
-	if (unacknowledgedBytes <= cwnd)
-		return (int) (cwnd - unacknowledgedBytes);
-	else
-		return 0;
+	const auto limit = GetCWNDLimit();
+	return unacknowledgedBytes >= limit ? 0 : static_cast<int>(std::min<uint32_t>(limit - unacknowledgedBytes, INT32_MAX));
 }
 // ----------------------------------------------------------------------------------------------------------------------------
+uint32_t CCRakNetSlidingWindow::GetCWNDLimit() const
+{
+	return std::max(windowFloorBytes, cwnd < UINT32_MAX ? static_cast<uint32_t>(cwnd) : UINT32_MAX);
+}
+
+void CCRakNetSlidingWindow::UpdateWindowFloor(CCTimeType now, unsigned minBitsPerSecond)
+{
+	windowFloorBytes = 0;
+	if (minBitsPerSecond == 0)
+	{
+		trackReservedRateRtt = false;
+		return;
+	}
+	if (!trackReservedRateRtt)
+	{
+		previousMinRtt = currentMinRtt = std::numeric_limits<CCTimeType>::max();
+		rttBucketStart = now;
+		trackReservedRateRtt = true;
+	}
+	const auto baseRtt = std::min(previousMinRtt, currentMinRtt);
+	if (baseRtt == std::numeric_limits<CCTimeType>::max() || now - lastAckTime > GetRTOForRetransmission(1))
+		return;
+	// Use at most one second of the reserved rate. A long RTT or stopped ACK
+	// clock must not grant an arbitrarily large flight on a provisioned link.
+	constexpr CCTimeType unitsPerSecond = CC_TIME_TYPE_BYTES == 4 ? 1000 : 1000000;
+	// The receiver coalesces ACKs for up to SYN. A minimum RTT sample can
+	// exclude this interval, even though subsequent flights must cover it.
+	const auto flightTime = std::min(baseRtt, unitsPerSecond - SYN) + SYN;
+	windowFloorBytes = static_cast<uint32_t>(uint64_t{minBitsPerSecond} * flightTime / (8 * unitsPerSecond));
+}
+
 bool CCRakNetSlidingWindow::ShouldSendACKs(CCTimeType curTime, CCTimeType estimatedTimeToNextTick)
 {
 	CCTimeType rto = GetSenderRTOForACK();
@@ -213,6 +249,21 @@ void CCRakNetSlidingWindow::OnAck(CCTimeType curTime, CCTimeType rtt, bool hasBA
 	(void) curTime;
 	(void) rtt;
 
+	if (trackReservedRateRtt)
+	{
+		// Two one-second buckets track a recent path minimum. Delayed ACKs cannot
+		// raise the floor while a shorter sample remains in either bucket.
+		constexpr CCTimeType bucket = CC_TIME_TYPE_BYTES == 4 ? 1000 : 1000000;
+		const auto elapsed = curTime - rttBucketStart;
+		if (elapsed >= bucket)
+		{
+			previousMinRtt = elapsed < 2 * bucket ? currentMinRtt : std::numeric_limits<CCTimeType>::max();
+			currentMinRtt = std::numeric_limits<CCTimeType>::max();
+			rttBucketStart = curTime - elapsed % bucket;
+		}
+		currentMinRtt = std::min(currentMinRtt, rtt);
+		lastAckTime = curTime;
+	}
 	lastRtt = (double) rtt;
 	if (estimatedRTT == UNSET_TIME_US)
 	{

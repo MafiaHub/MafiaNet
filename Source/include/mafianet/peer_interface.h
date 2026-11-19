@@ -672,6 +672,18 @@ public:
 	/// \param[in] maxBitsPerSecond Maximum bits per second to send.  Use 0 for unlimited (default). Once set, it takes effect immedately and persists until called again.
 	virtual void SetPerConnectionOutgoingBandwidthLimit(unsigned maxBitsPerSecond) = 0;
 
+	/// Reserve a paced payload rate on each connection of a provisioned link. A nonzero minimum
+	/// sets a congestion window floor from recently acknowledged RTTs and charges resends to the cap.
+	/// Returns false for an unsupported controller or a minimum exceeding the maximum.
+	/// A zero minimum restores normal congestion control and the existing new-payload cap.
+	virtual bool SetPerConnectionOutgoingBandwidthRange(unsigned minBitsPerSecond, unsigned maxBitsPerSecond)
+	{
+		if (minBitsPerSecond != 0)
+			return false;
+		SetPerConnectionOutgoingBandwidthLimit(maxBitsPerSecond);
+		return true;
+	}
+
 	/// Returns if you previously called ApplyNetworkSimulator
 	/// \return If you previously called ApplyNetworkSimulator
 	virtual bool IsNetworkSimulatorActive(void) = 0;
