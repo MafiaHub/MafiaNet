@@ -51,6 +51,8 @@ public:
 		uint32_t jitterMs = 0;
 		int maxDatagramBytes = MAXIMUM_MTU_SIZE; // larger datagrams are dropped
 		bool dark = false;                       // drop everything
+		uint32_t reorderPerThousand = 0;         // chance of an extra delay on a surviving datagram
+		uint32_t reorderDelayMs = 0;
 	};
 
 	// A message a peer's Receive() returned, copied so it outlives the Packet.

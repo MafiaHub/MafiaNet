@@ -313,6 +313,8 @@ void SimulatedNetwork::Enqueue(const SystemAddress &from, const SystemAddress &t
 		return;
 	}
 	uint32_t delayMs = rule.delayMs;
+	if (rule.reorderPerThousand && (NextRandom() >> 12) % 1000 < rule.reorderPerThousand)
+		delayMs += rule.reorderDelayMs;
 	if (rule.jitterMs)
 		delayMs += NextRandom() % (rule.jitterMs + 1);
 
