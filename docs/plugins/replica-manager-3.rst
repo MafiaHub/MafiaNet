@@ -221,8 +221,26 @@ made during callbacks survive for the next tick. If the auto-serialize interval
 is positive, retain changes across updates until an actual serialization pass
 has served them. Remove a replica from pending changes before deleting it. If
 it appears in an active list, keep it alive until the pass returns.
-Include any replicas due for periodic updates. Give new observers the current
-state in their construction snapshot. A connection with its own list is served
+Give new and returning observers the current state in their construction snapshot.
+Include per-recipient changes and replicas due for a periodic update even if their
+shared position stayed the same. Requeue deferred work when that recipient
+becomes eligible again. Recipients served on different passes can use
+``RM3SR_SERIALIZED_UNIQUELY``, so RM3 compares against each recipient's history.
+
+For a known bulk rewrite, flag the whole pass before mutating the replicas and
+return ``false`` from ``QuerySerializationList()`` on each connection. RM3 then
+walks the constructed replicas eligible for ordinary serialization. This avoids
+collecting and looking up a candidate for every position. Use this fallback when
+the ordinary pass implements the application's desired eligibility and priority order.
+
+The candidate list controls which updates RM3 considers. Reliable channels retain
+a queued message for retransmission if its datagram is lost. For state sent
+unreliably, schedule any refresh or acknowledgement-driven retries required by
+the game. A refresh that must resend identical bytes needs a forced serialization
+result, such as ``RM3SR_BROADCAST_IDENTICALLY_FORCE_SERIALIZATION`` for a shared
+broadcast.
+
+A connection with its own list is served
 on the thread calling ``Update()``, including when using a serialize executor.
 
 Scoping

@@ -366,10 +366,12 @@ suite covers the following workloads.
   100 replicas. Steady-state cases change zero, one or all 100 replicas per
   tick, with one or eight clients. ``ReplicaManager3_LargeWorld`` measures a
   warmed world of 50,000 three-float positions, with one or 20 clients and
-  either zero or 500 positions changed per tick. ``ReplicaManager3_LargeWorldDirtyList``
+  zero, 500, or all 50,000 positions changed per tick. ``ReplicaManager3_LargeWorldDirtyList``
   measures the same writes with an application-supplied candidate list. Its time
   includes adding changed positions and copying the list for each connection.
-  Bytes per tick count serialized
+  ``ReplicaManager3_LargeWorldBulkFallback`` measures a known bulk rewrite that
+  uses the ordinary scan for that tick. Each case checks one position message
+  per changed replica per observer. Bytes per tick count serialized
   RM3 messages at the peer send boundary, before transport framing.
 * **Mixed traffic.** ``RakPeer_MixedTraffic`` runs 60 simulated seconds with
   bidirectional gameplay traffic, urgent probes, and a backlogged download.
