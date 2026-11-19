@@ -40,7 +40,7 @@ jobs:
   # (the canonical source of truth per the release procedure).
   verify-version:
     if: github.event_name == 'push' || github.event.inputs.tag != ''
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-2vcpu-ubuntu-2404
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -60,9 +60,9 @@ jobs:
 
   # Linux build runs in an ubuntu:22.04 container so the binaries link against
   # an older glibc and stay usable on a wider range of distributions than the
-  # ubuntu-latest runner image would allow.
+  # Ubuntu 24.04 host image would allow.
   linux:
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     container: ubuntu:22.04
     steps:
       - name: Install build dependencies
@@ -108,7 +108,7 @@ jobs:
   # libsodium is linked statically into MafiaNet.dll (no libsodium DLLs to ship)
   # while keeping the default /MD runtime that the MafiaNet targets use.
   windows:
-    runs-on: windows-latest
+    runs-on: blacksmith-4vcpu-windows-2025
     strategy:
       fail-fast: false
       matrix:
@@ -158,7 +158,7 @@ jobs:
           path: ${{ env.PACKAGE_NAME }}.zip
           if-no-files-found: error
 
-  # macOS Intel (macos-15-intel runner) and Apple Silicon (macos-latest).
+  # Blacksmith provides Apple Silicon. Build the Intel archive on a native GitHub runner.
   macos:
     strategy:
       fail-fast: false
@@ -168,7 +168,7 @@ jobs:
             runner: macos-15-intel
             deployment_target: "10.15"
           - arch: arm64
-            runner: macos-latest
+            runner: blacksmith-6vcpu-macos-latest
             deployment_target: "11.0"
     name: macos (${{ matrix.arch }})
     runs-on: ${{ matrix.runner }}
@@ -214,7 +214,7 @@ jobs:
   release:
     if: github.event_name == 'push' || github.event.inputs.tag != ''
     needs: [verify-version, linux, windows, macos]
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-2vcpu-ubuntu-2404
     permissions:
       contents: write
     steps:

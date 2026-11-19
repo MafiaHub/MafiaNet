@@ -27,7 +27,7 @@ jobs:
   # Benchmarks must match .clang-format. Pinned: clang-format versions differ
   # on a few constructs. Fix locally with ci/format.sh.
   format:
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-2vcpu-ubuntu-2404
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -41,12 +41,12 @@ jobs:
         run: ci/format.sh --check
 
   # Linux in Docker on Ubuntu 22.04 (GCC 11, CMake 3.22): the oldest toolchain
-  # we support, kept on purpose next to linux-native (ubuntu-latest), so a
+  # we support, kept on purpose next to linux-native (Ubuntu 24.04), so a
   # change that needs a newer compiler or CMake fails here first.
   # Tests run through CTest inside the container: one process per test,
   # per-test timeout, and bounded retries for transient timing misses.
   linux:
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -83,7 +83,7 @@ jobs:
   #             (its unit test skips itself under _DEBUG, where the assert fires
   #             first) and the silent IPv4-only branch in the sendmmsg override.
   linux-native:
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     # IPv6 loopback tests fail instead of skipping when ::1 is unavailable.
     env:
       MAFIANET_REQUIRE_IPV6: "1"
@@ -181,7 +181,7 @@ jobs:
   # header leaks into the core. The test suites use the plugins, so this job
   # builds both library targets and nothing else.
   linux-minimal:
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -219,8 +219,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Use Intel while the hosted macOS arm64 pool has capacity failures.
-        os: [ubuntu-latest, macos-15-intel, windows-latest]
+        os: [blacksmith-4vcpu-ubuntu-2404, blacksmith-6vcpu-macos-15, blacksmith-4vcpu-windows-2025]
     runs-on: ${{ matrix.os }}
     name: install-consumer (${{ matrix.os }})
     steps:
@@ -314,7 +313,7 @@ jobs:
   # ci/tsan.supp so the job flags new ones; removing them needs a
   # concurrency-model change, not a CI tweak.
   sanitizers:
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     # IPv6 loopback tests fail instead of skipping when ::1 is unavailable.
     env:
       MAFIANET_REQUIRE_IPV6: "1"
@@ -396,7 +395,7 @@ jobs:
   # crash uploads the reproducer: minimize it and add it to
   # Tests/Fuzz/corpus/<harness>/ with the fix, so every build replays it.
   fuzz:
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 30
     steps:
       - name: Checkout repository
@@ -445,7 +444,7 @@ jobs:
   # Benchmarks smoke run: proves they build and run. Shared runners are too
   # noisy to gate on numbers; compare locally with the bench preset instead.
   benchmarks:
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 30
     steps:
       - name: Checkout repository
@@ -481,7 +480,7 @@ jobs:
   # Line coverage of Source/ by both suites, written to the job summary with
   # an HTML report as an artifact. Informational: nothing gates on it.
   coverage:
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     # IPv6 loopback tests fail instead of skipping when ::1 is unavailable.
     env:
       MAFIANET_REQUIRE_IPV6: "1"
@@ -526,8 +525,7 @@ jobs:
 
   # macOS: Build and run both suites (unit + integration).
   macos:
-    # Avoid the hosted arm64 pool: jobs can expire before acquiring a runner.
-    runs-on: macos-15-intel
+    runs-on: blacksmith-6vcpu-macos-15
     # IPv6 loopback tests fail instead of skipping when ::1 is unavailable.
     env:
       MAFIANET_REQUIRE_IPV6: "1"
@@ -582,7 +580,7 @@ jobs:
   # Windows: build everything, run both suites. The integration suite became
   # runnable here once every test moved to OS-assigned ports.
   windows:
-    runs-on: windows-latest
+    runs-on: blacksmith-4vcpu-windows-2025
     # IPv6 loopback tests fail instead of skipping when ::1 is unavailable.
     env:
       MAFIANET_REQUIRE_IPV6: "1"
