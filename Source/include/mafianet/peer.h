@@ -599,6 +599,7 @@ public:
 	/// Set to 0 or less to never timeout.  Defaults to 0.
 	/// \param[in] timeoutMS How many ms to wait before simply not sending an unreliable message.
 	void SetUnreliableTimeout(MafiaNet::TimeMS timeoutMS);
+	virtual bool SetOutgoingSchedulingPolicy(OutgoingSchedulingPolicy policy);
 
 	/// \brief Send a message to a host, with the IP socket option TTL set to 3.
 	/// \details This message will not reach the host, but will open the router.
@@ -700,7 +701,6 @@ public:
 	/// Exceeding the limit queues up outgoing traffic
 	/// \param[in] maxBitsPerSecond Maximum bits per second to send.  Use 0 for unlimited (default). Once set, it takes effect immedately and persists until called again.
 	virtual void SetPerConnectionOutgoingBandwidthLimit(unsigned maxBitsPerSecond);
-	virtual bool SetOutgoingSchedulingPolicy(OutgoingSchedulingPolicy policy);
 
 	/// Returns if you previously called ApplyNetworkSimulator
 	/// \return If you previously called ApplyNetworkSimulator
@@ -1243,7 +1243,6 @@ protected:
 	RakNetGUID myGuid;
 
 	unsigned maxOutgoingBPS;
-	std::atomic<OutgoingSchedulingPolicy> outgoingSchedulingPolicy{OutgoingSchedulingPolicy{}};
 
 	// Nobody would use the internet simulator in a final build.
 #ifdef _DEBUG
@@ -1259,6 +1258,7 @@ protected:
 	SystemAddress firstExternalID;
 	int splitMessageProgressInterval;
 	MafiaNet::TimeMS unreliableTimeout;
+	std::atomic<OutgoingSchedulingPolicy> outgoingSchedulingPolicy{OutgoingSchedulingPolicy{}};
 
 	bool (*incomingDatagramEventHandler)(RNS2RecvStruct *);
 
