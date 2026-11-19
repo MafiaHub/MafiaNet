@@ -10,8 +10,10 @@
 #include "mafianet/replica_manager3.h"
 
 #if _RAKNET_SUPPORT_ReplicaManager3 == 1
-#include <array>
+#include <vector>
 #include "mafianet/network_id_manager.h"
+#include "mafianet/message_identifiers.h"
+#include <type_traits>
 #include "mafianet/get_time.h"
 #include "mafianet/peer.h"
 
@@ -76,13 +78,15 @@ TimeUS TickClock()
 	return tickUS;
 }
 
+template <typename Replica = StateReplica, typename Peer = CountingPeer>
 struct World
 {
-	CountingPeer peer;
+	Peer peer;
 	NetworkIDManager ids;
 	Manager manager;
-	std::array<StateReplica, 100> replicas;
-	explicit World(int clients)
+	std::vector<Replica> replicas;
+	explicit World(int clients, size_t replicaCount = 100)
+	    : replicas(replicaCount)
 	{
 		tickUS = 1000000;
 		SetTimeSourceOverride(TickClock);
@@ -106,14 +110,15 @@ struct World
 	}
 };
 
-void ReplicaManager3_Construct(benchmark::State &state)
+template <class Replica>
+void MeasureConstruction(benchmark::State &state, int clients, unsigned count)
 {
 	uint64_t total = 0;
 	for (auto _ : state)
 	{
 		state.PauseTiming();
 		{
-			World world(static_cast<int>(state.range(0)));
+			World<Replica> world(clients, count);
 			world.peer.bytes = 0;
 			state.ResumeTiming();
 			world.Tick();
@@ -129,7 +134,151 @@ void ReplicaManager3_Construct(benchmark::State &state)
 	}
 	state.counters["rm3_bytes_per_tick"] = benchmark::Counter(total, benchmark::Counter::kAvgIterations);
 }
+void ReplicaManager3_Construct(benchmark::State &state)
+{
+	MeasureConstruction<StateReplica>(state, static_cast<int>(state.range(0)), 100);
+}
 BENCHMARK(ReplicaManager3_Construct)->ArgName("clients")->Arg(1)->Arg(8)->Iterations(32);
+
+// The construction callback supplies the complete scalar value to every new
+// observer. Only subsequent writes need a broadcast. A joining observer never
+// consumes an update pending for the clients that already hold the replica.
+class SnapshotReplica : public StateReplica
+{
+public:
+	void SetValue(uint32_t next)
+	{
+		if (value != next)
+		{
+			value = next;
+			changed = true;
+		}
+	}
+
+	RM3SerializationResult Serialize(SerializeParameters *params) override
+	{
+		if (params->destinationConnection || !changed)
+			return RM3SR_DO_NOT_SERIALIZE;
+		changed = false;
+		return StateReplica::Serialize(params);
+	}
+
+private:
+	bool changed = false;
+};
+
+// The download markers distinguish the eager state messages sent inside
+// SendConstruction from those produced by the regular pass in the same tick.
+struct ConstructionTraffic : CountingPeer
+{
+	using CountingPeer::Send;
+	uint32_t Send(const BitStream *data, Priority, Reliability, char, const AddressOrGUID, bool, uint32_t) override
+	{
+		const auto size = data->GetNumberOfBytesUsed();
+		switch (data->GetData()[0])
+		{
+		case ID_REPLICA_MANAGER_DOWNLOAD_STARTED:
+			downloading = true;
+			controlBytes += size;
+			break;
+		case ID_REPLICA_MANAGER_DOWNLOAD_COMPLETE:
+			downloading = false;
+			controlBytes += size;
+			break;
+		case ID_REPLICA_MANAGER_CONSTRUCTION:
+		{
+			BitStream input(data->GetData(), size, false);
+			input.IgnoreBytes(2); // message ID and world
+			uint16_t count = 0;
+			input.Read(count);
+			records += count;
+			constructionBytes += size;
+			break;
+		}
+		case ID_REPLICA_MANAGER_SERIALIZE:
+			if (downloading)
+			{
+				++initialMessages;
+				initialBytes += size;
+			}
+			else
+			{
+				++regularMessages;
+				regularBytes += size;
+			}
+			break;
+		default:
+			break;
+		}
+		bytes += size;
+		return 1;
+	}
+
+	bool downloading = false;
+	uint64_t controlBytes = 0, constructionBytes = 0, initialBytes = 0, regularBytes = 0;
+	unsigned records = 0, initialMessages = 0, regularMessages = 0;
+};
+
+// Exercise the application dirty flag outside the sample. A mutation during a
+// late join must still be sent to a client that already owns the replica.
+bool SnapshotUpdatesReachExistingObservers()
+{
+	World<SnapshotReplica, ConstructionTraffic> world(1, 1);
+	auto &traffic = world.peer;
+	world.Tick();
+	if (traffic.records != 1 || traffic.initialMessages != 0 || traffic.regularMessages != 0)
+		return false;
+	world.replicas.front().SetValue(7);
+	world.manager.PushConnection(new Connection(RakNetGUID(101)));
+	world.Tick();
+	if (traffic.records != 2 || traffic.initialMessages != 0 || traffic.regularMessages != 2)
+		return false;
+	world.Tick();
+	return traffic.regularMessages == 2;
+}
+
+template <class Replica>
+void ConstructionBandwidth(benchmark::State &state)
+{
+	constexpr unsigned count = 1000;
+	if constexpr (std::is_same_v<Replica, SnapshotReplica>)
+	{
+		if (!SnapshotUpdatesReachExistingObservers())
+		{
+			state.SkipWithError("snapshot lost a mutation or repeated an idle update");
+			return;
+		}
+	}
+	// Classify messages in a separate pass so the timing measures normal send
+	// boundary cost, independent of the number of messages being classified.
+	{
+		World<Replica, ConstructionTraffic> world(1, count);
+		auto &traffic = world.peer;
+		traffic.bytes = 0; // exclude connection validation
+		world.Tick();
+		const auto stateBytes = sizeof(uint32_t) * (traffic.records + traffic.initialMessages + traffic.regularMessages);
+		const auto typeBytes = sizeof(uint8_t) * traffic.records;
+		if (traffic.records != count || traffic.bytes != traffic.constructionBytes + traffic.controlBytes + traffic.initialBytes + traffic.regularBytes || traffic.bytes < stateBytes + typeBytes)
+		{
+			state.SkipWithError("incomplete construction accounting");
+			return;
+		}
+		state.counters["construction_records"] = traffic.records;
+		state.counters["construction_bytes"] = static_cast<double>(traffic.constructionBytes);
+		state.counters["initial_state_messages"] = traffic.initialMessages;
+		state.counters["initial_state_bytes"] = static_cast<double>(traffic.initialBytes);
+		state.counters["regular_state_messages"] = traffic.regularMessages;
+		state.counters["regular_state_bytes"] = static_cast<double>(traffic.regularBytes);
+		state.counters["download_control_bytes"] = static_cast<double>(traffic.controlBytes);
+		state.counters["scalar_bytes"] = static_cast<double>(stateBytes);
+		state.counters["allocation_id_bytes"] = static_cast<double>(typeBytes);
+		state.counters["framing_bytes"] = static_cast<double>(traffic.bytes - stateBytes - typeBytes);
+	}
+
+	MeasureConstruction<Replica>(state, 1, count);
+}
+BENCHMARK_TEMPLATE(ConstructionBandwidth, StateReplica)->Name("ReplicaManager3_Construct1000/always_serialize")->Iterations(32);
+BENCHMARK_TEMPLATE(ConstructionBandwidth, SnapshotReplica)->Name("ReplicaManager3_Construct1000/snapshot_and_dirty_updates")->Iterations(32);
 
 void ReplicaManager3_ServerTick(benchmark::State &state)
 {
@@ -149,5 +298,48 @@ void ReplicaManager3_ServerTick(benchmark::State &state)
 	state.counters["rm3_bytes_per_tick"] = benchmark::Counter(world.peer.bytes, benchmark::Counter::kAvgIterations);
 }
 BENCHMARK(ReplicaManager3_ServerTick)->ArgsProduct({{1, 8}, {0, 1, 100}})->ArgNames({"clients", "changed_of_100"});
+
+class PositionReplica : public StateReplica
+{
+public:
+	float x = 1.0f, y = 2.0f, z = 3.0f;
+	void SerializeConstruction(BitStream *out, Connection_RM3 *) override { WritePosition(*out); }
+	RM3SerializationResult Serialize(SerializeParameters *params) override
+	{
+		WritePosition(params->outputBitstream[0]);
+		return RM3SR_BROADCAST_IDENTICALLY;
+	}
+
+private:
+	void WritePosition(BitStream &out) const
+	{
+		out.Write(x);
+		out.Write(y);
+		out.Write(z);
+	}
+};
+
+// A quiet or sparsely changing world. One iteration measures one server tick
+// after construction has been emitted for every client and the serializer is warm.
+void ReplicaManager3_LargeWorld(benchmark::State &state)
+{
+	const int clients = static_cast<int>(state.range(0));
+	const int changed = static_cast<int>(state.range(1));
+	World<PositionReplica> world(clients, 50000);
+	world.Tick();
+	world.Tick();
+	world.peer.bytes = 0;
+	for (auto _ : state)
+	{
+		for (int i = 0; i < changed; ++i)
+			world.replicas[i].x += 1.0f;
+		world.Tick();
+	}
+	if ((world.peer.bytes > 0) != (changed > 0))
+		state.SkipWithError("unexpected replication output");
+	state.counters["rm3_bytes_per_tick"] = benchmark::Counter(world.peer.bytes, benchmark::Counter::kAvgIterations);
+}
+BENCHMARK(ReplicaManager3_LargeWorld)->ArgsProduct({{1, 20}, {0, 500}})->ArgNames({"clients", "changed_of_50000"})->Iterations(20);
+
 }
 #endif

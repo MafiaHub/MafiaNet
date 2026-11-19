@@ -913,3 +913,77 @@ TEST_P(SerializePassCallbacks, UpdateRunFromInsideAPassReturnsAtOnce)
 
 INSTANTIATE_TEST_SUITE_P(Passes, SerializePassCallbacks, ::testing::Combine(::testing::Bool(), ::testing::Bool()), [](const ::testing::TestParamInfo<std::tuple<bool, bool>> &info)
                          { return std::string(std::get<0>(info.param) ? "Broadcast" : "PerConnection") + (std::get<1>(info.param) ? "Parallel" : "Serial"); });
+
+// The old query returns NEVER after its record was recycled by a game callback.
+// That return belongs only to the removed replica; the new one must still get updates.
+TEST_F(ReplicaManager3SerializePass, CallbackReplacingAReplicaKeepsTheNewRecordEligible)
+{
+	class ReplacingReplica : public PassReplica
+	{
+	public:
+		using PassReplica::PassReplica;
+		std::function<void()> replace;
+		RM3QuerySerializationResult QuerySerialization(Connection_RM3 *) override
+		{
+			if (!replace)
+				return RM3QSR_CALL_SERIALIZE;
+			auto once = std::move(replace);
+			once();
+			return RM3QSR_NEVER_CALL_SERIALIZE;
+		}
+	};
+
+	auto *old = new ReplacingReplica(false);
+	replicas.push_back(old);
+	manager.Reference(old);
+	auto *keeper = AddReplica(true);
+	auto *next = AddReplica(false);
+	auto *connection = AddConnections(1, {old, keeper}).front();
+	Tick();
+	old->replace = [&]
+	{
+		manager.Dereference(old);
+		connection->wanted = {keeper, next};
+		connection->AutoConstructByQuery(&manager, 0);
+	};
+	Tick();
+	ASSERT_TRUE(connection->HasReplicaConstructed(next));
+	connection->received.clear();
+	next->value = 92;
+	Tick();
+	EXPECT_EQ(connection->received, std::vector<int>{92});
+}
+
+// Construction on a newly visible connection starts with a clean per-connection
+// serialization history, even when an old record's storage is available.
+TEST_F(ReplicaManager3SerializePass, ReplacementRecordStartsWithFreshSerializationHistory)
+{
+	class InspectConnection : public PassConnection
+	{
+	public:
+		using PassConnection::PassConnection;
+		LastSerializationResult *Construct(Replica3 *replica, ReplicaManager3 *manager)
+		{
+			OnConstructToThisConnection(replica, manager);
+			return queryToSerializeReplicaList.back();
+		}
+	};
+	auto *old = AddReplica(false);
+	auto *keeper = AddReplica(false);
+	auto *next = AddReplica(false);
+	auto *connection = new InspectConnection(RakNetGUID(100));
+	manager.PushConnection(connection);
+	connection->Construct(keeper, &manager);
+	auto *previous = connection->Construct(old, &manager);
+	previous->AllocBS();
+	previous->lastSerializationResultBS->bitStream[0].Write(7);
+	previous->servedPass = 42;
+	previous->whenLastSerialized = 123;
+	manager.Dereference(old);
+	g_passNowUS += 10000;
+	auto *record = connection->Construct(next, &manager);
+	EXPECT_EQ(record->replica, next);
+	EXPECT_EQ(record->lastSerializationResultBS, nullptr);
+	EXPECT_EQ(record->servedPass, 0u);
+	EXPECT_EQ(record->whenLastSerialized, MafiaNet::GetTime());
+}

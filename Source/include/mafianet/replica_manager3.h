@@ -543,6 +543,8 @@ struct LastSerializationResult
 	/// \internal The serialize pass that last served this record, so a pass picking up again after a game
 	/// callback changed the lists does not serve it twice.
 	uint32_t servedPass;
+	/// \internal Identifies this use of a connection's record slot across callbacks that can recycle it.
+	uint32_t allocationNumber = 0;
 };
 
 /// Parameters passed to Replica3::Serialize()
