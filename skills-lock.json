@@ -1,0 +1,19 @@
+{
+  "version": 2,
+  "skills": {
+    "cpp-coding-standards": {
+      "source": "affaan-m/ECC",
+      "commit": "3f14a103a8694e51c1df9a806217a6d0b5f7a6f7",
+      "sourceType": "github",
+      "skillPath": "skills/cpp-coding-standards/SKILL.md",
+      "computedHash": "324ceea2c562f3eff848d258ba84318caf1e353ccce862e85ab4275486e72f1e"
+    },
+    "cpp-testing": {
+      "source": "affaan-m/ECC",
+      "commit": "3f14a103a8694e51c1df9a806217a6d0b5f7a6f7",
+      "sourceType": "github",
+      "skillPath": "skills/cpp-testing/SKILL.md",
+      "computedHash": "09d2c32374ed6bdabede7a48b389ef8fc3f9e0b0dc2fa87deacd449fd9b7edf1"
+    }
+  }
+}
