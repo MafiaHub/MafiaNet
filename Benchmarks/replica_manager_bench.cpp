@@ -351,7 +351,7 @@ private:
 	}
 };
 
-// A quiet or sparsely changing world. One iteration measures one server tick
+// A warmed world. One iteration measures one server tick
 // after construction has been emitted for every client and the serializer is warm.
 template <bool useDirtyList, bool bulkFallback = false>
 void MeasureLargeWorld(benchmark::State &state)
@@ -359,10 +359,10 @@ void MeasureLargeWorld(benchmark::State &state)
 	const int clients = static_cast<int>(state.range(0));
 	const int changed = static_cast<int>(state.range(1));
 	SerializationCandidates candidates;
+	candidates.fullScan = true;
+	if constexpr (useDirtyList && !bulkFallback)
+		candidates.changed.reserve(changed);
 	World<PositionReplica> world(clients, 50000, useDirtyList ? &candidates : nullptr);
-	if constexpr (useDirtyList)
-		for (auto &replica : world.replicas)
-			candidates.changed.push_back(&replica);
 	world.Tick();
 	world.Tick();
 	world.peer.bytes = 0;
