@@ -1275,6 +1275,7 @@ void Connection_RM3::AutoConstructByQuery(ReplicaManager3 *replicaManager3, Worl
 					if (queryToSerializeReplicaList[j] == lsr)
 					{
 						queryToSerializeReplicaList.erase(queryToSerializeReplicaList.begin() + j);
+						++serializationListRevision;
 						break;
 					}
 				}
@@ -1463,15 +1464,104 @@ enum class ServeShare
 	Rest
 };
 
-// Returns false when a game callback dropped the connection, which must then not be touched again.
-bool ServeSerializeList(Connection_RM3 *connection, std::vector<LastSerializationResult *> &list, SerializeParameters &sp, RakPeerInterface *rakPeer, WorldId worldId, ReplicaManager3 *replicaManager, MafiaNet::Time time, uint32_t pass, ServeShare share)
+void WriteSerializationHeader(Replica3 *replica, Time timestamp, BitStream &out, WorldId worldId)
 {
+	out.Reset();
+	if (timestamp != 0)
+	{
+		out.Write((MessageID) ID_TIMESTAMP);
+		out.Write(timestamp);
+	}
+	out.Write((MessageID) ID_REPLICA_MANAGER_SERIALIZE);
+	out.Write(worldId);
+	out.Write(replica->GetNetworkID());
+}
+
+// Encodes one PRO group, preserving all sixteen wire slots and exact partial-byte lengths.
+uint16_t EncodeSerializationPacket(Replica3 *replica, uint16_t pending, BitStream *data,
+                                   Time timestamp, const PRO *parameters, WorldId worldId,
+                                   BitStream &out, BitSize_t *channelBits, PRO &groupParameters)
+{
+	int first = 0;
+	while ((pending & (1u << first)) == 0)
+		++first;
+	groupParameters = parameters[first];
+	WriteSerializationHeader(replica, timestamp, out, worldId);
+	uint16_t group = 0;
+	for (int z = 0; z < RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; ++z)
+	{
+		const bool selected = (pending & (1u << z)) != 0 && parameters[z] == groupParameters;
+		out.Write(selected);
+		channelBits[z] = selected ? data[z].GetNumberOfBitsUsed() : 0;
+		if (selected)
+		{
+			out.WriteCompressed(channelBits[z]);
+			out.AlignWriteToByteBoundary();
+			out.WriteBits(data[z].GetData(), channelBits[z], false);
+			group |= static_cast<uint16_t>(1u << z);
+		}
+	}
+	return group;
+}
+
+void PrepareSerializationVariants(Replica3 *replica, WorldId worldId, uint32_t pass)
+{
+	static_assert(RM3_NUM_OUTPUT_BITSTREAM_CHANNELS == 16, "Update prepared mask width with the channel count");
+	uint16_t active = 0;
+	for (int z = 0; z < RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; ++z)
+		if (replica->lastSentSerialization.indicesToSend[z] && replica->lastSentSerialization.bitStream[z].GetNumberOfBitsUsed() != 0)
+			active |= static_cast<uint16_t>(1u << z);
+	std::array<uint16_t, RM3_NUM_OUTPUT_BITSTREAM_CHANNELS + 1> masks{};
+	unsigned count = 0;
+	if (active)
+	{
+		masks[count++] = active;
+		for (int z = 0; z < RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; ++z)
+		{
+			const uint16_t bit = static_cast<uint16_t>(1u << z);
+			if ((active & bit) && active != bit)
+				masks[count++] = bit;
+		}
+	}
+	replica->preparedPacketWorld = worldId;
+	replica->preparedPacketNetworkId = replica->GetNetworkID();
+	replica->preparedVariantsPass = pass;
+	replica->preparedPacketVariants.resize(count);
+	BitStream encoded;
+	for (unsigned i = 0; i < count; ++i)
+	{
+		auto &variant = replica->preparedPacketVariants[i];
+		variant.channelMask = masks[i];
+		uint16_t pending = masks[i];
+		unsigned packetIndex = 0;
+		while (pending)
+		{
+			if (packetIndex == variant.packets.size())
+				variant.packets.emplace_back();
+			auto &packet = variant.packets[packetIndex++];
+			const uint16_t group = EncodeSerializationPacket(replica, pending, replica->lastSentSerialization.bitStream,
+			                                                 replica->preparedTimestamp, replica->preparedPro, worldId, encoded, packet.channelBits.data(), packet.parameters);
+			packet.bits = encoded.GetNumberOfBitsUsed();
+			packet.bytes.assign(encoded.GetData(), encoded.GetData() + encoded.GetNumberOfBytesUsed());
+			pending &= static_cast<uint16_t>(~group);
+		}
+		variant.packets.resize(packetIndex);
+	}
+}
+
+// Returns false when a game callback dropped the connection, which must then not be touched again.
+bool ServeSerializeList(Connection_RM3 *connection, std::vector<LastSerializationResult *> &list, SerializeParameters &sp, RakPeerInterface *rakPeer, WorldId worldId, ReplicaManager3 *replicaManager, MafiaNet::Time time, uint32_t pass, ServeShare share, bool *restPending = nullptr)
+{
+	if (restPending)
+		*restPending = false;
 	uint32_t generation = replicaManager->GetMembershipGeneration();
 	unsigned int index = 0;
 	while (index < list.size())
 	{
 		LastSerializationResult *lsr = list[index];
 		const uint32_t allocation = lsr->allocationNumber;
+		if (restPending && lsr->servedPass != pass && lsr->replica->parallelPass != pass)
+			*restPending = true;
 		if (lsr->servedPass == pass || (share != ServeShare::All && (lsr->replica->parallelPass == pass) != (share == ServeShare::Workers)))
 		{
 			index++;
@@ -1646,7 +1736,9 @@ void ReplicaManager3::SerializeConnectionsParallel(RM3World *world, WorldId worl
 		if (replica->neededPass != serializePass)
 			continue;
 		if (replica->preparedPass != serializePass)
-			PrepareBroadcast(replica, time);
+			// Workers read variants concurrently: whenever more than one connection could share
+			// this broadcast, they must find the bytes already built here, never build them there.
+			PrepareBroadcast(replica, time, worldId, world->connectionList.size() >= 2);
 		if (replica->prepared != Replica3::PB_SERIALIZE_PER_CONNECTION)
 			replica->parallelPass = serializePass;
 		if (membershipGeneration != generation)
@@ -1686,6 +1778,12 @@ void ReplicaManager3::SerializeConnectionsParallel(RM3World *world, WorldId worl
 		ConnectionLockHolder connectionLock(LockConnection(connection));
 		connection->servedPass = serializePass;
 		sp.bitsWrittenSoFar = 0;
+		if (connection->restSummaryPass == serializePass && connection->restSummaryWorld == worldId &&
+		    connection->restSummaryRevision == connection->serializationListRevision && !connection->restPending)
+		{
+			connection->restSkippedPass = serializePass;
+			continue;
+		}
 		ServeSerializeList(connection, connection->queryToSerializeReplicaList, sp, GetRakPeerInterface(), worldId, this, time, serializePass, ServeShare::Rest);
 		if (membershipGeneration != generation)
 		{
@@ -1706,10 +1804,13 @@ void ReplicaManager3::ServePreparedBroadcasts(void *context, unsigned int index)
 	sp.bitsWrittenSoFar = 0;
 	for (int i = 0; i < RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; i++)
 		sp.pro[i] = pass.replicaManager->defaultSendParameters;
-	ServeSerializeList(connection, connection->queryToSerializeReplicaList, sp, pass.rakPeer, pass.worldId, pass.replicaManager, pass.time, pass.pass, ServeShare::Workers);
+	ServeSerializeList(connection, connection->queryToSerializeReplicaList, sp, pass.rakPeer, pass.worldId, pass.replicaManager, pass.time, pass.pass, ServeShare::Workers, &connection->restPending);
+	connection->restSummaryPass = pass.pass;
+	connection->restSummaryWorld = pass.worldId;
+	connection->restSummaryRevision = connection->serializationListRevision;
 }
 
-void ReplicaManager3::PrepareBroadcast(Replica3 *replica, MafiaNet::Time time)
+void ReplicaManager3::PrepareBroadcast(Replica3 *replica, MafiaNet::Time time, WorldId worldId, bool buildVariantsEagerly)
 {
 	replica->preparedPass = serializePass;
 	replica->prepared = Replica3::PB_SERIALIZE_PER_CONNECTION;
@@ -1763,6 +1864,11 @@ void ReplicaManager3::PrepareBroadcast(Replica3 *replica, MafiaNet::Time time)
 	for (int z = 0; z < RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; z++)
 		replica->preparedPro[z] = sp.pro[z];
 	replica->lastBroadcast = time;
+	// Eagerly built variants are what executor workers find ready; a lazy build leaves any stale ones
+	// in place, unreadable this pass through preparedVariantsPass, and cheaper not to walk and free.
+	replica->preparedRecipientsThisPass = 0;
+	if (buildVariantsEagerly)
+		PrepareSerializationVariants(replica, worldId, serializePass);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -2321,16 +2427,7 @@ bool Connection_RM3::HasReplicaConstructed(MafiaNet::Replica3 *replica)
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void Connection_RM3::SendSerializeHeader(MafiaNet::Replica3 *replica, MafiaNet::Time timestamp, MafiaNet::BitStream *bs, WorldId worldId)
 {
-	bs->Reset();
-
-	if (timestamp != 0)
-	{
-		bs->Write((MessageID) ID_TIMESTAMP);
-		bs->Write(timestamp);
-	}
-	bs->Write((MessageID) ID_REPLICA_MANAGER_SERIALIZE);
-	bs->Write(worldId);
-	bs->Write(replica->GetNetworkID());
+	WriteSerializationHeader(replica, timestamp, *bs, worldId);
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void Connection_RM3::ClearDownloadGroup(RakPeerInterface *rakPeerInterface)
@@ -2343,59 +2440,56 @@ void Connection_RM3::ClearDownloadGroup(RakPeerInterface *rakPeerInterface)
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 SendSerializeIfChangedResult Connection_RM3::SendSerialize(MafiaNet::Replica3 *replica, bool indicesToSend[RM3_NUM_OUTPUT_BITSTREAM_CHANNELS], MafiaNet::BitStream serializationData[RM3_NUM_OUTPUT_BITSTREAM_CHANNELS], MafiaNet::Time timestamp, PRO sendParameters[RM3_NUM_OUTPUT_BITSTREAM_CHANNELS], RakPeerInterface *rakPeer, unsigned char worldId, MafiaNet::Time curTime)
 {
-	// A channel goes out only when it is selected and holds data. The selection is what counts: a
-	// replica's cached broadcast record keeps the bytes of channels it no longer selects.
-	bool pending[RM3_NUM_OUTPUT_BITSTREAM_CHANNELS];
-	bool anyPending = false;
-	for (int z = 0; z < RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; z++)
+	uint16_t pending = 0;
+	auto *manager = replica->replicaManager;
+	bool matchingParameters = manager && manager->inSerializePass && replica->preparedPass == manager->serializePass &&
+	                          replica->prepared == Replica3::PB_SEND && serializationData == replica->lastSentSerialization.bitStream &&
+	                          timestamp == replica->preparedTimestamp && worldId == replica->preparedPacketWorld && replica->GetNetworkID() == replica->preparedPacketNetworkId &&
+	                          replica->preparedVariantsPass == manager->serializePass;
+	for (int z = 0; z < RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; ++z)
 	{
-		pending[z] = indicesToSend[z] && serializationData[z].GetNumberOfBitsUsed() > 0;
-		anyPending = anyPending || pending[z];
+		if (indicesToSend[z] && serializationData[z].GetNumberOfBitsUsed() != 0)
+		{
+			pending |= static_cast<uint16_t>(1u << z);
+			matchingParameters = matchingParameters && sendParameters[z] == replica->preparedPro[z];
+		}
 	}
-
-	MafiaNet::BitStream out;
-	BitSize_t bitsPerChannel[RM3_NUM_OUTPUT_BITSTREAM_CHANNELS];
-
-	if (anyPending == false)
+	BitSize_t bitsPerChannel[RM3_NUM_OUTPUT_BITSTREAM_CHANNELS] = {};
+	if (pending == 0)
 	{
-		memset(bitsPerChannel, 0, sizeof(bitsPerChannel));
-		replica->OnSerializeTransmission(&out, this, bitsPerChannel, curTime);
+		BitStream empty;
+		replica->OnSerializeTransmission(&empty, this, bitsPerChannel, curTime);
 		return SSICR_DID_NOT_SEND_DATA;
 	}
-
-	RakAssert(replica->GetNetworkID() != UNASSIGNED_NETWORK_ID);
-
-	// One message per distinct set of send parameters, in channel order. Channels that share their
-	// parameters share the message; a group with nothing to carry is never sent, so a state-only
-	// change no longer costs an empty message on the channel before it.
-	for (int first = 0; first < RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; first++)
+	if (matchingParameters)
 	{
-		if (pending[first] == false)
-			continue;
-
-		const PRO pro = sendParameters[first];
-		SendSerializeHeader(replica, timestamp, &out, worldId);
-		for (int z = 0; z < RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; z++)
+		for (const auto &variant : replica->preparedPacketVariants)
 		{
-			const bool channelHasData = pending[z] && sendParameters[z] == pro;
-			out.Write(channelHasData);
-			if (channelHasData)
+			if (variant.channelMask != pending)
+				continue;
+			for (const auto &packet : variant.packets)
 			{
-				bitsPerChannel[z] = serializationData[z].GetNumberOfBitsUsed();
-				out.WriteCompressed(bitsPerChannel[z]);
-				out.AlignWriteToByteBoundary();
-				// Copied from its bytes, leaving the source untouched: a parallel serialize pass has several
-				// connections send the same replica's bitstream at once.
-				out.WriteBits(serializationData[z].GetData(), bitsPerChannel[z], false);
-				pending[z] = false;
+				// Keep legacy mutable callbacks: editing this private copy cannot affect another recipient.
+				BitStream out(const_cast<unsigned char *>(packet.bytes.data()), static_cast<unsigned int>(packet.bytes.size()), true);
+				out.SetWriteOffset(packet.bits);
+				auto channelBits = packet.channelBits;
+				replica->OnSerializeTransmission(&out, this, channelBits.data(), curTime);
+				const PRO &pro = packet.parameters;
+				rakPeer->Send(&out, pro.priority, pro.reliability, pro.orderingChannel, systemAddress, false, pro.sendReceipt);
 			}
-			else
-			{
-				bitsPerChannel[z] = 0;
-			}
+			return SSICR_SENT_DATA;
 		}
+	}
+	RakAssert(replica->GetNetworkID() != UNASSIGNED_NETWORK_ID);
+	BitStream out;
+	while (pending)
+	{
+		PRO pro;
+		const uint16_t group = EncodeSerializationPacket(replica, pending, serializationData, timestamp,
+		                                                 sendParameters, worldId, out, bitsPerChannel, pro);
 		replica->OnSerializeTransmission(&out, this, bitsPerChannel, curTime);
 		rakPeer->Send(&out, pro.priority, pro.reliability, pro.orderingChannel, systemAddress, false, pro.sendReceipt);
+		pending &= static_cast<uint16_t>(~group);
 	}
 	return SSICR_SENT_DATA;
 }
@@ -2436,7 +2530,10 @@ SendSerializeIfChangedResult Connection_RM3::SendSerializeIfChanged(LastSerializ
 	{
 		if (replica->preparedPass != replicaManager->serializePass)
 		{
-			replicaManager->PrepareBroadcast(replica, curTime);
+			// This runs on the pass thread, serial pass and executor rest step alike; only an executor
+			// worker could race another on the same replica, and it builds no earlier than the eager
+			// variant build it replaces.
+			replicaManager->PrepareBroadcast(replica, curTime, worldId, false);
 			if (gone())
 				return SSICR_NEVER_SERIALIZE;
 		}
@@ -2444,6 +2541,12 @@ SendSerializeIfChangedResult Connection_RM3::SendSerializeIfChanged(LastSerializ
 			return SSICR_DID_NOT_SEND_DATA;
 		if (replica->prepared == Replica3::PB_SEND)
 		{
+			// One recipient is served no cheaper from prepared bytes than by encoding directly, which
+			// is what the fallback below does; only a second one this pass proves the variant build
+			// pays for itself, so only then are the variants encoded.
+			if (replica->preparedRecipientsThisPass == 1 && replica->preparedVariantsPass != replicaManager->serializePass)
+				PrepareSerializationVariants(replica, worldId, replicaManager->serializePass);
+			++replica->preparedRecipientsThisPass;
 			for (int z = 0; z < RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; z++)
 			{
 				if (replica->lastSentSerialization.indicesToSend[z])
@@ -2660,6 +2763,7 @@ void Connection_RM3::OnDereference(Replica3 *replica3, ReplicaManager3 *replicaM
 		{
 			lsr = queryToSerializeReplicaList[idx];
 			queryToSerializeReplicaList.erase(queryToSerializeReplicaList.begin() + idx);
+			++serializationListRevision;
 			break;
 		}
 	}
@@ -2716,6 +2820,7 @@ void Connection_RM3::OnDownloadFromThisSystem(Replica3 *replica3, ReplicaManager
 		if (curConstructionMode != QUERY_CONNECTION_FOR_REPLICA_LIST)
 			queryToDestructReplicaList.push_back(lsr);
 		queryToSerializeReplicaList.push_back(lsr);
+		++serializationListRevision;
 	}
 	else
 		lock->records.Release(lsr);
@@ -2778,6 +2883,7 @@ void Connection_RM3::OnConstructToThisConnection(unsigned int queryToConstructId
 	queryToDestructReplicaList.push_back(lsr);
 	//assert(queryToSerializeReplicaList.GetIndexOf(lsr->replica)==(unsigned int)-1);
 	queryToSerializeReplicaList.push_back(lsr);
+	++serializationListRevision;
 	ValidateLists(replicaManager);
 }
 
@@ -2795,6 +2901,7 @@ void Connection_RM3::OnConstructToThisConnection(Replica3 *replica, ReplicaManag
 		InsertConstructed(constructedReplicaList, replica, lsr);
 	}
 	queryToSerializeReplicaList.push_back(lsr);
+	++serializationListRevision;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -2809,6 +2916,7 @@ void Connection_RM3::OnNeverSerialize(LastSerializationResult *lsr, ReplicaManag
 		if (queryToSerializeReplicaList[j] == lsr)
 		{
 			queryToSerializeReplicaList.erase(queryToSerializeReplicaList.begin() + j);
+			++serializationListRevision;
 			break;
 		}
 	}
@@ -2836,6 +2944,7 @@ void Connection_RM3::OnReplicaAlreadyExists(unsigned int queryToConstructIdx, Re
 	queryToDestructReplicaList.push_back(lsr);
 	//assert(queryToSerializeReplicaList.GetIndexOf(lsr->replica)==(unsigned int)-1);
 	queryToSerializeReplicaList.push_back(lsr);
+	++serializationListRevision;
 	ValidateLists(replicaManager);
 }
 
@@ -2880,6 +2989,7 @@ void Connection_RM3::OnSendDestructionFromQuery(unsigned int queryToDestructIdx,
 		if (queryToSerializeReplicaList[j]->replica == lsr->replica)
 		{
 			queryToSerializeReplicaList.erase(queryToSerializeReplicaList.begin() + j);
+			++serializationListRevision;
 			break;
 		}
 	}
