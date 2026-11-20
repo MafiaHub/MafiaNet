@@ -24,6 +24,8 @@ using namespace MafiaNet;
 
 namespace
 {
+void RunMixedTraffic(benchmark::State &state, bool allReliable, bool finitePath = false);
+
 constexpr int gameplay = 0;
 constexpr int urgent = 1;
 constexpr int bulk = 2;
@@ -65,6 +67,15 @@ struct Traces
 	int bulkDelivered = 0;
 	uint64_t deliveredBytes = 0;
 	bool valid = true;
+
+	uint32_t Enqueue(int lane, unsigned bytes, Reliability reliability)
+	{
+		auto &trace = messages[lane].emplace_back();
+		trace.queued = now;
+		trace.bytes = bytes;
+		trace.requestedUnreliable = reliability == Reliability::Unreliable;
+		return static_cast<uint32_t>(messages[lane].size() - 1);
+	}
 
 	bool Identify(const unsigned char *data, size_t bytes, int &lane, uint32_t &index) const
 	{
@@ -200,6 +211,18 @@ private:
 	bool sender;
 };
 
+bool ConsumeOrdered(const SimulatedNetwork::Message &message, std::array<uint32_t, 3> &next)
+{
+	if (message.id < ID_USER_PACKET_ENUM)
+		return true;
+	const unsigned lane = message.id - ID_USER_PACKET_ENUM;
+	if (lane >= next.size() || message.data.size() < prefixBytes)
+		return false;
+	uint32_t index;
+	std::memcpy(&index, message.data.data() + 1, sizeof(index));
+	return index == next[lane]++;
+}
+
 template <class T>
 T Percentile(std::vector<T> &times, size_t percentile)
 {
@@ -286,19 +309,23 @@ void Report(benchmark::State &state, const std::string &prefix, const std::vecto
 	}
 }
 
-bool ConsumeOrdered(const SimulatedNetwork::Message &message, std::array<uint32_t, 3> &next)
+void ConfigureGameplayLink(SimulatedNetwork &net, RakPeer *server, RakPeer *client, int loss)
 {
-	if (message.id < ID_USER_PACKET_ENUM)
-		return true;
-	const unsigned lane = message.id - ID_USER_PACKET_ENUM;
-	if (lane >= next.size() || message.data.size() < prefixBytes)
-		return false;
-	uint32_t index;
-	std::memcpy(&index, message.data.data() + 1, sizeof(index));
-	return index == next[lane]++;
+	SimulatedNetwork::LinkRule link;
+	link.delayMs = 50;
+	link.lossPercent = loss;
+	link.reorderPerThousand = 5;
+	link.reorderDelayMs = 25;
+	net.SetLinkBothWays(server, client, link);
+	server->SetPerConnectionOutgoingBandwidthLimit(256 * 1024 * 8);
 }
 
-void RunMixedTraffic(benchmark::State &state, bool allReliable, bool finitePath = false)
+void RakPeer_MixedTraffic(benchmark::State &state)
+{
+	RunMixedTraffic(state, false);
+}
+
+void RunMixedTraffic(benchmark::State &state, bool allReliable, bool finitePath)
 {
 	const auto loss = static_cast<int>(state.range(0));
 	const auto blockBytes = static_cast<int>(state.range(1)) * 1024;
@@ -325,11 +352,12 @@ void RunMixedTraffic(benchmark::State &state, bool allReliable, bool finitePath 
 	const auto clientAddress = net.AddressOf(client);
 	server->AttachPlugin(&sender);
 	client->AttachPlugin(&receiver);
-	SimulatedNetwork::LinkRule link;
-	link.delayMs = 50;
-	link.lossPercent = loss;
-	link.reorderPerThousand = 5;
-	link.reorderDelayMs = 25;
+	ConfigureGameplayLink(net, server, client, loss);
+
+	net.SetTap([&](const SystemAddress &from, const SystemAddress &, const char *, int size)
+	           {
+		if (from == serverAddress)
+			wireBytes += size; });
 	const auto epoch = net.Now();
 	std::vector<SimulatedBottleneck::Rate> rates{{0, 256 * 1024}};
 	if (finitePath && state.range(3) == 1)
@@ -339,18 +367,18 @@ void RunMixedTraffic(benchmark::State &state, bool allReliable, bool finitePath 
 	}
 	auto &bottleneck = pathStorage.emplace(51200, std::move(rates));
 	if (finitePath)
+	{
+		SimulatedNetwork::LinkRule link;
+		link.delayMs = 50;
+		link.lossPercent = loss;
 		link.reorderPerThousand = static_cast<uint32_t>(state.range(4));
-	net.SetLink(client, server, link);
-	if (finitePath)
+		link.reorderDelayMs = 25;
+		net.SetLink(client, server, link);
 		link.bottleneck = &bottleneck;
-	else
-		server->SetPerConnectionOutgoingBandwidthLimit(256 * 1024 * 8);
-	net.SetLink(server, client, link);
+		net.SetLink(server, client, link);
+		server->SetPerConnectionOutgoingBandwidthLimit(0);
+	}
 
-	net.SetTap([&](const SystemAddress &from, const SystemAddress &, const char *, int size)
-	           {
-		if (from == serverAddress)
-			wireBytes += size; });
 	std::mt19937 random(seed);
 	auto draw = [&](int min, int max)
 	{ return std::uniform_int_distribution<int>(min, max)(random); };
@@ -374,20 +402,10 @@ void RunMixedTraffic(benchmark::State &state, bool allReliable, bool finitePath 
 	};
 	auto send = [&](bool downstream, int lane, int length, Priority priority, Reliability reliability)
 	{
-		uint32_t index = 0;
-		if (downstream)
-		{
-			auto &messages = traces.messages[lane];
-			index = static_cast<uint32_t>(messages.size());
-			auto &trace = messages.emplace_back();
-			trace.queued = traces.now;
-			trace.bytes = static_cast<unsigned>(length);
-			trace.requestedUnreliable = reliability == Reliability::Unreliable;
-		}
-		else
-			index = upstreamOffered++;
+		const uint32_t index = downstream ? traces.Enqueue(lane, static_cast<unsigned>(length), reliability) : 0;
 		payload[0] = static_cast<unsigned char>(ID_USER_PACKET_ENUM + lane);
-		std::memcpy(payload.data() + 1, &index, sizeof(index));
+		const uint32_t sequence = downstream ? index : upstreamOffered++;
+		std::memcpy(payload.data() + 1, &sequence, sizeof(sequence));
 		auto *peer = downstream ? server : client;
 		if (!peer->Send(reinterpret_cast<const char *>(payload.data()), length, priority, reliability, static_cast<char>(lane), downstream ? clientAddress : serverAddress, false))
 			traces.valid = false;
@@ -565,11 +583,6 @@ void RunMixedTraffic(benchmark::State &state, bool allReliable, bool finitePath 
 		state.counters["bulk_after_drain"] = downstreamReceived[bulk];
 	}
 }
-void RakPeer_MixedTraffic(benchmark::State &state)
-{
-	RunMixedTraffic(state, false);
-}
-
 void RakPeer_MixedTrafficReliable(benchmark::State &state)
 {
 	RunMixedTraffic(state, true);

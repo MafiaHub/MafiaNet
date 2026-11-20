@@ -373,25 +373,6 @@ suite covers the following workloads.
   uses the ordinary scan for that tick. Each case checks one position message
   per changed replica per observer. Bytes per tick count serialized
   RM3 messages at the peer send boundary, before transport framing.
-* **Mixed traffic.** ``RakPeer_MixedTraffic`` runs 60 simulated seconds with
-  bidirectional gameplay traffic, urgent probes, and a backlogged download.
-  Use the same seed with block sizes 0 (download off), 16 and 512 KiB at
-  zero or 2% loss. Each seed supplies the same gameplay and urgent workload in
-  all six cases. Check
-  delivered counts alongside latency. Only messages delivered within the window
-  contribute to delivery time. The counters trace enqueue, first transmission,
-  retransmission, fragment completion and application delivery. Compare
-  ``game_upgraded_to_reliable`` with ``game_unreliable_started`` to see how
-  often fragmentation promoted an unreliable gameplay message to reliable.
-  Per-class byte counts distinguish offered, first-transmitted, retransmitted
-  and delivered application payload. Outstanding bytes include unsent fragments
-  of partially transmitted messages. The simulator samples live queued payload every
-  100 ms, omitting expired unreliable messages. The oldest queued age is measured at the end of the run.
-  Downstream UDP payload bytes include framing, encryption and control traffic.
-  With the sliding-window controller, the window, in-flight and available byte
-  counters are means sampled over the complete run. The four queue-time buckets
-  partition the ticks ending with queued data by exhausted window, exhausted
-  application pacing credit, both, or neither.
 * **Finite path capacity.** ``RakPeer_FiniteBottleneck`` runs the same application
   workload with reliable ordered channels, no sender cap, and a shared FIFO on
   the downstream path. Propagation is 50 ms each way from the handshake. The
@@ -411,6 +392,25 @@ suite covers the following workloads.
   blocks outstanding. The benchmark reports per-flow and aggregate goodput,
   Jain's fairness index, overflow drops, and drain time. The clean run is
   deterministic. The 2% independent loss case uses five matched seeds.
+* **Mixed traffic.** ``RakPeer_MixedTraffic`` runs 60 simulated seconds with
+  bidirectional gameplay traffic, urgent probes, and a backlogged download.
+  Use the same seed with block sizes 0 (download off), 16 and 512 KiB at
+  zero or 2% loss. Each seed supplies the same gameplay and urgent workload in
+  all six cases. Check
+  delivered counts alongside latency. Only messages delivered within the window
+  contribute to delivery time. The counters trace enqueue, first transmission,
+  retransmission, fragment completion and application delivery. Compare
+  ``game_upgraded_to_reliable`` with ``game_unreliable_started`` to see how
+  often fragmentation promoted an unreliable gameplay message to reliable.
+  Per-class byte counts distinguish offered, first-transmitted, retransmitted
+  and delivered application payload. Outstanding bytes include unsent fragments
+  of partially transmitted messages. The simulator samples live queued payload every
+  100 ms, omitting expired unreliable messages. The oldest queued age is measured at the end of the run.
+  Downstream UDP payload bytes include framing, encryption and control traffic.
+  With the sliding-window controller, the window, in-flight and available byte
+  counters are means sampled over the complete run. The four queue-time buckets
+  partition the ticks ending with queued data by exhausted window, exhausted
+  application pacing credit, both, or neither.
 * **Construction bandwidth.** ``ReplicaManager3_Construct1000`` compares
   unconditional scalar serialization with a full construction snapshot and
   subsequent dirty updates. See :doc:`../plugins/replica-manager-3`.
