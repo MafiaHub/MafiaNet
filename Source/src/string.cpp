@@ -1260,9 +1260,9 @@ bool RakString::Deserialize(BitStream *bs)
 	Clear();
 
 	bool b;
-	unsigned short l;
+	unsigned short l = 0;
 	b = bs->Read(l);
-	if (l > 0)
+	if (b && l > 0)
 	{
 		Allocate(((unsigned int) l) + 1);
 		b = bs->ReadAlignedBytes((unsigned char *) sharedString->c_str, l);
@@ -1278,15 +1278,13 @@ bool RakString::Deserialize(BitStream *bs)
 bool RakString::Deserialize(char *str, BitStream *bs)
 {
 	bool b;
-	unsigned short l;
+	unsigned short l = 0;
 	b = bs->Read(l);
 	if (b && l > 0)
 		b = bs->ReadAlignedBytes((unsigned char *) str, l);
 
-	if (b == false)
-		str[0] = 0;
-
-	str[l] = 0;
+	// After a failed read, l may name bytes that never came: terminate at the start.
+	str[b ? l : 0] = 0;
 	return b;
 }
 bool RakString::DeserializeCompressed(BitStream *bs, bool readLanguageId)
