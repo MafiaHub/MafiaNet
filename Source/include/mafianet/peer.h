@@ -890,6 +890,7 @@ public:
 	};
 
 protected:
+	friend class SimulatedNetwork; // inspects a manual peer between updates
 	friend RAK_THREAD_DECLARATION(UpdateNetworkLoop);
 	//friend RAK_THREAD_DECLARATION(RecvFromLoop);
 	friend RAK_THREAD_DECLARATION(UDTConnect);

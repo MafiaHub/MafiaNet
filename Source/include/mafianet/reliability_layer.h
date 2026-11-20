@@ -358,6 +358,7 @@ public:
 	}
 
 private:
+	friend class SimulatedNetwork; // samples the sender budget between simulated ticks
 	/// Send the contents of a bitstream to the socket
 	/// \param[in] s The socket used for sending data
 	/// \param[in] systemAddress The address and port to send to

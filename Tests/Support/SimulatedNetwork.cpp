@@ -217,6 +217,28 @@ RakPeer *SimulatedNetwork::RestartPeer(RakPeer *peer, unsigned int maxConnection
 	                 address.GetPort(), Family::V4, hostNumber);
 }
 
+bool SimulatedNetwork::ReadSendBudget(const RakPeer *sender, const SystemAddress &destination, SendBudget &budget, const std::function<void(const InternalPacket &)> &visitQueued) const
+{
+	const auto *remote = sender->GetRemoteSystemFromSystemAddress(destination, true, true);
+	if (!remote)
+		return false;
+	const auto &layer = remote->reliabilityLayer;
+	budget.windowBytes = layer.congestionManager.GetCWNDLimit();
+	budget.inFlightBytes = layer.unacknowledgedBytes;
+	budget.queued = false;
+	for (const auto &entry : layer.outgoingPacketBuffer)
+	{
+		if (!entry.packet->data)
+			continue; // expired unreliable payload awaiting removal from the heap
+		budget.queued = true;
+		if (!visitQueued)
+			break;
+		visitQueued(*entry.packet);
+	}
+	budget.capBlocked = layer.statistics.isLimitedByOutgoingBandwidthLimit;
+	return true;
+}
+
 SystemAddress SimulatedNetwork::AddressOf(const RakPeer *peer) const
 {
 	return const_cast<RakPeer *>(peer)->GetInternalID(UNASSIGNED_SYSTEM_ADDRESS, 0);

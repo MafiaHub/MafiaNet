@@ -151,6 +151,17 @@ public:
 		tap = std::move(callback);
 	}
 
+	// Read after Step() on the manual update thread. The two limits can bind together.
+	struct SendBudget
+	{
+		uint32_t windowBytes;
+		uint32_t inFlightBytes;
+		bool queued;
+		bool capBlocked;
+	};
+	// An optional visitor sees only live fragments still waiting for a first send.
+	bool ReadSendBudget(const RakPeer *sender, const SystemAddress &destination, SendBudget &budget, const std::function<void(const InternalPacket &)> &visitQueued = {}) const;
+
 	TimeUS Now() const;
 	uint64_t DatagramsSent() const { return datagramsSent; }
 	uint64_t DatagramsDropped() const { return datagramsDropped; }
