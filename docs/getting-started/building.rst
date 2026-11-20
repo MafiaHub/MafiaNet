@@ -373,6 +373,25 @@ suite covers the following workloads.
   uses the ordinary scan for that tick. Each case checks one position message
   per changed replica per observer. Bytes per tick count serialized
   RM3 messages at the peer send boundary, before transport framing.
+* **Finite path capacity.** ``RakPeer_FiniteBottleneck`` runs the same application
+  workload with reliable ordered channels, no sender cap, and a shared FIFO on
+  the downstream path. Propagation is 50 ms each way from the handshake. The
+  FIFO holds 50 KiB including the packet being serialized and charges IPv4
+  and UDP headers. Steady capacity is 256 KiB/s. The step case falls to
+  64 KiB/s at 20 seconds and recovers at 40 seconds. Independent 2% loss and
+  5% reordering (25 ms extra delay) have separate steady-capacity cases.
+  Queue delay is the time an admitted packet waits to start transmission.
+  Each phase reports transmitted wire bytes, delivered application bytes,
+  drops, and queue occupancy. Cutoff counts and latency percentiles are
+  recorded at 60 seconds before checking delivery order and draining both
+  directions. ``nak_retry_B`` counts retransmission payload scheduled with a
+  deadline advanced by a NAK. Other retries count toward ``rto_retry_B``.
+  Window-cut counters count reductions performed while retransmitting each kind.
+* **Competing senders.** ``RakPeer_SharedBottleneck`` puts one or two independent
+  peers on the same 256 KiB/s FIFO. Each keeps sixteen reliable ordered 16 KiB
+  blocks outstanding. The benchmark reports per-flow and aggregate goodput,
+  Jain's fairness index, overflow drops, and drain time. The clean run is
+  deterministic. The 2% independent loss case uses five matched seeds.
 * **Mixed traffic.** ``RakPeer_MixedTraffic`` runs 60 simulated seconds with
   bidirectional gameplay traffic, urgent probes, and a backlogged download.
   Use the same seed with block sizes 0 (download off), 16 and 512 KiB at

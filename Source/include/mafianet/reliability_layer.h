@@ -360,6 +360,9 @@ public:
 
 private:
 	friend class SimulatedNetwork; // samples the sender budget between simulated ticks
+	// Freshly reset per connection. Distinguish deadlines shortened by NAK from ordinary RTO.
+	uint64_t nakRetryBytes, rtoRetryBytes;
+	uint32_t nakRetryWindowCuts, rtoRetryWindowCuts;
 	/// Send the contents of a bitstream to the socket
 	/// \param[in] s The socket used for sending data
 	/// \param[in] systemAddress The address and port to send to

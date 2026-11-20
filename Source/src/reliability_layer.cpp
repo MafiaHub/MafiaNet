@@ -460,6 +460,8 @@ MafiaNet::TimeMS ReliabilityLayer::GetTimeoutTime()
 //-------------------------------------------------------------------------------------------------------
 void ReliabilityLayer::InitializeVariables()
 {
+	nakRetryBytes = rtoRetryBytes = 0;
+	nakRetryWindowCuts = rtoRetryWindowCuts = 0;
 	droppedUnauthenticatedDatagrams = 0;
 	droppedKeylessSends = 0;
 	// OrderingIndexType (uint24_t) is a wrapper around one uint32_t; assigning 0 leaves the
@@ -2061,9 +2063,18 @@ void ReliabilityLayer::UpdateInternal(RakNetSocket2 *s, SystemAddress &systemAdd
 						mtuBlackHoleEvidence.OnResend((int) BITS_TO_BYTES(nextPacketBitLength) + (int) DatagramHeaderFormat::GetDataHeaderByteLength() + UDP_HEADER_SIZE + cipherOverheadBytes,
 						                              currentMtuBytes, (uint64_t) internalPacket->lastTransmissionTime, (uint64_t) time);
 
+						const bool shortenedDeadline = static_cast<CCTimeType>(internalPacket->nextActionTime - internalPacket->lastTransmissionTime) < internalPacket->retransmissionTime;
+						(shortenedDeadline ? nakRetryBytes : rtoRetryBytes) += BITS_TO_BYTES(internalPacket->dataBitLength);
+#if USE_SLIDING_WINDOW_CONGESTION_CONTROL == 1
+						const auto previousWindow = congestionManager.GetCWNDLimit();
+#endif
 						PushPacket(time, internalPacket, true); // Affects GetNewTransmissionBandwidth()
 						internalPacket->timesSent++;
 						congestionManager.OnResend(time, internalPacket->nextActionTime);
+#if USE_SLIDING_WINDOW_CONGESTION_CONTROL == 1
+						if (congestionManager.GetCWNDLimit() < previousWindow)
+							++(shortenedDeadline ? nakRetryWindowCuts : rtoRetryWindowCuts);
+#endif
 						internalPacket->retransmissionTime = congestionManager.GetRTOForRetransmission(internalPacket->timesSent);
 						internalPacket->nextActionTime = internalPacket->retransmissionTime + time;
 
