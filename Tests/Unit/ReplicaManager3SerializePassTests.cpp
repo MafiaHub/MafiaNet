@@ -153,6 +153,9 @@ public:
 		return Connection_RM3::SendSerialize(replica, indicesToSend, serializationData, timestamp, sendParameters, rakPeer, worldId, curTime);
 	}
 
+	bool LastPassSkippedRest() const { return restSkippedPass != 0 && restSkippedPass == restSummaryPass; }
+	void ConstructDuringPass(Replica3 *replica, ReplicaManager3 *replicaManager) { OnConstructToThisConnection(replica, replicaManager); }
+
 	std::vector<Replica3 *> wanted;
 	int sendCalls = 0;
 	std::vector<int> received;
@@ -1021,3 +1024,44 @@ TEST_F(ReplicaManager3SerializePass, ReplacementRecordStartsWithFreshSerializati
 	EXPECT_EQ(record->servedPass, 0u);
 	EXPECT_EQ(record->whenLastSerialized, MafiaNet::GetTime());
 }
+
+TEST_F(ReplicaManager3SerializePass, EmptyRestIsSkippedWithoutLosingBroadcasts)
+{
+	ThreadExecutor executor;
+	manager.SetSerializeExecutor(&executor);
+	auto *replica = AddReplica(true);
+	auto connections = AddConnections(4, {replica});
+	Tick();
+	Tick();
+	replica->value = 19;
+	Tick();
+	for (auto *connection : connections)
+	{
+		EXPECT_TRUE(connection->LastPassSkippedRest());
+		ASSERT_FALSE(connection->received.empty());
+		EXPECT_EQ(connection->received.back(), 19);
+	}
+	manager.SetSerializeExecutor(nullptr);
+}
+
+TEST_F(ReplicaManager3SerializePass, LateConstructionInvalidatesAnEmptyRestSummary)
+{
+	ThreadExecutor executor;
+	manager.SetSerializeExecutor(&executor);
+	auto *broadcast = AddReplica(true);
+	auto *plain = AddReplica(false);
+	auto *late = AddReplica(true);
+	late->value = 37;
+	auto connections = AddConnections(2, {broadcast});
+	connections[0]->wanted.push_back(plain);
+	Tick();
+	Tick();
+	connections[1]->received.clear();
+	plain->onSerialize = [&]
+	{ connections[1]->ConstructDuringPass(late, &manager); };
+	Tick();
+	EXPECT_FALSE(connections[1]->LastPassSkippedRest());
+	EXPECT_NE(std::find(connections[1]->received.begin(), connections[1]->received.end(), 37), connections[1]->received.end());
+	manager.SetSerializeExecutor(nullptr);
+}
+

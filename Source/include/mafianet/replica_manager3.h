@@ -33,6 +33,7 @@
 #include "mafianet/simple_mutex.h"
 #include "mafianet/virtual_world.h"
 
+#include <array>
 #include <deque>
 #include <mutex>
 #include <shared_mutex>
@@ -497,7 +498,9 @@ private:
 	// The same pass with the replicas that broadcast identically served across serializeExecutor.
 	void SerializeConnectionsParallel(RM3World *world, WorldId worldId, MafiaNet::Time time);
 	// Serializes a replica that broadcasts identically once for the current pass; see Replica3::BroadcastsIdentically().
-	void PrepareBroadcast(Replica3 *replica, MafiaNet::Time time);
+	// buildVariantsEagerly encodes the prepared packet variants right away, for executor workers that must
+	// find them ready; otherwise they are built lazily, by the second recipient this pass, if any.
+	void PrepareBroadcast(Replica3 *replica, MafiaNet::Time time, WorldId worldId, bool buildVariantsEagerly);
 	// One connection's prepared broadcasts, from serializeExecutor's threads.
 	static void ServePreparedBroadcasts(void *context, unsigned int index);
 
@@ -543,8 +546,23 @@ struct LastSerializationResult
 	/// \internal The serialize pass that last served this record, so a pass picking up again after a game
 	/// callback changed the lists does not serve it twice.
 	uint32_t servedPass;
+
 	/// \internal Identifies this use of a connection's record slot across callbacks that can recycle it.
 	uint32_t allocationNumber = 0;
+};
+
+// Immutable, pass-owned application messages. Transmission callbacks receive private copies.
+struct PreparedSerializationPacket
+{
+	std::vector<unsigned char> bytes;
+	BitSize_t bits = 0;
+	PRO parameters;
+	std::array<BitSize_t, RM3_NUM_OUTPUT_BITSTREAM_CHANNELS> channelBits{};
+};
+struct PreparedSerializationVariant
+{
+	uint16_t channelMask = 0;
+	std::vector<PreparedSerializationPacket> packets;
 };
 
 /// Parameters passed to Replica3::Serialize()
@@ -879,6 +897,14 @@ protected:
 	// Objects that this system has constructed are added at the same time to queryToSerializeReplicaList
 	// This list is used to serialize all objects that this system has to this connection
 	std::vector<LastSerializationResult *> queryToSerializeReplicaList;
+
+	// Worker result is valid only for this pass/world and the exact serialization membership.
+	uint64_t serializationListRevision = 0;
+	uint64_t restSummaryRevision = 0;
+	uint32_t restSummaryPass = 0;
+	uint32_t restSkippedPass = 0;
+	WorldId restSummaryWorld = 0;
+	bool restPending = true;
 
 	// Objects that are constructed on this system are also queried if they should be destroyed to this system
 	std::vector<LastSerializationResult *> queryToDestructReplicaList;
@@ -1372,6 +1398,13 @@ public:
 	MafiaNet::Time preparedTimestamp;
 	PRO preparedPro[RM3_NUM_OUTPUT_BITSTREAM_CHANNELS];
 	MafiaNet::Time lastBroadcast;
+	WorldId preparedPacketWorld = 0;
+	NetworkID preparedPacketNetworkId = UNASSIGNED_NETWORK_ID;
+	std::vector<PreparedSerializationVariant> preparedPacketVariants;
+	// The pass that built preparedPacketVariants; 0 while none has, so stale variants are never sent.
+	uint32_t preparedVariantsPass = 0;
+	// Broadcast recipients already served this pass; the second one triggers the lazy variant build.
+	unsigned preparedRecipientsThisPass = 0;
 };
 
 /// \brief Use Replica3 through composition instead of inheritance by containing an instance of this templated class
