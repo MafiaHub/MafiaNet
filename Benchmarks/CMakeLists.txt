@@ -27,7 +27,16 @@ file(GLOB MAFIANET_BENCHMARK_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_D
 add_executable(MafiaNetBenchmarks ${MAFIANET_BENCHMARK_SOURCES}
     ${MafiaNet_SOURCE_DIR}/Tests/Support/SimulatedNetwork.cpp)
 target_include_directories(MafiaNetBenchmarks PRIVATE ${MafiaNet_SOURCE_DIR}/Tests/Support)
-target_link_libraries(MafiaNetBenchmarks PRIVATE MafiaNet::MafiaNetStatic benchmark::benchmark_main)
+target_link_libraries(MafiaNetBenchmarks PRIVATE MafiaNet::MafiaNetStatic)
+option(MAFIANET_BENCHMARK_CALLGRIND "Enable Callgrind collection around benchmark iteration loops" OFF)
+if(MAFIANET_BENCHMARK_CALLGRIND)
+    find_path(CALLGRIND_INCLUDE_DIR valgrind/callgrind.h REQUIRED)
+    target_sources(MafiaNetBenchmarks PRIVATE callgrind_main.cpp)
+    target_include_directories(MafiaNetBenchmarks PRIVATE ${CALLGRIND_INCLUDE_DIR})
+    target_link_libraries(MafiaNetBenchmarks PRIVATE benchmark::benchmark)
+else()
+    target_link_libraries(MafiaNetBenchmarks PRIVATE benchmark::benchmark_main)
+endif()
 # Must match the library: some classes carry _DEBUG-only members.
 target_compile_definitions(MafiaNetBenchmarks PRIVATE $<$<CONFIG:Debug>:_DEBUG>)
 set_target_properties(MafiaNetBenchmarks PROPERTIES FOLDER "Benchmarks")
