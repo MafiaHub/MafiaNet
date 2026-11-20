@@ -229,8 +229,7 @@ void CCRakNetSlidingWindow::OnAck(CCTimeType curTime, CCTimeType rtt, bool hasBA
 	(void) totalUserDataBytesAcked;
 	(void) _AS;
 	(void) hasBAndAS;
-	(void) curTime;
-	(void) rtt;
+	lastRtt = static_cast<double>(rtt);
 
 	// Remember the minima of two ten-second intervals, to age out a changed path.
 	if (curTime - baselineEpoch >= 1000 * SYN)
@@ -239,8 +238,8 @@ void CCRakNetSlidingWindow::OnAck(CCTimeType curTime, CCTimeType rtt, bool hasBA
 		currentMinRtt = UNSET_TIME_US;
 		baselineEpoch = curTime;
 	}
-	if (currentMinRtt < 0 || rtt < currentMinRtt)
-		currentMinRtt = rtt;
+	if (currentMinRtt < 0 || lastRtt < currentMinRtt)
+		currentMinRtt = lastRtt;
 	const CCTimeType observation = 12 * SYN;
 	lastAckAt = curTime;
 	++intervalAcks;
@@ -252,18 +251,17 @@ void CCRakNetSlidingWindow::OnAck(CCTimeType curTime, CCTimeType rtt, bool hasBA
 		recentMinimum = UNSET_TIME_US;
 		recentEpoch = curTime;
 	}
-	if (recentMinimum < 0 || rtt < recentMinimum)
-		recentMinimum = rtt;
-	lastRtt = (double) rtt;
+	if (recentMinimum < 0 || lastRtt < recentMinimum)
+		recentMinimum = lastRtt;
 	if (estimatedRTT == UNSET_TIME_US)
 	{
-		estimatedRTT = (double) rtt;
-		deviationRtt = (double) rtt;
+		estimatedRTT = lastRtt;
+		deviationRtt = lastRtt;
 	}
 	else
 	{
 		double d = .05;
-		double difference = rtt - estimatedRTT;
+		double difference = lastRtt - estimatedRTT;
 		estimatedRTT = estimatedRTT + d * difference;
 		deviationRtt = deviationRtt + d * (std::abs(difference) - deviationRtt);
 	}
