@@ -40,23 +40,23 @@ TEST_F(DatagramGaps, LateOriginalCancelsOnlyItsOwnGapAndTrueLossIsReportedOnce)
 	tracker.Receive(5, 2, 30000, rtt, ready);
 	tracker.Receive(3, 0, 40000, rtt, ready);
 	tracker.Update(54999, ready);
-	EXPECT_EQ(ready.RangeSum(), 0u);
+	EXPECT_EQ(ready.Size(), 0u);
 	tracker.Update(55000, ready);
-	EXPECT_EQ(ready.RangeSum(), 1u);
+	EXPECT_EQ(ready.Size(), 1u);
 	EXPECT_TRUE(ready.IsWithinRange(4));
 	ready.Clear();
 	tracker.Update(55001, ready);
-	EXPECT_EQ(ready.RangeSum(), 0u);
+	EXPECT_EQ(ready.Size(), 0u);
 }
 
 TEST_F(DatagramGaps, KnowledgeAgesOutAndResetDropsPendingReports)
 {
 	ObserveReorder();
 	tracker.Receive(4, 1, 30000, rtt, ready);
-	EXPECT_EQ(ready.RangeSum(), 0u);
+	EXPECT_EQ(ready.Size(), 0u);
 	tracker.Clear();
 	tracker.Update(200000, ready);
-	EXPECT_EQ(ready.RangeSum(), 0u);
+	EXPECT_EQ(ready.Size(), 0u);
 	tracker.Receive(6, 1, 210000, rtt, ready);
 	EXPECT_TRUE(ready.IsWithinRange(5));
 	ready.Clear();
@@ -69,11 +69,13 @@ TEST_F(DatagramGaps, HugeRttAndBurstCannotDeferFeedbackIndefinitely)
 {
 	ObserveReorder();
 	tracker.Receive(100, 80, 30000, 10000000, ready);
-	EXPECT_EQ(ready.RangeSum(), 16u);
+	for (unsigned seq = 20; seq < 100; ++seq)
+		EXPECT_EQ(ready.IsWithinRange(seq), seq >= 84);
 	tracker.Update(79999, ready);
-	EXPECT_EQ(ready.RangeSum(), 16u);
+	EXPECT_FALSE(ready.IsWithinRange(20));
 	tracker.Update(80000, ready);
-	EXPECT_EQ(ready.RangeSum(), 80u);
+	for (unsigned seq = 20; seq < 100; ++seq)
+		EXPECT_TRUE(ready.IsWithinRange(seq));
 }
 
 TEST_F(DatagramGaps, ReportsAcrossSequenceWrap)
@@ -82,6 +84,6 @@ TEST_F(DatagramGaps, ReportsAcrossSequenceWrap)
 	tracker.Receive(1, 2, 30000, rtt, ready);
 	tracker.Receive(0, 0, 40000, rtt, ready);
 	tracker.Update(55000, ready);
-	EXPECT_EQ(ready.RangeSum(), 1u);
+	EXPECT_EQ(ready.Size(), 1u);
 	EXPECT_TRUE(ready.IsWithinRange(0xffffffu));
 }
