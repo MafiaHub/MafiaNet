@@ -16,11 +16,11 @@ constexpr uint32_t kMtu = 1347;
 // window by one datagram. Real flights open one period per acknowledged
 // flight; that growth pattern is covered by
 // CongestionAvoidanceRestoresOneDatagramPerAcknowledgedFlight below.
-void Ack(MafiaNet::CCRakNetSlidingWindow &window, DatagramSequenceNumberType seq, int count = 1)
+void Ack(MafiaNet::CCRakNetSlidingWindow &window, DatagramSequenceNumberType seq, int count, CCTimeType now = 0)
 {
 	for (int i = 0; i < count; ++i)
 	{
-		window.OnAck(0, 100000, false, 0, 0, 0, true, seq);
+		window.OnAck(now, 100000, false, 0, 0, 0, true, seq);
 		seq = seq + (DatagramSequenceNumberType) 1;
 	}
 }
@@ -75,31 +75,34 @@ TEST(SlidingWindow, NakEndsSlowStartWithoutShrinkingWindow)
 	EXPECT_FALSE(window.GetIsInSlowStart());
 }
 
-TEST(SlidingWindow, ResendCollapsesWindowToOneDatagramAndReentersSlowStart)
+TEST(SlidingWindow, TimeoutResendCollapsesWindowToOneDatagramAndReentersSlowStart)
 {
 	MafiaNet::CCRakNetSlidingWindow window;
 	window.Init(0, kMtu);
 	Ack(window, 0, 10);
 	EXPECT_EQ(window.GetCWNDLimit(), 11 * kMtu);
-	window.OnResend(0, 0);
-	// A retransmission backs the window off to one datagram and re-enters
+	const auto timeout = window.GetRTOForRetransmission(1);
+	window.OnResend(timeout, timeout);
+	// A timeout retransmission backs the window off to one datagram and re-enters
 	// slow start against the halved threshold.
 	EXPECT_EQ(window.GetCWNDLimit(), kMtu);
 	EXPECT_TRUE(window.GetIsInSlowStart());
 	// The collapsed window climbs back past its pre-collapse size.
-	Ack(window, 10, 20);
+	Ack(window, 10, 20, timeout + 100000);
 	EXPECT_GT(window.GetCWNDLimit(), 11 * kMtu);
 }
 
-TEST(SlidingWindow, RepeatedResendCollapsesRatchetTheWindowDown)
+TEST(SlidingWindow, RepeatedTimeoutResendsRatchetTheWindowDown)
 {
 	MafiaNet::CCRakNetSlidingWindow window;
 	window.Init(0, kMtu);
 	DatagramSequenceNumberType seq = 0;
 	uint32_t previousPeak = UINT32_MAX;
+	CCTimeType now = 0;
 	for (int round = 0; round < 8; ++round)
 	{
-		Ack(window, seq, 8);
+		now += 100000;
+		Ack(window, seq, 8, now);
 		seq = seq + (DatagramSequenceNumberType) 8;
 		// The window always rebuilds above the two-datagram backoff floor...
 		EXPECT_GT(window.GetCWNDLimit(), 2 * kMtu);
@@ -107,7 +110,8 @@ TEST(SlidingWindow, RepeatedResendCollapsesRatchetTheWindowDown)
 		// collapse halves the threshold the rebuild clamps against.
 		ASSERT_LT(window.GetCWNDLimit(), previousPeak);
 		previousPeak = window.GetCWNDLimit();
-		window.OnResend(0, 0);
+		now += window.GetRTOForRetransmission(1);
+		window.OnResend(now, now);
 		EXPECT_EQ(window.GetCWNDLimit(), kMtu);
 		EXPECT_TRUE(window.GetIsInSlowStart());
 	}
