@@ -668,6 +668,7 @@ void ReliabilityLayer::FreeThreadSafeMemory(void)
 
 	acknowlegements.Clear();
 	NAKs.Clear();
+	datagramGaps.Clear();
 
 	unreliableLinkedListHead = 0;
 }
@@ -986,13 +987,9 @@ bool ReliabilityLayer::HandleSocketReceiveFromConnectedPlayer(
 			congestionManager.OnGotPacketPair(dhf.datagramNumber, length, timeRead);
 		}
 
-		DatagramHeaderFormat dhfNAK;
-		dhfNAK.isNAK = true;
-		uint32_t skippedMessageOffset;
-		for (skippedMessageOffset = skippedMessageCount; skippedMessageOffset > 0; skippedMessageOffset--)
-		{
-			NAKs.Insert(dhf.datagramNumber - skippedMessageOffset);
-		}
+		constexpr unsigned microsPerUnit = CC_TIME_TYPE_BYTES == 4 ? 1000 : 1;
+		datagramGaps.Receive(dhf.datagramNumber, skippedMessageCount, uint64_t{timeRead} * microsPerUnit,
+		                     static_cast<TimeUS>(congestionManager.GetRTT() * microsPerUnit), NAKs);
 		remoteSystemNeedsBAndAS = dhf.needsBAndAs;
 
 		// Ack dhf.datagramNumber
@@ -1909,6 +1906,8 @@ void ReliabilityLayer::UpdateInternal(RakNetSocket2 *s, SystemAddress &systemAdd
 		SendACKs(s, systemAddress, time, rnr, updateBitStream);
 	}
 
+	constexpr unsigned microsPerUnit = CC_TIME_TYPE_BYTES == 4 ? 1000 : 1;
+	datagramGaps.Update(uint64_t{time} * microsPerUnit, NAKs);
 	if (NAKs.Size() > 0)
 	{
 		updateBitStream.Reset();
