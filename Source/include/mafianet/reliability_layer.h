@@ -29,6 +29,7 @@
 #include "mafianet/internal_packet.h"
 #include "mafianet/statistics.h"
 #include "mafianet/range_list.h"
+#include "mafianet/datagram_gap_tracker.h"
 #include "mafianet/object_pool.h"
 #include "mafianet/defines.h"
 #include "mafianet/bit_stream.h"
@@ -774,6 +775,7 @@ private:
 
 	RangeList<DatagramSequenceNumberType> acknowlegements;
 	RangeList<DatagramSequenceNumberType> NAKs;
+	DatagramGapTracker datagramGaps;
 	bool remoteSystemNeedsBAndAS;
 
 	unsigned int GetMaxDatagramSizeExcludingMessageHeaderBytes(void);
