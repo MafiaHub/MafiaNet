@@ -12,6 +12,7 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <cstring>
 #include <vector>
 
@@ -20,6 +21,7 @@
 #include "mafianet/bit_stream.h"
 #include "mafianet/message_identifiers.h"
 #include "mafianet/mtu_size.h"
+#include "mafianet/statistics.h"
 
 using namespace MafiaNet;
 
@@ -256,4 +258,55 @@ TEST(SimulatedPeer, TooShortConnectionRequestAcceptedIsDropped)
 	ASSERT_TRUE(net.RunUntilReceived(client, ID_TEST_PAYLOAD, 2000));
 	EXPECT_FALSE(net.Received(client, ID_CONNECTION_REQUEST_ACCEPTED));
 	EXPECT_EQ(IS_CONNECTED, client->GetConnectionState(net.AddressOf(server)));
+}
+
+TEST(SimulatedPeer, OutgoingLimitPacesBackloggedMessagesAcrossTheSecond)
+{
+	SimulatedNetwork net;
+	auto *server = net.AddPeer(1, 1);
+	auto *client = net.AddPeer(1);
+	ASSERT_TRUE(net.Connect(client, server));
+	net.Step(100);
+	client->SetPerConnectionOutgoingBandwidthLimit(16000); // 2,000 payload bytes/s.
+	for (unsigned i = 0; i < 16; ++i)
+		SendNumbered(client, net.AddressOf(server), i, 195); // 200 bytes with ID and sequence.
+
+	for (unsigned quarter = 1; quarter <= 4; ++quarter)
+	{
+		net.Step(250);
+		const auto delivered = NumbersReceived(net, server).size();
+		EXPECT_GE(delivered, 5 * quarter / 2);
+		EXPECT_LE(delivered, (5 * quarter + 1) / 2);
+	}
+	client->SetPerConnectionOutgoingBandwidthLimit(0);
+	net.Step(100);
+	EXPECT_EQ(NumbersReceived(net, server).size(), 16u);
+}
+
+TEST(SimulatedPeer, OutgoingLimitCarriesSubByteCreditAndRespondsToRateChanges)
+{
+	SimulatedNetwork net;
+	auto *server = net.AddPeer(1, 1);
+	auto *client = net.AddPeer(1);
+	ASSERT_TRUE(net.Connect(client, server));
+	net.Step(100);
+	const auto address = net.AddressOf(server);
+	const char message = static_cast<char>(ID_TEST_PAYLOAD);
+	client->SetPerConnectionOutgoingBandwidthLimit(5); // 1.6 seconds per byte
+	for (int i = 0; i < 3; ++i)
+		ASSERT_NE(client->Send(&message, 1, Priority::High, Reliability::ReliableOrdered, 0, address, false), 0u);
+	auto &inbox = net.Inbox(server);
+	auto count = [&]
+	{ return std::count_if(inbox.begin(), inbox.end(), [](const SimulatedNetwork::Message &m)
+		                   { return m.id == ID_TEST_PAYLOAD; }); };
+	net.Step(1500);
+	EXPECT_EQ(count(), 1);
+	net.Step(200);
+	EXPECT_EQ(count(), 2);
+	client->SetPerConnectionOutgoingBandwidthLimit(UINT32_MAX);
+	net.Step(50);
+	EXPECT_EQ(count(), 3);
+	RakNetStatistics stats;
+	ASSERT_TRUE(client->GetStatistics(address, &stats));
+	EXPECT_EQ(stats.BPSLimitByOutgoingBandwidthLimit, 536870912u);
 }

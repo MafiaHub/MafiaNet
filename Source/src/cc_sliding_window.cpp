@@ -253,7 +253,9 @@ void CCRakNetSlidingWindow::OnAck(CCTimeType curTime, CCTimeType rtt, bool hasBA
 	}
 	else if (isNewCongestionControlPeriod)
 	{
-		cwnd += MAXIMUM_MTU_INCLUDING_UDP_HEADER * MAXIMUM_MTU_INCLUDING_UDP_HEADER / cwnd;
+		// Only one ACK advances the window per flight. Add one datagram here;
+		// MTU * MTU / cwnd is the increment for an ACK of EACH datagram.
+		cwnd += MAXIMUM_MTU_INCLUDING_UDP_HEADER;
 
 		// CC PRINTF
 		// printf("+ %.0f Congestion avoidance increase.\n", cwnd);

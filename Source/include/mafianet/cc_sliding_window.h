@@ -26,8 +26,8 @@ Slow start:
 On ack cwnd*=2
 
 congestion avoidance:
-On ack during new period
-cwnd+=mtu*mtu/cwnd
+On first ack during new period
+cwnd+=mtu
 
 on loss or duplicate ack during period:
 sshtresh=cwnd/2
