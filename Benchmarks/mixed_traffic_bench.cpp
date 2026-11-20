@@ -196,11 +196,19 @@ private:
 	bool sender;
 };
 
+int Percentile95(std::vector<int> &times)
+{
+	const auto nth = times.begin() + (95 * times.size() + 99) / 100 - 1;
+	std::nth_element(times.begin(), nth, times.end());
+	return *nth;
+}
+
 void Report(benchmark::State &state, const std::string &prefix, const std::vector<MessageTrace> &messages, const QueueDepth &depth, unsigned samples)
 {
 	unsigned started = 0, retried = 0, complete = 0, delivered = 0, resends = 0;
 	unsigned unreliable = 0, promoted = 0;
 	uint64_t offeredBytes = 0, firstSendBytes = 0, deliveredBytes = 0, resendBytes = 0;
+	std::vector<int> firstSendTimes, deliveryTimes;
 	double queue = 0, retry = 0, assembly = 0, delivery = 0, total = 0;
 	for (const auto &m : messages)
 	{
@@ -212,6 +220,7 @@ void Report(benchmark::State &state, const std::string &prefix, const std::vecto
 			++started;
 			unreliable += m.requestedUnreliable;
 			promoted += m.promotedToReliable;
+			firstSendTimes.push_back(m.firstSent - m.queued);
 			queue += m.firstSent - m.queued;
 		}
 		if (m.firstResent >= 0)
@@ -230,6 +239,7 @@ void Report(benchmark::State &state, const std::string &prefix, const std::vecto
 			++delivered;
 			deliveredBytes += m.bytes;
 			delivery += m.delivered - m.complete;
+			deliveryTimes.push_back(m.delivered - m.queued);
 			total += m.delivered - m.queued;
 		}
 	}
@@ -254,7 +264,10 @@ void Report(benchmark::State &state, const std::string &prefix, const std::vecto
 		state.counters[prefix + "_upgraded_to_reliable"] = promoted;
 	}
 	if (started)
+	{
 		state.counters[prefix + "_queue_ms"] = queue / started;
+		state.counters[prefix + "_queue_p95_ms"] = Percentile95(firstSendTimes);
+	}
 	if (retried)
 		state.counters[prefix + "_first_retry_ms"] = retry / retried;
 	if (complete)
@@ -263,10 +276,23 @@ void Report(benchmark::State &state, const std::string &prefix, const std::vecto
 	{
 		state.counters[prefix + "_complete_to_app_ms"] = delivery / delivered;
 		state.counters[prefix + "_latency_ms"] = total / delivered;
+		state.counters[prefix + "_latency_p95_ms"] = Percentile95(deliveryTimes);
 	}
 }
 
-void RakPeer_MixedTraffic(benchmark::State &state)
+bool ConsumeOrdered(const SimulatedNetwork::Message &message, std::array<uint32_t, 3> &next)
+{
+	if (message.id < ID_USER_PACKET_ENUM)
+		return true;
+	const unsigned lane = message.id - ID_USER_PACKET_ENUM;
+	if (lane >= next.size() || message.data.size() < prefixBytes)
+		return false;
+	uint32_t index;
+	std::memcpy(&index, message.data.data() + 1, sizeof(index));
+	return index == next[lane]++;
+}
+
+void RunMixedTraffic(benchmark::State &state, bool allReliable)
 {
 	const auto loss = static_cast<int>(state.range(0));
 	const auto blockBytes = static_cast<int>(state.range(1)) * 1024;
@@ -302,6 +328,23 @@ void RakPeer_MixedTraffic(benchmark::State &state)
 	auto draw = [&](int min, int max)
 	{ return std::uniform_int_distribution<int>(min, max)(random); };
 	std::vector<unsigned char> payload(std::max(5000, blockBytes));
+	uint32_t upstreamOffered = 0;
+	std::array<uint32_t, 3> downstreamReceived{}, upstreamReceived{};
+	auto collect = [&]
+	{
+		for (const auto &m : net.Inbox(client))
+		{
+			traces.Deliver(m);
+			if (allReliable && !ConsumeOrdered(m, downstreamReceived))
+				traces.valid = false;
+		}
+		if (allReliable)
+			for (const auto &m : net.Inbox(server))
+				if (!ConsumeOrdered(m, upstreamReceived))
+					traces.valid = false;
+		net.Inbox(client).clear();
+		net.Inbox(server).clear();
+	};
 	auto send = [&](bool downstream, int lane, int length, Priority priority, Reliability reliability)
 	{
 		uint32_t index = 0;
@@ -314,6 +357,8 @@ void RakPeer_MixedTraffic(benchmark::State &state)
 			trace.bytes = static_cast<unsigned>(length);
 			trace.requestedUnreliable = reliability == Reliability::Unreliable;
 		}
+		else
+			index = upstreamOffered++;
 		payload[0] = static_cast<unsigned char>(ID_USER_PACKET_ENUM + lane);
 		std::memcpy(payload.data() + 1, &index, sizeof(index));
 		auto *peer = downstream ? server : client;
@@ -349,7 +394,7 @@ void RakPeer_MixedTraffic(benchmark::State &state)
 				{
 					const int size = downstream ? draw(1000, 5000) : draw(100, 2000);
 					const auto reliability = draw(0, 100) < 30 ? Reliability::ReliableOrdered : Reliability::Unreliable;
-					send(downstream, gameplay, size, Priority::High, reliability);
+					send(downstream, gameplay, size, Priority::High, allReliable ? Reliability::ReliableOrdered : reliability);
 				}
 			}
 			traces.now = ms + 1;
@@ -391,10 +436,7 @@ void RakPeer_MixedTraffic(benchmark::State &state)
 					++capOnlyMs;
 			}
 #endif
-			for (const auto &m : net.Inbox(client))
-				traces.Deliver(m);
-			net.Inbox(client).clear();
-			net.Inbox(server).clear();
+			collect();
 		}
 	}
 	if (!traces.valid || client->NumberOfConnections() != 1 || server->NumberOfConnections() != 1)
@@ -418,6 +460,47 @@ void RakPeer_MixedTraffic(benchmark::State &state)
 	Report(state, "urgent", traces.messages[urgent], traces.depth[urgent], depthSamples);
 	Report(state, "bulk", traces.messages[bulk], traces.depth[bulk], depthSamples);
 	state.counters["bulk_B_per_sim_s"] = static_cast<double>(traces.bulkDelivered) * blockBytes * 1000 / durationMs;
+	if (allReliable)
+	{
+		// Preserve the 60-second workload counters above. Stop offering data
+		// and keep the same link impairments while both directions drain.
+		auto drained = [&]
+		{
+			SimulatedNetwork::SendBudget down, up;
+			if (!net.ReadSendBudget(server, clientAddress, down) || !net.ReadSendBudget(client, serverAddress, up))
+				return false;
+			for (size_t lane = 0; lane < downstreamReceived.size(); ++lane)
+				if (downstreamReceived[lane] != traces.messages[lane].size())
+					return false;
+			return upstreamReceived[gameplay] == upstreamOffered && !up.queued && !down.queued && up.inFlightBytes == 0 && down.inFlightBytes == 0;
+		};
+		while (traces.valid && !drained() && traces.now < 2 * durationMs)
+		{
+			++traces.now;
+			net.Step(1);
+			collect();
+		}
+		if (!traces.valid || !drained())
+		{
+			state.SkipWithError("ordered delivery or bounded drain failed");
+			return;
+		}
+		state.counters["drain_ms"] = traces.now - durationMs;
+		state.counters["game_after_drain"] = downstreamReceived[gameplay];
+		state.counters["up_game_after_drain"] = upstreamReceived[gameplay];
+		state.counters["urgent_after_drain"] = downstreamReceived[urgent];
+		state.counters["bulk_after_drain"] = downstreamReceived[bulk];
+	}
 }
+void RakPeer_MixedTraffic(benchmark::State &state)
+{
+	RunMixedTraffic(state, false);
+}
+
+void RakPeer_MixedTrafficReliable(benchmark::State &state)
+{
+	RunMixedTraffic(state, true);
+}
+BENCHMARK(RakPeer_MixedTrafficReliable)->ArgsProduct({{2, 0}, {512, 16, 0}, {1, 2, 3, 4, 5}})->ArgNames({"loss_pct", "block_KiB", "seed"})->Iterations(1);
 BENCHMARK(RakPeer_MixedTraffic)->ArgsProduct({{2, 0}, {512, 16, 0}, {1, 2, 3, 4, 5}})->ArgNames({"loss_pct", "block_KiB", "seed"})->Iterations(1);
 }
