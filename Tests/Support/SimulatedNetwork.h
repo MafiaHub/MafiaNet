@@ -138,6 +138,8 @@ public:
 	bool RunUntilReceived(const RakPeer *peer, MessageID id, uint32_t maxSimMs);
 	// Client connects to server and both see the connection.
 	bool Connect(RakPeer *client, RakPeer *server, uint32_t maxSimMs = 5000);
+	// Largest application payload this established connection can send as one fragment.
+	int MaxUnsplitPayload(const RakPeer *sender, const SystemAddress &destination) const;
 	// Start a connection attempt from `from` to `to` without stepping: the
 	// raw RakPeer::Connect result, for scenarios that drive the handshake.
 	ConnectionAttemptResult StartConnect(RakPeer *from, const RakPeer *to);
@@ -154,10 +156,13 @@ public:
 	// Read after Step() on the manual update thread. The two limits can bind together.
 	struct SendBudget
 	{
-		uint32_t windowBytes;
-		uint32_t inFlightBytes;
+		uint32_t windowBytes;   // congestion window: bytes allowed on the wire
+		uint32_t inFlightBytes; // bytes already sent and not yet acknowledged
+		uint32_t queuedBytes;   // bytes waiting in the sender's heap for a first send
 		bool queued;
 		bool capBlocked;
+		bool slowStart;   // the window is still growing by a datagram per ack
+		double rttMillis; // last measured round trip time
 	};
 	// An optional visitor sees only live fragments still waiting for a first send.
 	bool ReadSendBudget(const RakPeer *sender, const SystemAddress &destination, SendBudget &budget, const std::function<void(const InternalPacket &)> &visitQueued = {}) const;

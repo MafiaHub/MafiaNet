@@ -10,6 +10,9 @@
 #include "mafianet/replica_manager3.h"
 
 #if _RAKNET_SUPPORT_ReplicaManager3 == 1
+#include <algorithm>
+#include <numeric>
+#include <random>
 #include <vector>
 #include "mafianet/network_id_manager.h"
 #include "mafianet/message_identifiers.h"
@@ -351,11 +354,18 @@ private:
 	}
 };
 
-// A warmed world. One iteration measures one server tick
-// after construction has been emitted for every client and the serializer is warm.
-template <bool useDirtyList, bool bulkFallback = false>
+enum class LargeWorldWorkload
+{
+	Contiguous,
+	BulkFallback,
+	Scattered
+};
+
+// One iteration measures one server tick after construction and serializer warmup.
+template <bool useDirtyList, LargeWorldWorkload workload = LargeWorldWorkload::Contiguous>
 void MeasureLargeWorld(benchmark::State &state)
 {
+	constexpr bool bulkFallback = workload == LargeWorldWorkload::BulkFallback;
 	const int clients = static_cast<int>(state.range(0));
 	const int changed = static_cast<int>(state.range(1));
 	SerializationCandidates candidates;
@@ -363,6 +373,15 @@ void MeasureLargeWorld(benchmark::State &state)
 	if constexpr (useDirtyList && !bulkFallback)
 		candidates.changed.reserve(changed);
 	World<PositionReplica> world(clients, 50000, useDirtyList ? &candidates : nullptr);
+	std::vector<size_t> order;
+	size_t next = 0;
+	if constexpr (workload == LargeWorldWorkload::Scattered)
+	{
+		order.resize(world.replicas.size());
+		std::iota(order.begin(), order.end(), size_t{0});
+		std::mt19937 random(42);
+		std::shuffle(order.begin(), order.end(), random);
+	}
 	world.Tick();
 	world.Tick();
 	world.peer.bytes = 0;
@@ -374,9 +393,17 @@ void MeasureLargeWorld(benchmark::State &state)
 			candidates.changed.clear();
 		for (int i = 0; i < changed; ++i)
 		{
-			world.replicas[i].x += 1.0f;
+			size_t index = static_cast<size_t>(i);
+			if constexpr (workload == LargeWorldWorkload::Scattered)
+			{
+				index = order[next++];
+				if (next == order.size())
+					next = 0;
+			}
+			auto &replica = world.replicas[index];
+			replica.x += 1.0f;
 			if constexpr (useDirtyList && !bulkFallback)
-				candidates.changed.push_back(&world.replicas[i]);
+				candidates.changed.push_back(&replica);
 		}
 		world.Tick();
 	}
@@ -387,7 +414,9 @@ void MeasureLargeWorld(benchmark::State &state)
 }
 BENCHMARK_TEMPLATE(MeasureLargeWorld, false)->Name("ReplicaManager3_LargeWorld")->ArgsProduct({{1, 20}, {0, 500, 50000}})->ArgNames({"clients", "changed_of_50000"})->Iterations(20);
 BENCHMARK_TEMPLATE(MeasureLargeWorld, true)->Name("ReplicaManager3_LargeWorldDirtyList")->ArgsProduct({{1, 20}, {0, 500, 50000}})->ArgNames({"clients", "changed_of_50000"})->Iterations(20);
-BENCHMARK_TEMPLATE(MeasureLargeWorld, true, true)->Name("ReplicaManager3_LargeWorldBulkFallback")->ArgsProduct({{1, 20}, {50000}})->ArgNames({"clients", "changed_of_50000"})->Iterations(20);
+BENCHMARK_TEMPLATE(MeasureLargeWorld, true, LargeWorldWorkload::BulkFallback)->Name("ReplicaManager3_LargeWorldBulkFallback")->ArgsProduct({{1, 20}, {50000}})->ArgNames({"clients", "changed_of_50000"})->Iterations(20);
+BENCHMARK_TEMPLATE(MeasureLargeWorld, false, LargeWorldWorkload::Scattered)->Name("ReplicaManager3_LargeWorldScattered")->ArgsProduct({{1, 20}, {500}})->ArgNames({"clients", "changed_of_50000"})->Iterations(20);
+BENCHMARK_TEMPLATE(MeasureLargeWorld, true, LargeWorldWorkload::Scattered)->Name("ReplicaManager3_LargeWorldScatteredDirtyList")->ArgsProduct({{1, 20}, {500}})->ArgNames({"clients", "changed_of_50000"})->Iterations(20);
 
 }
 #endif

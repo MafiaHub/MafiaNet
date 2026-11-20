@@ -352,7 +352,8 @@ Run the suite manually on the machine you want to measure. CI runs correctness
 tests, including the nightly fragmented-transfer reconnect soak. The manual
 suite covers the following workloads.
 
-* **Peer bandwidth.** Each send/receive case runs 64 batches. Forward and reverse
+* **Peer bandwidth.** Each send/receive case runs 64 batches. Bytes/s and
+  messages/s use elapsed wall time for the send/receive loop. Forward and reverse
   datagrams and UDP payload bytes are averages per batch. The observer includes
   encryption, transport headers, control traffic and the final ACK drain. IP and
   UDP headers are outside the observer. Divide combined UDP payload bytes by
@@ -369,6 +370,10 @@ suite covers the following workloads.
   zero, 500, or all 50,000 positions changed per tick. ``ReplicaManager3_LargeWorldDirtyList``
   measures the same writes with an application-supplied candidate list. Its time
   includes adding changed positions and copying the list for each connection.
+  The two ``LargeWorldScattered`` variants take the next 500 positions from a
+  seeded shuffle each tick. The full scan and dirty list use the same sequence,
+  with the shuffle prepared before timing. Compare them with the contiguous
+  500-change cases at the same client count.
   ``ReplicaManager3_LargeWorldBulkFallback`` measures a known bulk rewrite that
   uses the ordinary scan for that tick. Each case checks one position message
   per changed replica per observer. Bytes per tick count serialized
@@ -392,6 +397,14 @@ suite covers the following workloads.
   counters are means sampled over the complete run. The four queue-time buckets
   partition the ticks ending with queued data by exhausted window, exhausted
   application pacing credit, both, or neither.
+* **Fragmentation threshold.** ``RakPeer_FragmentationThreshold`` sends
+  downstream unreliable gameplay messages at the largest unsplit payload size
+  or one byte above it. Both arms offer exactly the same total application
+  bytes over 60 simulated seconds with the mixed-traffic link delay, reordering
+  and bandwidth cap. Each of five seeds runs at 0%, 1% and 2% loss. The sender
+  checks actual fragmentation and promotion to reliable. Compare delivered and
+  offered counts alongside p95 latency for messages delivered within the window.
+  Mean queue time covers messages that started transmission.
 * **Construction bandwidth.** ``ReplicaManager3_Construct1000`` compares
   unconditional scalar serialization with a full construction snapshot and
   subsequent dirty updates. See :doc:`../plugins/replica-manager-3`.
@@ -405,6 +418,30 @@ Numbers only mean something against a baseline on the same machine: run the
 benchmarks on both revisions with ``--benchmark_out=<file>
 --benchmark_out_format=json`` and compare them with google/benchmark's
 ``tools/compare.py``.
+
+Profiling a benchmark on Linux
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Install Valgrind with its Callgrind headers and select one benchmark case per
+profile. This example profiles the first seed just over the fragmentation
+threshold at 2% loss.
+
+.. code-block:: bash
+
+   cmake -S . -B build/bench-profile -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+       -DMAFIANET_BUILD_BENCHMARKS=ON -DMAFIANET_BENCHMARK_CALLGRIND=ON
+   cmake --build build/bench-profile --target MafiaNetBenchmarks --parallel
+   valgrind --tool=callgrind --instr-atstart=no \
+       --callgrind-out-file=build/bench-profile/fragment.callgrind \
+       build/bench-profile/Benchmarks/MafiaNetBenchmarks \
+       --benchmark_filter='RakPeer_FragmentationThreshold/loss_pct:2/split:1/seed:1/'
+   callgrind_annotate --auto=no build/bench-profile/fragment.callgrind
+
+Google Benchmark runs an extra pass under Valgrind. The profiler enables
+instruction collection at the start of the iteration loop and stops it at
+the end, excluding fixture setup and teardown. The annotation ranks functions
+by instructions executed directly in each function. Add ``--inclusive=yes``
+to include callees. Use a native run for elapsed time and throughput.
 
 Coverage
 --------

@@ -150,14 +150,14 @@ static void RakPeer_SendReceiveSmall(benchmark::State &state)
 {
 	SendReceive(state, 64, (int) state.range(0));
 }
-BENCHMARK(RakPeer_SendReceiveSmall)->Arg(64)->Arg(512)->Iterations(64);
+BENCHMARK(RakPeer_SendReceiveSmall)->Arg(64)->Arg(512)->Iterations(64)->UseRealTime();
 
 // Split-size messages: splitting and reassembly through the whole peer.
 static void RakPeer_SendReceiveLarge(benchmark::State &state)
 {
 	SendReceive(state, (int) state.range(0), 4);
 }
-BENCHMARK(RakPeer_SendReceiveLarge)->Arg(4 * 1024)->Arg(64 * 1024)->Iterations(64);
+BENCHMARK(RakPeer_SendReceiveLarge)->Arg(4 * 1024)->Arg(64 * 1024)->Iterations(64)->UseRealTime();
 
 // One visitor connects and disconnects while other clients stay connected. Vary
 // the queries per visit to distinguish the cost of publishing from copying a list.

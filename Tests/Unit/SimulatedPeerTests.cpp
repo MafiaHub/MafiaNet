@@ -21,6 +21,7 @@
 #include "mafianet/bit_stream.h"
 #include "mafianet/message_identifiers.h"
 #include "mafianet/mtu_size.h"
+#include "mafianet/plugin_interface2.h"
 #include "mafianet/statistics.h"
 
 using namespace MafiaNet;
@@ -55,6 +56,36 @@ std::vector<uint32_t> NumbersReceived(SimulatedNetwork &net, const RakPeer *peer
 	}
 	return numbers;
 }
+
+// Records every send of the test payload: whether it left as fragments, and
+// with which reliability. The reliability layer promotes split messages, so
+// this observes the wire truth behind MaxUnsplitPayload().
+class PayloadSendObserver : public PluginInterface2
+{
+public:
+	bool UsesReliabilityLayer() const override { return true; }
+
+	void OnInternalPacket(InternalPacket *packet, unsigned, SystemAddress, TimeMS, int isSend) override
+	{
+		if (!isSend)
+			return;
+		const bool split = packet->splitPacketCount != 0;
+		const auto *data = split ? packet->refCountedData->sharedDataBlock : packet->data;
+		if (data[0] != ID_TEST_PAYLOAD)
+			return;
+		sawSplit = sawSplit || split;
+		reliabilities.push_back(packet->reliability);
+	}
+
+	void Reset()
+	{
+		sawSplit = false;
+		reliabilities.clear();
+	}
+
+	bool sawSplit = false;
+	std::vector<Reliability> reliabilities;
+};
 }
 
 TEST(SimulatedPeer, ConnectHandshakeCompletes)
@@ -372,4 +403,39 @@ TEST(SimulatedPeer, BudgetQueueVisitorOmitsExpiredUnreliablePayloads)
 	ASSERT_TRUE(budget.queued);
 	net.Step(600); // includes the first periodic cull after changing the timeout
 	EXPECT_EQ(queuedUserBytes(), 0u);
+}
+
+TEST(SimulatedPeer, MaxUnsplitPayloadBoundsFragmentation)
+{
+	SimulatedNetwork net;
+	auto *server = net.AddPeer(1, 1);
+	auto *client = net.AddPeer(1);
+	ASSERT_TRUE(net.Connect(client, server));
+	PayloadSendObserver observer;
+	server->AttachPlugin(&observer);
+
+	const int limit = net.MaxUnsplitPayload(server, net.AddressOf(client));
+	ASSERT_GT(limit, 5); // room for the id and number SendNumbered prefixes
+
+	// Exactly the limit: a full datagram of application data leaves unsplit
+	// and keeps the requested unreliable reliability.
+	SendNumbered(server, net.AddressOf(client), 1, limit - 5, Reliability::Unreliable);
+	ASSERT_TRUE(net.RunUntilReceived(client, ID_TEST_PAYLOAD, 2000));
+	ASSERT_FALSE(observer.reliabilities.empty()) << "the send was never observed";
+	EXPECT_FALSE(observer.sawSplit);
+	EXPECT_TRUE(std::all_of(observer.reliabilities.begin(), observer.reliabilities.end(),
+	                        [](Reliability reliability)
+	                        { return reliability == Reliability::Unreliable; }))
+	    << "an unsplit message must not be promoted";
+
+	// One byte over: the layer splits the message and promotes it to reliable.
+	observer.Reset();
+	net.Inbox(client).clear();
+	SendNumbered(server, net.AddressOf(client), 2, limit - 4, Reliability::Unreliable);
+	ASSERT_TRUE(net.RunUntilReceived(client, ID_TEST_PAYLOAD, 5000));
+	EXPECT_TRUE(observer.sawSplit) << "a message one byte over the limit must fragment";
+	EXPECT_TRUE(std::all_of(observer.reliabilities.begin(), observer.reliabilities.end(),
+	                        [](Reliability reliability)
+	                        { return reliability == Reliability::Reliable; }))
+	    << "a fragmented unreliable message must be promoted to reliable";
 }

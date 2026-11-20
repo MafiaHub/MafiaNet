@@ -217,6 +217,15 @@ RakPeer *SimulatedNetwork::RestartPeer(RakPeer *peer, unsigned int maxConnection
 	                 address.GetPort(), Family::V4, hostNumber);
 }
 
+int SimulatedNetwork::MaxUnsplitPayload(const RakPeer *sender, const SystemAddress &destination) const
+{
+	auto *remote = sender->GetRemoteSystemFromSystemAddress(destination, true, true);
+	if (!remote)
+		return 0;
+	auto &layer = remote->reliabilityLayer;
+	return static_cast<int>(layer.GetMaxDatagramSizeExcludingMessageHeaderBytes() - BITS_TO_BYTES(layer.GetMaxMessageHeaderLengthBits()));
+}
+
 bool SimulatedNetwork::ReadSendBudget(const RakPeer *sender, const SystemAddress &destination, SendBudget &budget, const std::function<void(const InternalPacket &)> &visitQueued) const
 {
 	const auto *remote = sender->GetRemoteSystemFromSystemAddress(destination, true, true);
@@ -226,16 +235,19 @@ bool SimulatedNetwork::ReadSendBudget(const RakPeer *sender, const SystemAddress
 	budget.windowBytes = layer.congestionManager.GetCWNDLimit();
 	budget.inFlightBytes = layer.unacknowledgedBytes;
 	budget.queued = false;
+	budget.queuedBytes = 0;
 	for (const auto &entry : layer.outgoingPacketBuffer)
 	{
 		if (!entry.packet->data)
 			continue; // expired unreliable payload awaiting removal from the heap
 		budget.queued = true;
-		if (!visitQueued)
-			break;
-		visitQueued(*entry.packet);
+		budget.queuedBytes += BITS_TO_BYTES(entry.packet->dataBitLength);
+		if (visitQueued)
+			visitQueued(*entry.packet);
 	}
 	budget.capBlocked = layer.statistics.isLimitedByOutgoingBandwidthLimit;
+	budget.slowStart = layer.congestionManager.GetIsInSlowStart();
+	budget.rttMillis = layer.congestionManager.GetRTT() / 1000.0;
 	return true;
 }
 

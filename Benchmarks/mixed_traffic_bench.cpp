@@ -43,6 +43,7 @@ struct MessageTrace
 	unsigned resendBytes = 0;
 	bool requestedUnreliable = false;
 	bool promotedToReliable = false;
+	bool fragmented = false;
 	std::vector<bool> receivedFragments;
 	unsigned received = 0;
 };
@@ -62,6 +63,15 @@ struct Traces
 	int now = 0;
 	int bulkDelivered = 0;
 	bool valid = true;
+
+	uint32_t Enqueue(int lane, unsigned bytes, Reliability reliability)
+	{
+		auto &trace = messages[lane].emplace_back();
+		trace.queued = now;
+		trace.bytes = bytes;
+		trace.requestedUnreliable = reliability == Reliability::Unreliable;
+		return static_cast<uint32_t>(messages[lane].size() - 1);
+	}
 
 	bool Identify(const unsigned char *data, size_t bytes, int &lane, uint32_t &index) const
 	{
@@ -149,6 +159,7 @@ public:
 			if (trace.firstSent < 0)
 			{
 				trace.firstSent = traces.now;
+				trace.fragmented = split;
 				trace.promotedToReliable = trace.requestedUnreliable && packet->reliability == Reliability::Reliable;
 			}
 			const unsigned bytes = BITS_TO_BYTES(packet->dataBitLength);
@@ -266,6 +277,17 @@ void Report(benchmark::State &state, const std::string &prefix, const std::vecto
 	}
 }
 
+void ConfigureGameplayLink(SimulatedNetwork &net, RakPeer *server, RakPeer *client, int loss)
+{
+	SimulatedNetwork::LinkRule link;
+	link.delayMs = 50;
+	link.lossPercent = loss;
+	link.reorderPerThousand = 5;
+	link.reorderDelayMs = 25;
+	net.SetLinkBothWays(server, client, link);
+	server->SetPerConnectionOutgoingBandwidthLimit(256 * 1024 * 8);
+}
+
 void RakPeer_MixedTraffic(benchmark::State &state)
 {
 	const auto loss = static_cast<int>(state.range(0));
@@ -285,13 +307,7 @@ void RakPeer_MixedTraffic(benchmark::State &state)
 	const auto clientAddress = net.AddressOf(client);
 	server->AttachPlugin(&sender);
 	client->AttachPlugin(&receiver);
-	SimulatedNetwork::LinkRule link;
-	link.delayMs = 50;
-	link.lossPercent = loss;
-	link.reorderPerThousand = 5;
-	link.reorderDelayMs = 25;
-	net.SetLinkBothWays(server, client, link);
-	server->SetPerConnectionOutgoingBandwidthLimit(256 * 1024 * 8);
+	ConfigureGameplayLink(net, server, client, loss);
 
 	uint64_t wireBytes = 0;
 	net.SetTap([&](const SystemAddress &from, const SystemAddress &, const char *, int size)
@@ -304,16 +320,7 @@ void RakPeer_MixedTraffic(benchmark::State &state)
 	std::vector<unsigned char> payload(std::max(5000, blockBytes));
 	auto send = [&](bool downstream, int lane, int length, Priority priority, Reliability reliability)
 	{
-		uint32_t index = 0;
-		if (downstream)
-		{
-			auto &messages = traces.messages[lane];
-			index = static_cast<uint32_t>(messages.size());
-			auto &trace = messages.emplace_back();
-			trace.queued = traces.now;
-			trace.bytes = static_cast<unsigned>(length);
-			trace.requestedUnreliable = reliability == Reliability::Unreliable;
-		}
+		const uint32_t index = downstream ? traces.Enqueue(lane, static_cast<unsigned>(length), reliability) : 0;
 		payload[0] = static_cast<unsigned char>(ID_USER_PACKET_ENUM + lane);
 		std::memcpy(payload.data() + 1, &index, sizeof(index));
 		auto *peer = downstream ? server : client;
@@ -420,4 +427,88 @@ void RakPeer_MixedTraffic(benchmark::State &state)
 	state.counters["bulk_B_per_sim_s"] = static_cast<double>(traces.bulkDelivered) * blockBytes * 1000 / durationMs;
 }
 BENCHMARK(RakPeer_MixedTraffic)->ArgsProduct({{2, 0}, {512, 16, 0}, {1, 2, 3, 4, 5}})->ArgNames({"loss_pct", "block_KiB", "seed"})->Iterations(1);
+
+void RakPeer_FragmentationThreshold(benchmark::State &state)
+{
+	const int loss = static_cast<int>(state.range(0));
+	const bool split = state.range(1) != 0;
+	Traces traces;
+	FragmentObserver sender(traces, true), receiver(traces, false);
+	SimulatedNetwork net(static_cast<unsigned>(state.range(2)));
+	auto *server = net.AddPeer(1, 1);
+	auto *client = net.AddPeer(1);
+	if (!net.Connect(client, server))
+	{
+		state.SkipWithError("handshake failed");
+		return;
+	}
+	const auto address = net.AddressOf(client);
+	const int limit = net.MaxUnsplitPayload(server, address);
+	if (limit < static_cast<int>(prefixBytes))
+	{
+		state.SkipWithError("missing payload budget");
+		return;
+	}
+	ConfigureGameplayLink(net, server, client, loss);
+	server->AttachPlugin(&sender);
+	client->AttachPlugin(&receiver);
+	const int bytes = limit + (split ? 1 : 0);
+	// Both arms offer exactly 3 * limit * (limit + 1) application bytes over 60 seconds.
+	const int messages = 3 * (split ? limit : limit + 1);
+	std::vector<unsigned char> payload(bytes);
+	payload[0] = ID_USER_PACKET_ENUM + gameplay;
+	traces.messages[gameplay].reserve(messages);
+	for (auto _ : state)
+	{
+		for (int ms = 0; ms < durationMs && traces.valid; ++ms)
+		{
+			traces.now = ms;
+			const auto due = static_cast<size_t>(static_cast<int64_t>(ms + 1) * messages / durationMs);
+			while (traces.messages[gameplay].size() < due)
+			{
+				const auto index = traces.Enqueue(gameplay, static_cast<unsigned>(bytes), Reliability::Unreliable);
+				std::memcpy(payload.data() + 1, &index, sizeof(index));
+				if (!server->Send(reinterpret_cast<const char *>(payload.data()), bytes, Priority::High, Reliability::Unreliable, 0, address, false))
+					traces.valid = false;
+			}
+			traces.now = ms + 1;
+			net.Step(1);
+			for (const auto &message : net.Inbox(client))
+				traces.Deliver(message);
+			net.Inbox(client).clear();
+		}
+	}
+	std::vector<int> latencies;
+	int started = 0, promoted = 0;
+	int64_t queueMs = 0;
+	for (const auto &trace : traces.messages[gameplay])
+	{
+		if (trace.firstSent >= 0)
+		{
+			++started;
+			promoted += trace.promotedToReliable;
+			queueMs += trace.firstSent - trace.queued;
+			if (trace.fragmented != split || trace.promotedToReliable != split)
+				traces.valid = false;
+		}
+		if (trace.delivered >= 0)
+			latencies.push_back(trace.delivered - trace.queued);
+	}
+	if (!traces.valid || traces.messages[gameplay].size() != static_cast<size_t>(messages) || started == 0 || latencies.empty() || server->NumberOfConnections() != 1 || client->NumberOfConnections() != 1)
+	{
+		state.SkipWithError("unexpected fragmentation, delivery, or connection state");
+		return;
+	}
+	const auto p95 = latencies.begin() + (latencies.size() * 95 - 1) / 100;
+	std::nth_element(latencies.begin(), p95, latencies.end());
+	state.counters["payload_B"] = bytes;
+	state.counters["offered_B"] = static_cast<double>(messages) * bytes;
+	state.counters["offered"] = messages;
+	state.counters["started"] = started;
+	state.counters["promoted_to_reliable"] = promoted;
+	state.counters["delivered"] = static_cast<double>(latencies.size());
+	state.counters["queue_mean_ms"] = static_cast<double>(queueMs) / started;
+	state.counters["delivery_p95_ms"] = *p95;
+}
+BENCHMARK(RakPeer_FragmentationThreshold)->ArgsProduct({{0, 1, 2}, {0, 1}, {1, 2, 3, 4, 5}})->ArgNames({"loss_pct", "split", "seed"})->Iterations(1);
 }
