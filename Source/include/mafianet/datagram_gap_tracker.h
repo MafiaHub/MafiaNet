@@ -8,6 +8,7 @@
 
 #include "mafianet/range_list.h"
 #include "mafianet/types.h"
+#include "mafianet/vector_util.h"
 
 #include <algorithm>
 #include <vector>
@@ -50,16 +51,20 @@ public:
 
 	void Update(TimeUS now, RangeList<uint24_t> &ready)
 	{
-		gaps.erase(std::remove_if(gaps.begin(), gaps.end(), [&](Gap &gap)
-		                          {
+		for (size_t i = 0; i < gaps.size();)
+		{
+			auto &gap = gaps[i];
 			const TimeUS age = now - gap.detected;
 			if (gap.delay && age >= gap.delay)
 			{
 				ready.Insert(gap.sequence);
 				gap.delay = 0;
 			}
-			return age >= observationUs; }),
-		           gaps.end());
+			if (age >= observationUs)
+				SwapRemove(gaps, i);
+			else
+				++i;
+		}
 	}
 
 	void Clear()
