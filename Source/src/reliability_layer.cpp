@@ -2116,6 +2116,10 @@ void ReliabilityLayer::UpdateInternal(RakNetSocket2 *s, SystemAddress &systemAdd
 
 		if ((int) BITS_TO_BYTES(allDatagramSizesSoFar) < transmissionBandwidth)
 		{
+#if USE_SLIDING_WINDOW_CONGESTION_CONTROL == 1
+			if (allDatagramSizesSoFar != 0)
+				transmissionBandwidth = std::min(transmissionBandwidth, congestionManager.GetTransmissionBandwidth(time, timeSinceLastTick, unacknowledgedBytes, dhf.isContinuousSend));
+#endif
 			//	printf("S+ ");
 			allDatagramSizesSoFar = 0;
 

@@ -27,6 +27,7 @@ static const CCTimeType SYN = 10000;
 
 #include "mafianet/mtu_size.h"
 #include <stdio.h>
+#include <algorithm>
 #include <cmath>
 #include <stdlib.h>
 #include "mafianet/assert.h"
@@ -47,6 +48,12 @@ void CCRakNetSlidingWindow::Init(CCTimeType curTime, uint32_t maxDatagramPayload
 {
 	(void) curTime;
 
+	pacingClock = baselineEpoch = recentEpoch = lastDelayBackoff = lastAckAt = curTime;
+	intervalAcks = intervalGaps = 0;
+	excessiveGaps = false;
+	recentMinimum = completedMinimum = UNSET_TIME_US;
+	previousMinRtt = currentMinRtt = UNSET_TIME_US;
+	pacingCredit = maxDatagramPayload;
 	lastRtt = estimatedRTT = deviationRtt = UNSET_TIME_US;
 	RakAssert(maxDatagramPayload <= MAXIMUM_MTU_SIZE);
 	MAXIMUM_MTU_INCLUDING_UDP_HEADER = maxDatagramPayload;
@@ -62,8 +69,17 @@ void CCRakNetSlidingWindow::Init(CCTimeType curTime, uint32_t maxDatagramPayload
 // ----------------------------------------------------------------------------------------------------------------------------
 void CCRakNetSlidingWindow::Update(CCTimeType curTime, bool hasDataToSendOrResend)
 {
-	(void) curTime;
-	(void) hasDataToSendOrResend;
+	const CCTimeType elapsed = curTime - pacingClock;
+	pacingClock = curTime;
+	if (estimatedRTT <= 0 || !hasDataToSendOrResend)
+	{
+		pacingCredit = MAXIMUM_MTU_INCLUDING_UDP_HEADER;
+		return;
+	}
+	const double rate = (IsInSlowStart() ? 2.0 : 1.25) * cwnd / estimatedRTT;
+	const double accrued = rate * std::min(elapsed, SYN * 3);
+	const double burst = std::max(2.0 * MAXIMUM_MTU_INCLUDING_UDP_HEADER, accrued);
+	pacingCredit = std::min(burst, pacingCredit + accrued);
 }
 // ----------------------------------------------------------------------------------------------------------------------------
 int CCRakNetSlidingWindow::GetRetransmissionBandwidth(CCTimeType curTime, CCTimeType timeSinceLastTick, uint32_t unacknowledgedBytes, bool isContinuousSend)
@@ -72,7 +88,7 @@ int CCRakNetSlidingWindow::GetRetransmissionBandwidth(CCTimeType curTime, CCTime
 	(void) isContinuousSend;
 	(void) timeSinceLastTick;
 
-	return unacknowledgedBytes;
+	return static_cast<int>(std::min<double>(unacknowledgedBytes, std::max(0.0, pacingCredit)));
 }
 // ----------------------------------------------------------------------------------------------------------------------------
 int CCRakNetSlidingWindow::GetTransmissionBandwidth(CCTimeType curTime, CCTimeType timeSinceLastTick, uint32_t unacknowledgedBytes, bool isContinuousSend)
@@ -83,7 +99,7 @@ int CCRakNetSlidingWindow::GetTransmissionBandwidth(CCTimeType curTime, CCTimeTy
 	_isContinuousSend = isContinuousSend;
 
 	if (unacknowledgedBytes <= cwnd)
-		return (int) (cwnd - unacknowledgedBytes);
+		return static_cast<int>(std::min(cwnd - unacknowledgedBytes, std::max(0.0, pacingCredit)));
 	else
 		return 0;
 }
@@ -121,7 +137,7 @@ DatagramSequenceNumberType CCRakNetSlidingWindow::GetAndIncrementNextDatagramSeq
 void CCRakNetSlidingWindow::OnSendBytes(CCTimeType curTime, uint32_t numBytes)
 {
 	(void) curTime;
-	(void) numBytes;
+	pacingCredit -= numBytes;
 }
 // ----------------------------------------------------------------------------------------------------------------------------
 void CCRakNetSlidingWindow::OnGotPacketPair(DatagramSequenceNumberType datagramSequenceNumber, uint32_t sizeInBytes, CCTimeType curTime)
@@ -171,6 +187,8 @@ void CCRakNetSlidingWindow::OnResend(CCTimeType curTime, MafiaNet::TimeUS nextAc
 	(void) curTime;
 	(void) nextActionTime;
 
+	if (estimatedRTT > 0 && curTime - lastAckAt < 2 * estimatedRTT + 2 * SYN && !excessiveGaps)
+		return;
 	if (_isContinuousSend && backoffThisBlock == false && cwnd > MAXIMUM_MTU_INCLUDING_UDP_HEADER * 2)
 	{
 		// Spec says 1/2 cwnd, but it never recovers because cwnd increases too slowly
@@ -194,6 +212,7 @@ void CCRakNetSlidingWindow::OnNAK(CCTimeType curTime, DatagramSequenceNumberType
 	(void) nakSequenceNumber;
 	(void) curTime;
 
+	++intervalGaps;
 	if (_isContinuousSend && backoffThisBlock == false)
 	{
 		// Start congestion avoidance
@@ -210,19 +229,39 @@ void CCRakNetSlidingWindow::OnAck(CCTimeType curTime, CCTimeType rtt, bool hasBA
 	(void) totalUserDataBytesAcked;
 	(void) _AS;
 	(void) hasBAndAS;
-	(void) curTime;
-	(void) rtt;
+	lastRtt = static_cast<double>(rtt);
 
-	lastRtt = (double) rtt;
+	// Remember the minima of two ten-second intervals, to age out a changed path.
+	if (curTime - baselineEpoch >= 1000 * SYN)
+	{
+		previousMinRtt = curTime - baselineEpoch < 2000 * SYN ? currentMinRtt : UNSET_TIME_US;
+		currentMinRtt = UNSET_TIME_US;
+		baselineEpoch = curTime;
+	}
+	if (currentMinRtt < 0 || lastRtt < currentMinRtt)
+		currentMinRtt = lastRtt;
+	const CCTimeType observation = 12 * SYN;
+	lastAckAt = curTime;
+	++intervalAcks;
+	if (curTime - recentEpoch >= observation)
+	{
+		excessiveGaps = intervalGaps >= 3 && intervalGaps * 8 > intervalAcks;
+		intervalAcks = intervalGaps = 0;
+		completedMinimum = curTime - recentEpoch < 2 * observation ? recentMinimum : UNSET_TIME_US;
+		recentMinimum = UNSET_TIME_US;
+		recentEpoch = curTime;
+	}
+	if (recentMinimum < 0 || lastRtt < recentMinimum)
+		recentMinimum = lastRtt;
 	if (estimatedRTT == UNSET_TIME_US)
 	{
-		estimatedRTT = (double) rtt;
-		deviationRtt = (double) rtt;
+		estimatedRTT = lastRtt;
+		deviationRtt = lastRtt;
 	}
 	else
 	{
 		double d = .05;
-		double difference = rtt - estimatedRTT;
+		double difference = lastRtt - estimatedRTT;
 		estimatedRTT = estimatedRTT + d * difference;
 		deviationRtt = deviationRtt + d * (std::abs(difference) - deviationRtt);
 	}
@@ -242,6 +281,30 @@ void CCRakNetSlidingWindow::OnAck(CCTimeType curTime, CCTimeType rtt, bool hasBA
 		nextCongestionControlBlock = nextDatagramSequenceNumber;
 	}
 
+	const double baseRtt = previousMinRtt < 0 ? currentMinRtt : std::min(previousMinRtt, currentMinRtt);
+	const double delayTarget = std::clamp(baseRtt * 0.25, static_cast<double>(SYN), 3.0 * SYN);
+	if (IsInSlowStart() && cwnd >= 8.0 * MAXIMUM_MTU_INCLUDING_UDP_HEADER && estimatedRTT - baseRtt > delayTarget)
+		ssThresh = cwnd;
+	if (completedMinimum - baseRtt > delayTarget && recentMinimum - baseRtt > delayTarget &&
+	    cwnd <= 2.0 * MAXIMUM_MTU_INCLUDING_UDP_HEADER && curTime - lastDelayBackoff >= 2 * observation)
+	{
+		// A window drained down to two packets still sees this delay: a slower route or another flow.
+		previousMinRtt = UNSET_TIME_US;
+		currentMinRtt = std::min(completedMinimum, recentMinimum);
+		baselineEpoch = curTime;
+	}
+	else if (completedMinimum - baseRtt > delayTarget && recentMinimum - baseRtt > delayTarget)
+	{
+		if (isNewCongestionControlPeriod && curTime - lastDelayBackoff >= observation)
+		{
+			if (cwnd > 2.0 * MAXIMUM_MTU_INCLUDING_UDP_HEADER)
+				lastDelayBackoff = curTime;
+			cwnd = std::max(2.0 * MAXIMUM_MTU_INCLUDING_UDP_HEADER, 0.8 * cwnd);
+			ssThresh = cwnd;
+			backoffThisBlock = true;
+		}
+		return;
+	}
 	if (IsInSlowStart())
 	{
 		cwnd += MAXIMUM_MTU_INCLUDING_UDP_HEADER;

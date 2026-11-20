@@ -17,13 +17,13 @@ TEST(SlidingWindow, CongestionAvoidanceRestoresOneDatagramPerAcknowledgedFlight)
 
 	for (unsigned flight = 0; flight < 3; ++flight)
 	{
-		const int before = window.GetTransmissionBandwidth(0, 0, 0, true);
+		const uint32_t before = window.GetCWNDLimit();
 		const auto first = window.GetNextDatagramSequenceNumber();
-		for (int i = 0; i < before / static_cast<int>(mtu); ++i)
+		for (uint32_t i = 0; i < before / mtu; ++i)
 			window.GetAndIncrementNextDatagramSequenceNumber();
 		for (auto ack = first; ack != window.GetNextDatagramSequenceNumber(); ++ack)
 			window.OnAck(200000 + flight * 100000, 100000, false, 0, 0, 0, true, ack);
-		EXPECT_EQ(window.GetTransmissionBandwidth(0, 0, 0, true), before + static_cast<int>(mtu));
+		EXPECT_EQ(window.GetCWNDLimit(), before + mtu);
 	}
 }
 #endif
