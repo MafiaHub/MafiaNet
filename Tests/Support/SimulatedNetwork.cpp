@@ -336,9 +336,15 @@ void SimulatedNetwork::Enqueue(const SystemAddress &from, const SystemAddress &t
 	// Charge IP and UDP headers as well as the encrypted datagram payload.
 	const auto wireBytes = static_cast<unsigned>(length) + (to.GetIPVersion() == 6 ? 48u : 28u);
 	if (rule.dark || length > rule.maxDatagramBytes ||
-	    (rule.bottleneck && !rule.bottleneck->Admit(g_virtualNowUS, wireBytes, departure)) ||
-	    (rule.lossPercent > 0 && (int) (NextRandom() % 100u) < rule.lossPercent))
+	    (rule.bottleneck && !rule.bottleneck->Admit(g_virtualNowUS, wireBytes, departure)))
 	{
+		++datagramsDropped;
+		return;
+	}
+	if (rule.lossPercent > 0 && (int) (NextRandom() % 100u) < rule.lossPercent)
+	{
+		if (rule.bottleneck)
+			++rule.bottleneck->randomDrops;
 		++datagramsDropped;
 		return;
 	}

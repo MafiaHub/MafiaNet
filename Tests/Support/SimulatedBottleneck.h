@@ -76,7 +76,7 @@ public:
 		return queued;
 	}
 
-	uint64_t admittedBytes = 0, droppedBytes = 0, drops = 0;
+	uint64_t admittedBytes = 0, droppedBytes = 0, drops = 0, randomDrops = 0;
 	uint32_t peakBytes = 0;
 	std::vector<TimeUS> waitUs;
 

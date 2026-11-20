@@ -506,6 +506,7 @@ void RunMixedTraffic(benchmark::State &state, bool allReliable, bool finitePath 
 	state.counters["rto_retry_window_cuts"] = budget.rtoRetryWindowCuts;
 	if (finitePath)
 	{
+		state.counters["path_random_drops"] = static_cast<double>(bottleneck.randomDrops);
 		state.counters["path_tail_drops"] = static_cast<double>(bottleneck.drops);
 		state.counters["path_tail_drop_B"] = static_cast<double>(bottleneck.droppedBytes);
 		state.counters["path_peak_queue_B"] = bottleneck.peakBytes;

@@ -392,6 +392,25 @@ suite covers the following workloads.
   counters are means sampled over the complete run. The four queue-time buckets
   partition the ticks ending with queued data by exhausted window, exhausted
   application pacing credit, both, or neither.
+* **Finite path capacity.** ``RakPeer_FiniteBottleneck`` runs the same application
+  workload with reliable ordered channels, no sender cap, and a shared FIFO on
+  the downstream path. Propagation is 50 ms each way from the handshake. The
+  FIFO holds 50 KiB including the packet being serialized and charges IPv4
+  and UDP headers. Steady capacity is 256 KiB/s. The step case falls to
+  64 KiB/s at 20 seconds and recovers at 40 seconds. Independent 2% loss and
+  5% reordering (25 ms extra delay) have separate steady-capacity cases.
+  Queue delay is the time an admitted packet waits to start transmission.
+  Each phase reports transmitted wire bytes, delivered application bytes,
+  drops, and queue occupancy. Cutoff counts and latency percentiles are
+  recorded at 60 seconds before checking delivery order and draining both
+  directions. ``nak_retry_B`` counts retransmission payload scheduled with a
+  deadline advanced by a NAK. Other retries count toward ``rto_retry_B``.
+  Window-cut counters count reductions performed while retransmitting each kind.
+* **Competing senders.** ``RakPeer_SharedBottleneck`` puts one or two independent
+  peers on the same 256 KiB/s FIFO. Each keeps sixteen reliable ordered 16 KiB
+  blocks outstanding. The benchmark reports per-flow and aggregate goodput,
+  Jain's fairness index, overflow drops, and drain time. The clean run is
+  deterministic. The 2% independent loss case uses five matched seeds.
 * **Construction bandwidth.** ``ReplicaManager3_Construct1000`` compares
   unconditional scalar serialization with a full construction snapshot and
   subsequent dirty updates. See :doc:`../plugins/replica-manager-3`.
