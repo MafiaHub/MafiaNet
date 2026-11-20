@@ -117,10 +117,10 @@ public:
 		isValidated = true;
 	}
 
-	Replica3 *AllocReplica(MafiaNet::BitStream *, ReplicaManager3 *) { return 0; }
-	ConstructionMode QueryConstructionMode() const { return QUERY_CONNECTION_FOR_REPLICA_LIST; }
+	Replica3 *AllocReplica(MafiaNet::BitStream *, ReplicaManager3 *) override { return 0; }
+	ConstructionMode QueryConstructionMode() const override { return QUERY_CONNECTION_FOR_REPLICA_LIST; }
 
-	void QueryReplicaList(std::vector<Replica3 *> &create, std::vector<Replica3 *> &)
+	void QueryReplicaList(std::vector<Replica3 *> &create, std::vector<Replica3 *> &) override
 	{
 		for (Replica3 *replica : wanted)
 		{
@@ -129,7 +129,17 @@ public:
 		}
 	}
 
-	SendSerializeIfChangedResult SendSerialize(Replica3 *replica, bool indicesToSend[RM3_NUM_OUTPUT_BITSTREAM_CHANNELS], MafiaNet::BitStream serializationData[RM3_NUM_OUTPUT_BITSTREAM_CHANNELS], Time timestamp, PRO sendParameters[RM3_NUM_OUTPUT_BITSTREAM_CHANNELS], RakPeerInterface *rakPeer, unsigned char worldId, Time curTime)
+	bool QuerySerializationList(std::vector<Replica3 *> &out) override
+	{
+		if (!candidates)
+			return false;
+		out = *candidates;
+		return true;
+	}
+
+	const std::vector<Replica3 *> *candidates = nullptr;
+
+	SendSerializeIfChangedResult SendSerialize(Replica3 *replica, bool indicesToSend[RM3_NUM_OUTPUT_BITSTREAM_CHANNELS], MafiaNet::BitStream serializationData[RM3_NUM_OUTPUT_BITSTREAM_CHANNELS], Time timestamp, PRO sendParameters[RM3_NUM_OUTPUT_BITSTREAM_CHANNELS], RakPeerInterface *rakPeer, unsigned char worldId, Time curTime) override
 	{
 		++sendCalls;
 		if (indicesToSend[0] && serializationData[0].GetNumberOfBitsUsed() > 0)
@@ -211,6 +221,7 @@ protected:
 		return added;
 	}
 
+	std::vector<Replica3 *> candidates;
 	NetworkIDManager ids;
 	PassManager manager;
 	RakPeerInterface *peer = nullptr;
@@ -754,26 +765,15 @@ TEST_F(ReplicaManager3SerializePass, UpdateRunWhileAConnectionIsPoppedDoesNothin
 // connection's record. Every other connection still gets each broadcast, once.
 TEST_F(ReplicaManager3SerializePass, OwnListConnectionIsServedOnTheCallingThreadOnly)
 {
-	struct OwnListConnection : PassConnection
-	{
-		using PassConnection::PassConnection;
-		bool QuerySerializationList(std::vector<Replica3 *> &replicasToSerialize)
-		{
-			for (Replica3 *replica : list)
-				replicasToSerialize.push_back(replica);
-			return true;
-		}
-		std::vector<Replica3 *> list;
-	};
-
 	ThreadExecutor executor;
 	manager.SetSerializeExecutor(&executor);
 	PassReplica *held = AddReplica(true);
 	PassReplica *notHeld = AddReplica(true);
 	std::vector<PassConnection *> others = AddConnections(4, {held, notHeld});
-	auto *picker = new OwnListConnection(RakNetGUID(200));
+	candidates = {held, notHeld};
+	auto *picker = new PassConnection(RakNetGUID(200));
 	picker->wanted = {held};
-	picker->list = {held, notHeld};
+	picker->candidates = &candidates;
 	manager.PushConnection(picker);
 	Tick();
 	Tick();
@@ -799,6 +799,40 @@ TEST_F(ReplicaManager3SerializePass, OwnListConnectionIsServedOnTheCallingThread
 	EXPECT_EQ(held->serializeCalls.load(), 1);
 	EXPECT_EQ(notHeld->serializeCalls.load(), 1);
 	manager.SetSerializeExecutor(0);
+}
+
+TEST_F(ReplicaManager3SerializePass, DirtyListSerializePassVisitsOnlySelectedReplicasForEveryObserver)
+{
+	PassReplica *moving = AddReplica(true);
+	PassReplica *stationary = AddReplica(true);
+	auto observers = AddConnections(2, {moving, stationary});
+	Tick();
+	Tick();
+
+	for (auto *observer : observers)
+	{
+		observer->candidates = &candidates;
+		observer->received.clear();
+	}
+	moving->serializeCalls = 0;
+	stationary->serializeCalls = 0;
+
+	Tick();
+	EXPECT_EQ(moving->serializeCalls.load(), 0);
+	EXPECT_EQ(stationary->serializeCalls.load(), 0);
+	for (auto *observer : observers)
+		EXPECT_TRUE(observer->received.empty());
+
+	moving->value = 7;
+	candidates.push_back(moving);
+	Tick();
+	candidates.clear();
+	Tick();
+
+	EXPECT_EQ(moving->serializeCalls.load(), 1);
+	EXPECT_EQ(stationary->serializeCalls.load(), 0);
+	for (auto *observer : observers)
+		EXPECT_EQ(observer->received, std::vector<int>{7});
 }
 
 // What a game callback may do in the middle of a pass on the calling thread: dereference the replica it is

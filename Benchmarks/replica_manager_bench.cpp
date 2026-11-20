@@ -29,10 +29,12 @@ public:
 	using RakPeer::Send;
 	uint32_t Send(const BitStream *data, Priority, Reliability, char, const AddressOrGUID, bool, uint32_t) override
 	{
+		++messages;
 		bytes += data->GetNumberOfBytesUsed();
 		return 1;
 	}
 	uint64_t bytes = 0;
+	uint64_t messages = 0;
 };
 
 class StateReplica : public Replica3
@@ -65,6 +67,30 @@ public:
 	    : Connection_RM3(UNASSIGNED_SYSTEM_ADDRESS, guid) { isValidated = true; }
 	Replica3 *AllocReplica(BitStream *, ReplicaManager3 *) override { return nullptr; }
 };
+struct SerializationCandidates
+{
+	std::vector<Replica3 *> changed;
+	bool fullScan = false;
+};
+
+class DirtyListConnection final : public Connection
+{
+public:
+	DirtyListConnection(RakNetGUID guid, const SerializationCandidates &candidates)
+	    : Connection(guid), candidates(candidates) {}
+
+	bool QuerySerializationList(std::vector<Replica3 *> &replicas) override
+	{
+		if (candidates.fullScan)
+			return false;
+		replicas = candidates.changed;
+		return true;
+	}
+
+private:
+	const SerializationCandidates &candidates;
+};
+
 class Manager : public ReplicaManager3
 {
 public:
@@ -85,7 +111,7 @@ struct World
 	NetworkIDManager ids;
 	Manager manager;
 	std::vector<Replica> replicas;
-	explicit World(int clients, size_t replicaCount = 100)
+	explicit World(int clients, size_t replicaCount = 100, const SerializationCandidates *candidates = nullptr)
 	    : replicas(replicaCount)
 	{
 		tickUS = 1000000;
@@ -94,7 +120,13 @@ struct World
 		manager.SetNetworkIDManager(&ids);
 		manager.SetAutoSerializeInterval(0);
 		for (int i = 0; i < clients; ++i)
-			manager.PushConnection(new Connection(RakNetGUID(100 + i)));
+		{
+			RakNetGUID guid(100 + i);
+			if (candidates)
+				manager.PushConnection(new DirtyListConnection(guid, *candidates));
+			else
+				manager.PushConnection(new Connection(guid));
+		}
 		for (auto &replica : replicas)
 			manager.Reference(&replica);
 	}
@@ -319,27 +351,43 @@ private:
 	}
 };
 
-// A quiet or sparsely changing world. One iteration measures one server tick
+// A warmed world. One iteration measures one server tick
 // after construction has been emitted for every client and the serializer is warm.
-void ReplicaManager3_LargeWorld(benchmark::State &state)
+template <bool useDirtyList, bool bulkFallback = false>
+void MeasureLargeWorld(benchmark::State &state)
 {
 	const int clients = static_cast<int>(state.range(0));
 	const int changed = static_cast<int>(state.range(1));
-	World<PositionReplica> world(clients, 50000);
+	SerializationCandidates candidates;
+	candidates.fullScan = true;
+	if constexpr (useDirtyList && !bulkFallback)
+		candidates.changed.reserve(changed);
+	World<PositionReplica> world(clients, 50000, useDirtyList ? &candidates : nullptr);
 	world.Tick();
 	world.Tick();
 	world.peer.bytes = 0;
+	world.peer.messages = 0;
+	candidates.fullScan = bulkFallback;
 	for (auto _ : state)
 	{
+		if constexpr (useDirtyList && !bulkFallback)
+			candidates.changed.clear();
 		for (int i = 0; i < changed; ++i)
+		{
 			world.replicas[i].x += 1.0f;
+			if constexpr (useDirtyList && !bulkFallback)
+				candidates.changed.push_back(&world.replicas[i]);
+		}
 		world.Tick();
 	}
-	if ((world.peer.bytes > 0) != (changed > 0))
-		state.SkipWithError("unexpected replication output");
+	if (world.peer.messages != uint64_t(clients) * changed * state.iterations())
+		state.SkipWithError("unexpected number of position updates");
+	state.counters["rm3_messages_per_tick"] = benchmark::Counter(world.peer.messages, benchmark::Counter::kAvgIterations);
 	state.counters["rm3_bytes_per_tick"] = benchmark::Counter(world.peer.bytes, benchmark::Counter::kAvgIterations);
 }
-BENCHMARK(ReplicaManager3_LargeWorld)->ArgsProduct({{1, 20}, {0, 500}})->ArgNames({"clients", "changed_of_50000"})->Iterations(20);
+BENCHMARK_TEMPLATE(MeasureLargeWorld, false)->Name("ReplicaManager3_LargeWorld")->ArgsProduct({{1, 20}, {0, 500, 50000}})->ArgNames({"clients", "changed_of_50000"})->Iterations(20);
+BENCHMARK_TEMPLATE(MeasureLargeWorld, true)->Name("ReplicaManager3_LargeWorldDirtyList")->ArgsProduct({{1, 20}, {0, 500, 50000}})->ArgNames({"clients", "changed_of_50000"})->Iterations(20);
+BENCHMARK_TEMPLATE(MeasureLargeWorld, true, true)->Name("ReplicaManager3_LargeWorldBulkFallback")->ArgsProduct({{1, 20}, {50000}})->ArgNames({"clients", "changed_of_50000"})->Iterations(20);
 
 }
 #endif
