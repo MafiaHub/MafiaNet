@@ -111,6 +111,39 @@ TEST(SimulatedPeer, ReliableOrderedSurvivesLossAndReordering)
 	EXPECT_GT(net.DatagramsDropped(), 0u);
 }
 
+TEST(SimulatedPeer, ReliableOrderedFragmentsDrainAfterAckBlackoutOnReorderingPath)
+{
+	SimulatedNetwork net(42);
+	auto *server = net.AddPeer(1, 1);
+	auto *client = net.AddPeer(1);
+	ASSERT_TRUE(net.Connect(client, server));
+	const auto address = net.AddressOf(server);
+	SimulatedNetwork::LinkRule link;
+	link.delayMs = 30;
+	link.reorderPerThousand = 100;
+	link.reorderDelayMs = 15;
+	net.SetLinkBothWays(client, server, link);
+	for (unsigned i = 0; i < 32; ++i)
+		SendNumbered(client, address, i, 3000);
+	net.Step(500);
+
+	SimulatedNetwork::LinkRule blackout;
+	blackout.dark = true;
+	net.SetLink(server, client, blackout);
+	for (unsigned i = 32; i < 64; ++i)
+		SendNumbered(client, address, i, 3000);
+	net.Step(2000);
+	ASSERT_GT(net.DatagramsDropped(), 0u);
+	net.SetLink(server, client, link);
+	ASSERT_TRUE(net.RunUntil([&]
+	                         {
+		SimulatedNetwork::SendBudget budget;
+		return net.ReadSendBudget(client, address, budget) && !budget.queued && budget.inFlightBytes == 0 && NumbersReceived(net, server).size() == 64; }, 20000));
+	const auto delivered = NumbersReceived(net, server);
+	for (unsigned i = 0; i < delivered.size(); ++i)
+		EXPECT_EQ(delivered[i], i);
+}
+
 TEST(SimulatedPeer, LargeMessageIsSplitAndReassembled)
 {
 	SimulatedNetwork net;

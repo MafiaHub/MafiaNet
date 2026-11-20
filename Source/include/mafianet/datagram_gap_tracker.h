@@ -58,7 +58,8 @@ public:
 				ready.Insert(gap.sequence);
 				gap.delay = 0;
 			}
-			return age >= observationUs; }), gaps.end());
+			return age >= observationUs; }),
+		           gaps.end());
 	}
 
 	void Clear()
