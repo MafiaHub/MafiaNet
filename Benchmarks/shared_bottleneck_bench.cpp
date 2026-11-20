@@ -94,7 +94,7 @@ void RakPeer_SharedBottleneck(benchmark::State &state)
 		state.SkipWithError("no deliveries by cutoff");
 		return;
 	}
-	state.counters["jain_fairness"] = sum * sum / (flows * squares);
+	state.counters["jain_fairness"] = sum * sum / (static_cast<double>(flows) * squares);
 	state.counters["aggregate_B_per_s"] = sum;
 	state.counters["path_random_drops"] = static_cast<double>(path.randomDrops);
 	state.counters["path_tail_drops"] = static_cast<double>(path.drops);

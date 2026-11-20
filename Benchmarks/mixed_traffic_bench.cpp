@@ -11,6 +11,7 @@
 #include <cstring>
 #include <map>
 #include <numeric>
+#include <optional>
 #include <random>
 #include <string>
 
@@ -304,6 +305,8 @@ void RunMixedTraffic(benchmark::State &state, bool allReliable, bool finitePath 
 	const auto seed = static_cast<unsigned>(state.range(2));
 	Traces traces;
 	FragmentObserver sender(traces, true), receiver(traces, false);
+	std::optional<SimulatedBottleneck> pathStorage; // outlive every link that refers to the FIFO
+	uint64_t wireBytes = 0;
 	SimulatedNetwork net(seed);
 	auto *server = net.AddPeer(1, 1);
 	auto *client = net.AddPeer(1);
@@ -334,7 +337,7 @@ void RunMixedTraffic(benchmark::State &state, bool allReliable, bool finitePath 
 		rates.push_back({epoch + 20000000, 64 * 1024});
 		rates.push_back({epoch + 40000000, 256 * 1024});
 	}
-	SimulatedBottleneck bottleneck(51200, std::move(rates));
+	auto &bottleneck = pathStorage.emplace(51200, std::move(rates));
 	if (finitePath)
 		link.reorderPerThousand = static_cast<uint32_t>(state.range(4));
 	net.SetLink(client, server, link);
@@ -344,7 +347,6 @@ void RunMixedTraffic(benchmark::State &state, bool allReliable, bool finitePath 
 		server->SetPerConnectionOutgoingBandwidthLimit(256 * 1024 * 8);
 	net.SetLink(server, client, link);
 
-	uint64_t wireBytes = 0;
 	net.SetTap([&](const SystemAddress &from, const SystemAddress &, const char *, int size)
 	           {
 		if (from == serverAddress)
@@ -478,7 +480,7 @@ void RunMixedTraffic(benchmark::State &state, bool allReliable, bool finitePath 
 					state.counters[prefix + "mean_queue_B"] = static_cast<double>(depthByteMs) / 20000;
 					std::vector<TimeUS> waits(bottleneck.waitUs.begin() + firstWait, bottleneck.waitUs.end());
 					if (!waits.empty())
-						state.counters[prefix + "queue_p95_ms"] = Percentile(waits, 95) / 1000.0;
+						state.counters[prefix + "queue_p95_ms"] = static_cast<double>(Percentile(waits, 95)) / 1000.0;
 					firstWait = bottleneck.waitUs.size();
 					lastTransmitted = transmitted;
 					lastDelivered = traces.deliveredBytes;
@@ -512,8 +514,8 @@ void RunMixedTraffic(benchmark::State &state, bool allReliable, bool finitePath 
 		state.counters["path_peak_queue_B"] = bottleneck.peakBytes;
 		if (!bottleneck.waitUs.empty())
 		{
-			state.counters["path_mean_queue_ms"] = std::accumulate(bottleneck.waitUs.begin(), bottleneck.waitUs.end(), 0.0) / bottleneck.waitUs.size() / 1000;
-			state.counters["path_queue_p95_ms"] = Percentile(bottleneck.waitUs, 95) / 1000.0;
+			state.counters["path_mean_queue_ms"] = static_cast<double>(std::accumulate(bottleneck.waitUs.begin(), bottleneck.waitUs.end(), uint64_t{0})) / static_cast<double>(bottleneck.waitUs.size()) / 1000;
+			state.counters["path_queue_p95_ms"] = static_cast<double>(Percentile(bottleneck.waitUs, 95)) / 1000.0;
 		}
 	}
 #if USE_SLIDING_WINDOW_CONGESTION_CONTROL == 1
