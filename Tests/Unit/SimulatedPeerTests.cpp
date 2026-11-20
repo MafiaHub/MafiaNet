@@ -407,11 +407,11 @@ TEST(SimulatedPeer, BudgetQueueVisitorOmitsExpiredUnreliablePayloads)
 
 TEST(SimulatedPeer, MaxUnsplitPayloadBoundsFragmentation)
 {
+	PayloadSendObserver observer;
 	SimulatedNetwork net;
 	auto *server = net.AddPeer(1, 1);
 	auto *client = net.AddPeer(1);
 	ASSERT_TRUE(net.Connect(client, server));
-	PayloadSendObserver observer;
 	server->AttachPlugin(&observer);
 
 	const int limit = net.MaxUnsplitPayload(server, net.AddressOf(client));
