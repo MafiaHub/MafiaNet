@@ -33,6 +33,7 @@
 #include <string>
 #include <vector>
 
+#include "SimulatedBottleneck.h"
 #include "mafianet/get_time.h"
 #include "mafianet/peer.h"
 #include "mafianet/session_crypto.h"
@@ -53,6 +54,7 @@ public:
 		bool dark = false;                       // drop everything
 		uint32_t reorderPerThousand = 0;         // chance of an extra delay on a surviving datagram
 		uint32_t reorderDelayMs = 0;
+		SimulatedBottleneck *bottleneck = nullptr; // caller owns the FIFO for the lifetime of this rule
 	};
 
 	// A message a peer's Receive() returned, copied so it outlives the Packet.

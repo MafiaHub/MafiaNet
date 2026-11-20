@@ -328,7 +328,11 @@ void SimulatedNetwork::Enqueue(const SystemAddress &from, const SystemAddress &t
 	if (tap)
 		tap(from, to, data, length);
 	const LinkRule &rule = RuleFor(from, to);
+	TimeUS departure = g_virtualNowUS;
+	// Charge IP and UDP headers as well as the encrypted datagram payload.
+	const auto wireBytes = static_cast<unsigned>(length) + (to.GetIPVersion() == 6 ? 48u : 28u);
 	if (rule.dark || length > rule.maxDatagramBytes ||
+	    (rule.bottleneck && !rule.bottleneck->Admit(g_virtualNowUS, wireBytes, departure)) ||
 	    (rule.lossPercent > 0 && (int) (NextRandom() % 100u) < rule.lossPercent))
 	{
 		++datagramsDropped;
@@ -341,7 +345,7 @@ void SimulatedNetwork::Enqueue(const SystemAddress &from, const SystemAddress &t
 		delayMs += NextRandom() % (rule.jitterMs + 1);
 
 	InFlight datagram;
-	datagram.deliverAt = g_virtualNowUS + (TimeUS) delayMs * 1000;
+	datagram.deliverAt = departure + (TimeUS) delayMs * 1000;
 	datagram.sequence = nextSequence++;
 	datagram.from = from;
 	datagram.to = to;
