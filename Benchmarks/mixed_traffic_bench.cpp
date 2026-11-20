@@ -10,6 +10,7 @@
 #include <array>
 #include <cstring>
 #include <map>
+#include <numeric>
 #include <random>
 #include <string>
 
@@ -61,6 +62,7 @@ struct Traces
 	std::array<QueueDepth, 3> depth{};
 	int now = 0;
 	int bulkDelivered = 0;
+	uint64_t deliveredBytes = 0;
 	bool valid = true;
 
 	bool Identify(const unsigned char *data, size_t bytes, int &lane, uint32_t &index) const
@@ -109,6 +111,7 @@ struct Traces
 		if (trace.complete < 0 || trace.delivered >= 0)
 			valid = false;
 		trace.delivered = now;
+		deliveredBytes += trace.bytes;
 		if (lane == bulk)
 			++bulkDelivered;
 	}
@@ -196,9 +199,10 @@ private:
 	bool sender;
 };
 
-int Percentile95(std::vector<int> &times)
+template <class T>
+T Percentile(std::vector<T> &times, size_t percentile)
 {
-	const auto nth = times.begin() + (95 * times.size() + 99) / 100 - 1;
+	const auto nth = times.begin() + (percentile * times.size() + 99) / 100 - 1;
 	std::nth_element(times.begin(), nth, times.end());
 	return *nth;
 }
@@ -266,7 +270,7 @@ void Report(benchmark::State &state, const std::string &prefix, const std::vecto
 	if (started)
 	{
 		state.counters[prefix + "_queue_ms"] = queue / started;
-		state.counters[prefix + "_queue_p95_ms"] = Percentile95(firstSendTimes);
+		state.counters[prefix + "_queue_p95_ms"] = Percentile(firstSendTimes, 95);
 	}
 	if (retried)
 		state.counters[prefix + "_first_retry_ms"] = retry / retried;
@@ -276,7 +280,8 @@ void Report(benchmark::State &state, const std::string &prefix, const std::vecto
 	{
 		state.counters[prefix + "_complete_to_app_ms"] = delivery / delivered;
 		state.counters[prefix + "_latency_ms"] = total / delivered;
-		state.counters[prefix + "_latency_p95_ms"] = Percentile95(deliveryTimes);
+		state.counters[prefix + "_latency_p95_ms"] = Percentile(deliveryTimes, 95);
+		state.counters[prefix + "_latency_p99_ms"] = Percentile(deliveryTimes, 99);
 	}
 }
 
@@ -292,7 +297,7 @@ bool ConsumeOrdered(const SimulatedNetwork::Message &message, std::array<uint32_
 	return index == next[lane]++;
 }
 
-void RunMixedTraffic(benchmark::State &state, bool allReliable)
+void RunMixedTraffic(benchmark::State &state, bool allReliable, bool finitePath = false)
 {
 	const auto loss = static_cast<int>(state.range(0));
 	const auto blockBytes = static_cast<int>(state.range(1)) * 1024;
@@ -302,6 +307,12 @@ void RunMixedTraffic(benchmark::State &state, bool allReliable)
 	SimulatedNetwork net(seed);
 	auto *server = net.AddPeer(1, 1);
 	auto *client = net.AddPeer(1);
+	if (finitePath)
+	{
+		SimulatedNetwork::LinkRule propagation;
+		propagation.delayMs = 50;
+		net.SetLinkBothWays(server, client, propagation);
+	}
 	if (!net.Connect(client, server))
 	{
 		state.SkipWithError("handshake failed");
@@ -316,8 +327,22 @@ void RunMixedTraffic(benchmark::State &state, bool allReliable)
 	link.lossPercent = loss;
 	link.reorderPerThousand = 5;
 	link.reorderDelayMs = 25;
-	net.SetLinkBothWays(server, client, link);
-	server->SetPerConnectionOutgoingBandwidthLimit(256 * 1024 * 8);
+	const auto epoch = net.Now();
+	std::vector<SimulatedBottleneck::Rate> rates{{0, 256 * 1024}};
+	if (finitePath && state.range(3) == 1)
+	{
+		rates.push_back({epoch + 20000000, 64 * 1024});
+		rates.push_back({epoch + 40000000, 256 * 1024});
+	}
+	SimulatedBottleneck bottleneck(51200, std::move(rates));
+	if (finitePath)
+		link.reorderPerThousand = static_cast<uint32_t>(state.range(4));
+	net.SetLink(client, server, link);
+	if (finitePath)
+		link.bottleneck = &bottleneck;
+	else
+		server->SetPerConnectionOutgoingBandwidthLimit(256 * 1024 * 8);
+	net.SetLink(server, client, link);
 
 	uint64_t wireBytes = 0;
 	net.SetTap([&](const SystemAddress &from, const SystemAddress &, const char *, int size)
@@ -367,6 +392,8 @@ void RunMixedTraffic(benchmark::State &state, bool allReliable)
 	};
 
 	unsigned depthSamples = 0;
+	uint64_t lastDelivered = 0, lastTransmitted = 0, lastDrops = 0, depthByteMs = 0;
+	size_t firstWait = 0;
 	const std::function<void(const InternalPacket &)> noVisit;
 	std::function<void(const InternalPacket &)> sampleQueued = [&](const InternalPacket &packet)
 	{ traces.SampleQueued(packet); };
@@ -437,6 +464,28 @@ void RunMixedTraffic(benchmark::State &state, bool allReliable)
 			}
 #endif
 			collect();
+			if (finitePath)
+			{
+				const auto depth = bottleneck.QueuedBytes(net.Now());
+				depthByteMs += depth;
+				if (traces.now % 20000 == 0)
+				{
+					const auto prefix = "phase" + std::to_string(traces.now / 20000) + "_";
+					const auto transmitted = bottleneck.admittedBytes - depth;
+					state.counters[prefix + "wire_B_per_s"] = static_cast<double>(transmitted - lastTransmitted) / 20;
+					state.counters[prefix + "delivered_B_per_s"] = static_cast<double>(traces.deliveredBytes - lastDelivered) / 20;
+					state.counters[prefix + "drops"] = static_cast<double>(bottleneck.drops - lastDrops);
+					state.counters[prefix + "mean_queue_B"] = static_cast<double>(depthByteMs) / 20000;
+					std::vector<TimeUS> waits(bottleneck.waitUs.begin() + firstWait, bottleneck.waitUs.end());
+					if (!waits.empty())
+						state.counters[prefix + "queue_p95_ms"] = Percentile(waits, 95) / 1000.0;
+					firstWait = bottleneck.waitUs.size();
+					lastTransmitted = transmitted;
+					lastDelivered = traces.deliveredBytes;
+					lastDrops = bottleneck.drops;
+					depthByteMs = 0;
+				}
+			}
 		}
 	}
 	if (!traces.valid || client->NumberOfConnections() != 1 || server->NumberOfConnections() != 1)
@@ -445,6 +494,27 @@ void RunMixedTraffic(benchmark::State &state, bool allReliable)
 		return;
 	}
 	net.SetTap({});
+	SimulatedNetwork::SendBudget budget;
+	if (!net.ReadSendBudget(server, clientAddress, budget))
+	{
+		state.SkipWithError("connection lost at cutoff");
+		return;
+	}
+	state.counters["nak_retry_B"] = static_cast<double>(budget.nakRetryBytes);
+	state.counters["rto_retry_B"] = static_cast<double>(budget.rtoRetryBytes);
+	state.counters["nak_retry_window_cuts"] = budget.nakRetryWindowCuts;
+	state.counters["rto_retry_window_cuts"] = budget.rtoRetryWindowCuts;
+	if (finitePath)
+	{
+		state.counters["path_tail_drops"] = static_cast<double>(bottleneck.drops);
+		state.counters["path_tail_drop_B"] = static_cast<double>(bottleneck.droppedBytes);
+		state.counters["path_peak_queue_B"] = bottleneck.peakBytes;
+		if (!bottleneck.waitUs.empty())
+		{
+			state.counters["path_mean_queue_ms"] = std::accumulate(bottleneck.waitUs.begin(), bottleneck.waitUs.end(), 0.0) / bottleneck.waitUs.size() / 1000;
+			state.counters["path_queue_p95_ms"] = Percentile(bottleneck.waitUs, 95) / 1000.0;
+		}
+	}
 #if USE_SLIDING_WINDOW_CONGESTION_CONTROL == 1
 	state.counters["mean_cwnd_B"] = static_cast<double>(windowSum) / durationMs;
 	state.counters["mean_inflight_B"] = static_cast<double>(inFlightSum) / durationMs;
@@ -474,7 +544,7 @@ void RunMixedTraffic(benchmark::State &state, bool allReliable)
 					return false;
 			return upstreamReceived[gameplay] == upstreamOffered && !up.queued && !down.queued && up.inFlightBytes == 0 && down.inFlightBytes == 0;
 		};
-		while (traces.valid && !drained() && traces.now < 2 * durationMs)
+		while (traces.valid && !drained() && traces.now < (finitePath ? 6 : 2) * durationMs)
 		{
 			++traces.now;
 			net.Step(1);
@@ -501,6 +571,23 @@ void RakPeer_MixedTrafficReliable(benchmark::State &state)
 {
 	RunMixedTraffic(state, true);
 }
+void RakPeer_FiniteBottleneck(benchmark::State &state)
+{
+	RunMixedTraffic(state, true, true);
+}
+
+void FiniteCases(benchmark::Benchmark *bench)
+{
+	for (int seed = 1; seed <= 5; ++seed)
+		for (int block : {0, 512})
+		{
+			bench->Args({0, block, seed, 0, 0});  // steady, clean
+			bench->Args({2, block, seed, 0, 0});  // independent loss only
+			bench->Args({0, block, seed, 0, 50}); // reorder only
+			bench->Args({0, block, seed, 1, 0});  // abrupt capacity drop and recovery
+		}
+}
+BENCHMARK(RakPeer_FiniteBottleneck)->Apply(FiniteCases)->ArgNames({"loss_pct", "block_KiB", "seed", "capacity_step", "reorder_per_mille"})->Iterations(1);
 BENCHMARK(RakPeer_MixedTrafficReliable)->ArgsProduct({{2, 0}, {512, 16, 0}, {1, 2, 3, 4, 5}})->ArgNames({"loss_pct", "block_KiB", "seed"})->Iterations(1);
 BENCHMARK(RakPeer_MixedTraffic)->ArgsProduct({{2, 0}, {512, 16, 0}, {1, 2, 3, 4, 5}})->ArgNames({"loss_pct", "block_KiB", "seed"})->Iterations(1);
 }

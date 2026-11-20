@@ -160,6 +160,8 @@ public:
 		uint32_t inFlightBytes;
 		bool queued;
 		bool capBlocked;
+		uint64_t nakRetryBytes, rtoRetryBytes;
+		uint32_t nakRetryWindowCuts, rtoRetryWindowCuts;
 	};
 	// An optional visitor sees only live fragments still waiting for a first send.
 	bool ReadSendBudget(const RakPeer *sender, const SystemAddress &destination, SendBudget &budget, const std::function<void(const InternalPacket &)> &visitQueued = {}) const;

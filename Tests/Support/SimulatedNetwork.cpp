@@ -224,6 +224,10 @@ bool SimulatedNetwork::ReadSendBudget(const RakPeer *sender, const SystemAddress
 		return false;
 	const auto &layer = remote->reliabilityLayer;
 	budget.windowBytes = layer.congestionManager.GetCWNDLimit();
+	budget.nakRetryBytes = layer.nakRetryBytes;
+	budget.rtoRetryBytes = layer.rtoRetryBytes;
+	budget.nakRetryWindowCuts = layer.nakRetryWindowCuts;
+	budget.rtoRetryWindowCuts = layer.rtoRetryWindowCuts;
 	budget.inFlightBytes = layer.unacknowledgedBytes;
 	budget.queued = false;
 	for (const auto &entry : layer.outgoingPacketBuffer)
