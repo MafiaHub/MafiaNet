@@ -51,6 +51,8 @@ public:
 		uint32_t jitterMs = 0;
 		int maxDatagramBytes = MAXIMUM_MTU_SIZE; // larger datagrams are dropped
 		bool dark = false;                       // drop everything
+		uint32_t reorderPerThousand = 0;         // chance of an extra delay on a surviving datagram
+		uint32_t reorderDelayMs = 0;
 	};
 
 	// A message a peer's Receive() returned, copied so it outlives the Packet.
@@ -148,6 +150,17 @@ public:
 	{
 		tap = std::move(callback);
 	}
+
+	// Read after Step() on the manual update thread. The two limits can bind together.
+	struct SendBudget
+	{
+		uint32_t windowBytes;
+		uint32_t inFlightBytes;
+		bool queued;
+		bool capBlocked;
+	};
+	// An optional visitor sees only live fragments still waiting for a first send.
+	bool ReadSendBudget(const RakPeer *sender, const SystemAddress &destination, SendBudget &budget, const std::function<void(const InternalPacket &)> &visitQueued = {}) const;
 
 	TimeUS Now() const;
 	uint64_t DatagramsSent() const { return datagramsSent; }

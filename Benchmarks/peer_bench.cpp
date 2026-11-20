@@ -16,6 +16,8 @@
 
 #include <benchmark/benchmark.h>
 
+#include <algorithm>
+#include <array>
 #include <cstdint>
 #include <vector>
 
@@ -23,6 +25,7 @@
 #include "mafianet/message_identifiers.h"
 #include "mafianet/packet_priority.h"
 #include "mafianet/peer.h"
+#include "mafianet/statistics.h"
 
 using namespace MafiaNet;
 
@@ -94,6 +97,21 @@ void SendReceive(benchmark::State &state, int messageBytes, int messagesPerItera
 	message[0] = (char) ID_USER_PACKET_ENUM;
 	int64_t delivered = 0;
 	int64_t bytes = 0;
+	// Settle handshake traffic before measuring application datagrams.
+	pair.net.Step(100);
+	int64_t forwardBytes = 0, reverseBytes = 0, forwardPackets = 0, reversePackets = 0;
+	pair.net.SetTap([&](const SystemAddress &from, const SystemAddress &, const char *, int length)
+	                {
+		if (from == pair.serverAddress)
+		{
+			reverseBytes += length;
+			++reversePackets;
+		}
+		else
+		{
+			forwardBytes += length;
+			++forwardPackets;
+		} });
 	for (auto _ : state)
 	{
 		for (int i = 0; i < messagesPerIteration; ++i)
@@ -107,6 +125,20 @@ void SendReceive(benchmark::State &state, int messageBytes, int messagesPerItera
 		}
 		delivered += got;
 	}
+	// Include delayed ACKs in the totals, outside the timed send/receive loop.
+	if (!pair.net.RunUntil([&]
+	                       {
+		    RakNetStatistics stats;
+		    return pair.client->GetStatistics(pair.serverAddress, &stats) && stats.messagesInResendBuffer == 0; }, 5000, 1))
+		state.SkipWithError("final acknowledgements did not arrive");
+	pair.net.SetTap({});
+	const auto avg = benchmark::Counter::kAvgIterations;
+	state.counters["forward_udp_bytes"] = benchmark::Counter(forwardBytes, avg);
+	state.counters["reverse_udp_bytes"] = benchmark::Counter(reverseBytes, avg);
+	state.counters["forward_datagrams"] = benchmark::Counter(forwardPackets, avg);
+	state.counters["reverse_datagrams"] = benchmark::Counter(reversePackets, avg);
+	if (bytes)
+		state.counters["udp_bytes_per_delivered_byte"] = double(forwardBytes + reverseBytes) / bytes;
 	state.SetItemsProcessed(delivered);
 	state.SetBytesProcessed(bytes);
 }
@@ -118,14 +150,14 @@ static void RakPeer_SendReceiveSmall(benchmark::State &state)
 {
 	SendReceive(state, 64, (int) state.range(0));
 }
-BENCHMARK(RakPeer_SendReceiveSmall)->Arg(64)->Arg(512);
+BENCHMARK(RakPeer_SendReceiveSmall)->Arg(64)->Arg(512)->Iterations(64);
 
 // Split-size messages: splitting and reassembly through the whole peer.
 static void RakPeer_SendReceiveLarge(benchmark::State &state)
 {
 	SendReceive(state, (int) state.range(0), 4);
 }
-BENCHMARK(RakPeer_SendReceiveLarge)->Arg(4 * 1024)->Arg(64 * 1024);
+BENCHMARK(RakPeer_SendReceiveLarge)->Arg(4 * 1024)->Arg(64 * 1024)->Iterations(64);
 
 // One visitor connects and disconnects while other clients stay connected. Vary
 // the queries per visit to distinguish the cost of publishing from copying a list.
@@ -164,3 +196,82 @@ static void RakPeer_SystemListChurn(benchmark::State &state)
 	}
 }
 BENCHMARK(RakPeer_SystemListChurn)->Args({1, 0})->Args({1, 32})->Args({32, 0})->Args({32, 32});
+
+// Each iteration measures a fixed two-second stream of 100 probes. Bound the
+// background backlog by refilling only as previously queued bytes arrive.
+static void RakPeer_UrgentLatency(benchmark::State &state)
+{
+	const bool withBulk = state.range(0) != 0;
+	ConnectedPair pair;
+	if (!pair.connected)
+	{
+		state.SkipWithError("connection failed");
+		return;
+	}
+	pair.client->SetPerConnectionOutgoingBandwidthLimit(2 * 1024 * 1024);
+	pair.net.SetReceiveEnabled(pair.server, true);
+	std::array<char, 900> bulk{};
+	bulk[0] = ID_USER_PACKET_ENUM + 1;
+	std::array<char, 2> probe{static_cast<char>(ID_USER_PACKET_ENUM), 0};
+	for (auto _ : state)
+	{
+		int bulkSent = 0, bulkReceived = 0;
+		std::vector<int> delays;
+		constexpr int probes = 100;
+		constexpr int periodMs = 20;
+		int bulkDuringWindow = 0;
+		for (int ms = 0; ms < 10000; ++ms)
+		{
+			if (ms < probes * periodMs)
+			{
+				while (withBulk && bulkSent - bulkReceived < 64)
+				{
+					if (!pair.client->Send(bulk.data(), bulk.size(), Priority::Low, Reliability::ReliableOrdered, 1, pair.serverAddress, false))
+					{
+						state.SkipWithError("bulk send failed");
+						return;
+					}
+					++bulkSent;
+				}
+				probe[1] = static_cast<char>(ms / periodMs);
+				if (ms % periodMs == 0 && !pair.client->Send(probe.data(), probe.size(), Priority::High, Reliability::ReliableOrdered, 0, pair.serverAddress, false))
+				{
+					state.SkipWithError("probe send failed");
+					return;
+				}
+			}
+			pair.net.Step(1);
+			for (const auto &msg : pair.net.Inbox(pair.server))
+			{
+				if (msg.id == ID_USER_PACKET_ENUM)
+				{
+					if (msg.data.size() != probe.size() || msg.data[1] != delays.size())
+					{
+						state.SkipWithError("unexpected probe sequence");
+						return;
+					}
+					delays.push_back(ms + 1 - msg.data[1] * periodMs);
+				}
+				else if (msg.id == ID_USER_PACKET_ENUM + 1)
+					++bulkReceived;
+			}
+			pair.net.Inbox(pair.server).clear();
+			if (ms + 1 == probes * periodMs)
+				bulkDuringWindow = bulkReceived;
+			if (ms + 1 >= probes * periodMs && delays.size() == probes && bulkSent == bulkReceived)
+				break;
+		}
+		if (delays.size() != probes || bulkReceived != bulkSent || (withBulk && !bulkDuringWindow))
+		{
+			state.SkipWithError("traffic did not make progress or drain");
+			return;
+		}
+		std::sort(delays.begin(), delays.end());
+		state.counters["probe_p50_ms"] = delays[49];
+		state.counters["probe_p95_ms"] = delays[94];
+		state.counters["probe_p99_ms"] = delays[98];
+		state.counters["probes_delivered"] = delays.size();
+		state.counters["bulk_B_per_sim_s"] = bulkDuringWindow * bulk.size() * 1000.0 / (probes * periodMs);
+	}
+}
+BENCHMARK(RakPeer_UrgentLatency)->ArgName("bulk")->Arg(0)->Arg(1)->Iterations(1);

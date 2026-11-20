@@ -27,8 +27,62 @@
 
 #include <algorithm>
 #include <atomic>
+#include <deque>
 
 using namespace MafiaNet;
+
+namespace
+{
+// A serialize pass visits records one connection at a time. Keep that connection's
+// records in adjacent blocks; deque growth preserves pointers held by its lists.
+class ConnectionRecords
+{
+public:
+	LastSerializationResult *Acquire(Replica3 *replica)
+	{
+		LastSerializationResult *record;
+		if (available.empty())
+			record = &records.emplace_back();
+		else
+		{
+			record = available.back();
+			available.pop_back();
+			record->whenLastSerialized = GetTime();
+			record->servedPass = 0;
+		}
+		record->replica = replica;
+		if (++nextAllocation == 0)
+			++nextAllocation; // Zero identifies records constructed outside this store.
+		record->allocationNumber = nextAllocation;
+		return record;
+	}
+
+	void Release(LastSerializationResult *record)
+	{
+		if (record->allocationNumber == 0)
+		{
+			delete record;
+			return;
+		}
+		delete record->lastSerializationResultBS;
+		record->lastSerializationResultBS = nullptr;
+		record->replica = nullptr;
+		if (available.size() + 1 == records.size())
+		{
+			// A completely streamed-out connection need not keep a world of empty slots.
+			std::deque<LastSerializationResult>().swap(records);
+			std::vector<LastSerializationResult *>().swap(available);
+		}
+		else
+			available.push_back(record);
+	}
+
+private:
+	std::deque<LastSerializationResult> records;
+	std::vector<LastSerializationResult *> available;
+	uint32_t nextAllocation = 0;
+};
+} // namespace
 
 // Outlives its connection for as long as anyone holds or waits for it: a callback made with the lock held may
 // pop the connection and free it, and the receive thread may be waiting for a connection another thread pops.
@@ -42,6 +96,7 @@ struct MafiaNet::RM3ConnectionLock
 	// Around every edit of the connection's constructedReplicaList, which also needs the world or to be the
 	// thread serving the connection, and around every read of it made without either. The last lock of all.
 	std::mutex constructed;
+	ConnectionRecords records;
 };
 
 namespace
@@ -1223,7 +1278,7 @@ void Connection_RM3::AutoConstructByQuery(ReplicaManager3 *replicaManager3, Worl
 						break;
 					}
 				}
-				delete lsr;
+				lock->records.Release(lsr);
 			}
 		}
 	}
@@ -1416,6 +1471,7 @@ bool ServeSerializeList(Connection_RM3 *connection, std::vector<LastSerializatio
 	while (index < list.size())
 	{
 		LastSerializationResult *lsr = list[index];
+		const uint32_t allocation = lsr->allocationNumber;
 		if (lsr->servedPass == pass || (share != ServeShare::All && (lsr->replica->parallelPass == pass) != (share == ServeShare::Workers)))
 		{
 			index++;
@@ -1432,7 +1488,7 @@ bool ServeSerializeList(Connection_RM3 *connection, std::vector<LastSerializatio
 			if (!replicaManager->HoldsConnection(connection, worldId))
 				return false;
 			generation = replicaManager->GetMembershipGeneration();
-			if (ssicr == SSICR_SENT_DATA && connection->HoldsRecord(lsr))
+			if (ssicr == SSICR_SENT_DATA && connection->HoldsRecord(lsr) && lsr->allocationNumber == allocation)
 				lsr->whenLastSerialized = time;
 			index = 0;
 			continue;
@@ -1462,6 +1518,7 @@ bool ServeOwnSerializeList(Connection_RM3 *connection, const ConstructedList &co
 		if (!held)
 			continue;
 		LastSerializationResult *lsr = constructed[recordIndex];
+		const uint32_t allocation = lsr->allocationNumber;
 		sp.destinationConnection = connection;
 		sp.whenLastSerialized = lsr->whenLastSerialized;
 		const uint32_t generation = replicaManager->GetMembershipGeneration();
@@ -1470,7 +1527,7 @@ bool ServeOwnSerializeList(Connection_RM3 *connection, const ConstructedList &co
 		{
 			if (!replicaManager->HoldsConnection(connection, worldId))
 				return false;
-			if (!connection->HoldsRecord(lsr))
+			if (!connection->HoldsRecord(lsr) || lsr->allocationNumber != allocation)
 				continue;
 		}
 		if (ssicr == SSICR_SENT_DATA)
@@ -1666,7 +1723,6 @@ void ReplicaManager3::PrepareBroadcast(Replica3 *replica, MafiaNet::Time time)
 	for (int z = 0; z < RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; z++)
 	{
 		sp.pro[z] = defaultSendParameters;
-		sp.outputBitstream[z].Reset();
 		sp.lastSentBitstream[z] = &replica->lastSentSerialization.bitStream[z];
 	}
 
@@ -1686,7 +1742,6 @@ void ReplicaManager3::PrepareBroadcast(Replica3 *replica, MafiaNet::Time time)
 	for (int z = 0; z < RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; z++)
 	{
 		MafiaNet::BitStream &out = sp.outputBitstream[z];
-		out.ResetReadPointer();
 		MafiaNet::BitStream &last = replica->lastSentSerialization.bitStream[z];
 		const bool changed = out.GetNumberOfBitsUsed() > 0 &&
 		                     (result == RM3SR_BROADCAST_IDENTICALLY_FORCE_SERIALIZATION || out.GetNumberOfBitsUsed() != last.GetNumberOfBitsUsed() || memcmp(out.GetData(), last.GetData(), out.GetNumberOfBytesUsed()) != 0);
@@ -1694,19 +1749,20 @@ void ReplicaManager3::PrepareBroadcast(Replica3 *replica, MafiaNet::Time time)
 		if (changed)
 		{
 			last.Reset();
-			last.Write(&out);
 			out.ResetReadPointer();
+			last.Write(&out);
 			any = true;
 		}
 	}
 	// Anything else reaching this replica this pass (a connection's own list) sends the same bytes.
 	replica->forceSendUntilNextUpdate = true;
 	replica->prepared = any ? Replica3::PB_SEND : Replica3::PB_NOTHING_TO_SEND;
+	if (!any)
+		return;
 	replica->preparedTimestamp = sp.messageTimestamp;
 	for (int z = 0; z < RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; z++)
 		replica->preparedPro[z] = sp.pro[z];
-	if (any)
-		replica->lastBroadcast = time;
+	replica->lastBroadcast = time;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -2228,11 +2284,14 @@ Connection_RM3::Connection_RM3(const SystemAddress &_systemAddress, RakNetGUID _
 
 Connection_RM3::~Connection_RM3()
 {
-	unsigned int i;
-	for (i = 0; i < constructedReplicaList.size(); i++)
-		delete constructedReplicaList[i];
-	for (i = 0; i < queryToConstructReplicaList.size(); i++)
-		delete queryToConstructReplicaList[i];
+	// Derived connections can supply heap records through the protected lists.
+	// Records the library supplies are owned by this connection's store.
+	for (auto *record : constructedReplicaList)
+		if (record->allocationNumber == 0)
+			delete record;
+	for (auto *record : queryToConstructReplicaList)
+		if (record->allocationNumber == 0)
+			delete record;
 	if (lock)
 		DropConnectionLock(lock);
 }
@@ -2354,8 +2413,9 @@ SendSerializeIfChangedResult Connection_RM3::SendSerializeIfChanged(LastSerializ
 	// A game callback below may dereference this replica, which frees lsr, or drop this connection. Past each
 	// one, neither is touched again unless both are still here; the caller sees SSICR_NEVER_SERIALIZE.
 	const uint32_t generation = replicaManager->GetMembershipGeneration();
+	const uint32_t allocation = lsr->allocationNumber;
 	const auto gone = [&]()
-	{ return replicaManager->GetMembershipGeneration() != generation && (!replicaManager->HoldsConnection(this, worldId) || !HoldsRecord(lsr)); };
+	{ return replicaManager->GetMembershipGeneration() != generation && (!replicaManager->HoldsConnection(this, worldId) || !HoldsRecord(lsr) || lsr->allocationNumber != allocation); };
 
 	RM3QuerySerializationResult rm3qsr = replica->QuerySerialization(this);
 	if (gone())
@@ -2557,8 +2617,7 @@ void Connection_RM3::OnLocalReference(Replica3 *replica3, ReplicaManager3 *repli
 	}
 #endif
 
-	LastSerializationResult *lsr = new LastSerializationResult;
-	lsr->replica = replica3;
+	LastSerializationResult *lsr = lock->records.Acquire(replica3);
 	queryToConstructReplicaList.push_back(lsr);
 }
 
@@ -2618,7 +2677,7 @@ void Connection_RM3::OnDereference(Replica3 *replica3, ReplicaManager3 *replicaM
 	ValidateLists(replicaManager);
 
 	if (lsr)
-		delete lsr;
+		lock->records.Release(lsr);
 
 	ValidateLists(replicaManager);
 }
@@ -2630,8 +2689,7 @@ void Connection_RM3::OnDownloadFromThisSystem(Replica3 *replica3, ReplicaManager
 	RakAssert(replica3);
 
 	ValidateLists(replicaManager);
-	LastSerializationResult *lsr = new LastSerializationResult;
-	lsr->replica = replica3;
+	LastSerializationResult *lsr = lock->records.Acquire(replica3);
 
 	ConstructionMode curConstructionMode = QueryConstructionMode();
 	if (curConstructionMode == QUERY_REPLICA_FOR_CONSTRUCTION || curConstructionMode == QUERY_REPLICA_FOR_CONSTRUCTION_AND_DESTRUCTION)
@@ -2641,12 +2699,11 @@ void Connection_RM3::OnDownloadFromThisSystem(Replica3 *replica3, ReplicaManager
 		{
 			if (queryToConstructReplicaList[j]->replica == replica3)
 			{
+				lock->records.Release(queryToConstructReplicaList[j]);
 				queryToConstructReplicaList.erase(queryToConstructReplicaList.begin() + j);
 				break;
 			}
 		}
-
-		queryToDestructReplicaList.push_back(lsr);
 	}
 
 	unsigned int insertedAt;
@@ -2656,9 +2713,12 @@ void Connection_RM3::OnDownloadFromThisSystem(Replica3 *replica3, ReplicaManager
 	}
 	if (insertedAt != (unsigned) -1)
 	{
-		//assert(queryToSerializeReplicaList.GetIndexOf(replica3)==(unsigned int)-1);
+		if (curConstructionMode != QUERY_CONNECTION_FOR_REPLICA_LIST)
+			queryToDestructReplicaList.push_back(lsr);
 		queryToSerializeReplicaList.push_back(lsr);
 	}
+	else
+		lock->records.Release(lsr);
 
 	ValidateLists(replicaManager);
 }
@@ -2694,7 +2754,7 @@ void Connection_RM3::OnNeverConstruct(unsigned int queryToConstructIdx, ReplicaM
 	ValidateLists(replicaManager);
 	LastSerializationResult *lsr = queryToConstructReplicaList[queryToConstructIdx];
 	queryToConstructReplicaList.erase(queryToConstructReplicaList.begin() + queryToConstructIdx);
-	delete lsr;
+	lock->records.Release(lsr);
 	ValidateLists(replicaManager);
 }
 
@@ -2729,8 +2789,7 @@ void Connection_RM3::OnConstructToThisConnection(Replica3 *replica, ReplicaManag
 	RakAssert(QueryConstructionMode() == QUERY_CONNECTION_FOR_REPLICA_LIST);
 	(void) replicaManager;
 
-	LastSerializationResult *lsr = new LastSerializationResult;
-	lsr->replica = replica;
+	LastSerializationResult *lsr = lock->records.Acquire(replica);
 	{
 		std::lock_guard<std::mutex> constructedLock(lock->constructed);
 		InsertConstructed(constructedReplicaList, replica, lsr);

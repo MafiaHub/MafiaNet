@@ -175,7 +175,7 @@ public:
 	double GetRTT(void) const;
 
 	bool GetIsInSlowStart(void) const { return IsInSlowStart(); }
-	uint32_t GetCWNDLimit(void) const { return (uint32_t) 0; }
+	uint32_t GetCWNDLimit(void) const { return cwnd < UINT32_MAX ? static_cast<uint32_t>(cwnd) : UINT32_MAX; }
 
 
 	/// Is a > b, accounting for variable overflow?

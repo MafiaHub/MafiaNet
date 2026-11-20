@@ -46,6 +46,8 @@ file(GLOB TEST_SUPPORT_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/Support/*.h"
 )
 add_library(TestSupport STATIC ${TEST_SUPPORT_SOURCES})
+# SimulatedNetwork reads Debug-only RakPeer and ReliabilityLayer layouts.
+target_compile_definitions(TestSupport PRIVATE $<$<CONFIG:Debug>:_DEBUG>)
 target_link_libraries(TestSupport PUBLIC MafiaNet::MafiaNetStatic sodium)
 target_include_directories(TestSupport PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/Support

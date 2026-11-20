@@ -343,7 +343,63 @@ Benchmarks
 .. code-block:: bash
 
    cmake --preset bench && cmake --build --preset bench
-   ./build/bench/Benchmarks/MafiaNetBenchmarks --benchmark_filter=ReliabilityLayer
+   ./build/bench/Benchmarks/MafiaNetBenchmarks --benchmark_list_tests
+   ./build/bench/Benchmarks/MafiaNetBenchmarks --benchmark_filter=RakPeer_UrgentLatency
+   ./build/bench/Benchmarks/MafiaNetBenchmarks --benchmark_repetitions=5 \
+       --benchmark_out=baseline.json --benchmark_out_format=json
+
+Run the suite manually on the machine you want to measure. CI runs correctness
+tests, including the nightly fragmented-transfer reconnect soak. The manual
+suite covers the following workloads.
+
+* **Peer bandwidth.** Each send/receive case runs 64 batches. Forward and reverse
+  datagrams and UDP payload bytes are averages per batch. The observer includes
+  encryption, transport headers, control traffic and the final ACK drain. IP and
+  UDP headers are outside the observer. Divide combined UDP payload bytes by
+  delivered application bytes to get the reported expansion ratio.
+* **Latency under contention.** The simulator sends 100 high-priority probes
+  spaced 20 ms apart under a 2 Mibit/s sender cap, with and without a backlog of
+  low-priority reliable traffic on a separate ordering channel. Percentiles use
+  simulated milliseconds. Bulk goodput counts application bytes delivered during
+  the two-second send window. The CPU column measures the work of the simulation.
+* **Replication.** The construction case measures the first server tick for
+  100 replicas. Steady-state cases change zero, one or all 100 replicas per
+  tick, with one or eight clients. ``ReplicaManager3_LargeWorld`` measures a
+  warmed world of 50,000 three-float positions, with one or 20 clients and
+  zero, 500, or all 50,000 positions changed per tick. ``ReplicaManager3_LargeWorldDirtyList``
+  measures the same writes with an application-supplied candidate list. Its time
+  includes adding changed positions and copying the list for each connection.
+  ``ReplicaManager3_LargeWorldBulkFallback`` measures a known bulk rewrite that
+  uses the ordinary scan for that tick. Each case checks one position message
+  per changed replica per observer. Bytes per tick count serialized
+  RM3 messages at the peer send boundary, before transport framing.
+* **Mixed traffic.** ``RakPeer_MixedTraffic`` runs 60 simulated seconds with
+  bidirectional gameplay traffic, urgent probes, and a backlogged download.
+  Use the same seed with block sizes 0 (download off), 16 and 512 KiB at
+  zero or 2% loss. Each seed supplies the same gameplay and urgent workload in
+  all six cases. Check
+  delivered counts alongside latency. Only messages delivered within the window
+  contribute to delivery time. The counters trace enqueue, first transmission,
+  retransmission, fragment completion and application delivery. Compare
+  ``game_upgraded_to_reliable`` with ``game_unreliable_started`` to see how
+  often fragmentation promoted an unreliable gameplay message to reliable.
+  Per-class byte counts distinguish offered, first-transmitted, retransmitted
+  and delivered application payload. Outstanding bytes include unsent fragments
+  of partially transmitted messages. The simulator samples live queued payload every
+  100 ms, omitting expired unreliable messages. The oldest queued age is measured at the end of the run.
+  Downstream UDP payload bytes include framing, encryption and control traffic.
+  With the sliding-window controller, the window, in-flight and available byte
+  counters are means sampled over the complete run. The four queue-time buckets
+  partition the ticks ending with queued data by exhausted window, exhausted
+  application pacing credit, both, or neither.
+* **Construction bandwidth.** ``ReplicaManager3_Construct1000`` compares
+  unconditional scalar serialization with a full construction snapshot and
+  subsequent dirty updates. See :doc:`../plugins/replica-manager-3`.
+* **Real UDP loopback.** A threaded peer sends bursts of 128 reliable 900-byte
+  messages at 10, 50 or 100 bursts per second. Compare offered bytes/s with
+  delivered bytes/s over the send and drain interval. The CPU column covers the
+  whole process, including both peers' network threads. On Linux this workload
+  exercises the batched socket path.
 
 Numbers only mean something against a baseline on the same machine: run the
 benchmarks on both revisions with ``--benchmark_out=<file>

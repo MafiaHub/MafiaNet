@@ -166,6 +166,83 @@ Serialization Results
    * - ``RM3SR_DO_NOT_SERIALIZE``
      - Skip this serialization
 
+Initial state and late joiners
+------------------------------
+
+A newly constructed replica can produce three copies of the same field in its
+first server tick. ``SerializeConstruction()`` writes the construction record,
+the initial download calls ``Serialize()`` for the new connection, and the
+ordinary serialization pass checks for changes. The callbacks can describe
+different data, so the manager treats each result independently.
+
+For a replica that sends identical state to all observers, one option is to put
+a complete snapshot in ``SerializeConstruction()`` and apply it in
+``DeserializeConstruction()``. Opt into ``BroadcastsIdentically()`` and mark the
+replica dirty when its shared value changes. Initialize the flag to false. Its
+construction-time, directed ``Serialize()`` call can return
+``RM3SR_DO_NOT_SERIALIZE``. The shared broadcast call returns that result while clean. When dirty, it writes the value
+once, clears the flag, and returns
+``RM3SR_BROADCAST_IDENTICALLY``. A joining client receives the current snapshot.
+Reading that snapshot must leave any pending broadcast available to existing
+observers.
+
+The manual ``ReplicaManager3_Construct1000`` benchmark exercises this pattern
+with a single four-byte field and reports bytes for construction records, download
+markers, initial state messages, and ordinary state messages.
+
+Serializing only changed replicas
+---------------------------------
+
+When the game already knows which replicas changed, each connection can return
+those candidates from ``QuerySerializationList()``. RM3 checks each candidate
+against that connection's constructed replicas and calls ``QuerySerialization()``
+only for those it holds. Returning ``true`` with an empty list skips the ordinary
+serialization checks for that connection. The manager still runs construction
+and the per-replica ``OnUserReplicaPreSerializeTick()`` callbacks.
+
+For example, a server can maintain a vector of unique, live replicas whose
+positions changed. All observers of an identical broadcast can share the same
+list for one serialization pass. In a connection subclass holding a reference
+to that list, implement:
+
+.. code-block:: cpp
+
+   bool QuerySerializationList(std::vector<MafiaNet::Replica3*>& out) override
+   {
+       out = changedPositions;
+       return true;
+   }
+
+On a server that drives RM3 at a fixed tick with ``SetAutoSerializeInterval(0)``,
+swap the pending changes into ``changedPositions`` just before ``Update()``.
+Collect new writes in the pending list and clear ``changedPositions`` after
+``Update()`` returns. All connections then see the same candidates, and writes
+made during callbacks survive for the next tick. If the auto-serialize interval
+is positive, retain changes across updates until an actual serialization pass
+has served them. Remove a replica from pending changes before deleting it. If
+it appears in an active list, keep it alive until the pass returns.
+Give new and returning observers the current state in their construction snapshot.
+Include per-recipient changes and replicas due for a periodic update even if their
+shared position stayed the same. Requeue deferred work when that recipient
+becomes eligible again. Recipients served on different passes can use
+``RM3SR_SERIALIZED_UNIQUELY``, so RM3 compares against each recipient's history.
+
+For a known bulk rewrite, flag the whole pass before mutating the replicas and
+return ``false`` from ``QuerySerializationList()`` on each connection. RM3 then
+walks the constructed replicas eligible for ordinary serialization. This avoids
+collecting and looking up a candidate for every position. Use this fallback when
+the ordinary pass implements the application's desired eligibility and priority order.
+
+The candidate list controls which updates RM3 considers. Reliable channels retain
+a queued message for retransmission if its datagram is lost. For state sent
+unreliably, schedule any refresh or acknowledgement-driven retries required by
+the game. A refresh that must resend identical bytes needs a forced serialization
+result, such as ``RM3SR_BROADCAST_IDENTICALLY_FORCE_SERIALIZATION`` for a shared
+broadcast.
+
+A connection with its own list is served
+on the thread calling ``Update()``, including when using a serialize executor.
+
 Scoping
 -------
 

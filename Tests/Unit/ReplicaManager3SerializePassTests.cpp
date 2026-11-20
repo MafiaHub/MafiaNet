@@ -117,10 +117,10 @@ public:
 		isValidated = true;
 	}
 
-	Replica3 *AllocReplica(MafiaNet::BitStream *, ReplicaManager3 *) { return 0; }
-	ConstructionMode QueryConstructionMode() const { return QUERY_CONNECTION_FOR_REPLICA_LIST; }
+	Replica3 *AllocReplica(MafiaNet::BitStream *, ReplicaManager3 *) override { return 0; }
+	ConstructionMode QueryConstructionMode() const override { return QUERY_CONNECTION_FOR_REPLICA_LIST; }
 
-	void QueryReplicaList(std::vector<Replica3 *> &create, std::vector<Replica3 *> &)
+	void QueryReplicaList(std::vector<Replica3 *> &create, std::vector<Replica3 *> &) override
 	{
 		for (Replica3 *replica : wanted)
 		{
@@ -129,7 +129,17 @@ public:
 		}
 	}
 
-	SendSerializeIfChangedResult SendSerialize(Replica3 *replica, bool indicesToSend[RM3_NUM_OUTPUT_BITSTREAM_CHANNELS], MafiaNet::BitStream serializationData[RM3_NUM_OUTPUT_BITSTREAM_CHANNELS], Time timestamp, PRO sendParameters[RM3_NUM_OUTPUT_BITSTREAM_CHANNELS], RakPeerInterface *rakPeer, unsigned char worldId, Time curTime)
+	bool QuerySerializationList(std::vector<Replica3 *> &out) override
+	{
+		if (!candidates)
+			return false;
+		out = *candidates;
+		return true;
+	}
+
+	const std::vector<Replica3 *> *candidates = nullptr;
+
+	SendSerializeIfChangedResult SendSerialize(Replica3 *replica, bool indicesToSend[RM3_NUM_OUTPUT_BITSTREAM_CHANNELS], MafiaNet::BitStream serializationData[RM3_NUM_OUTPUT_BITSTREAM_CHANNELS], Time timestamp, PRO sendParameters[RM3_NUM_OUTPUT_BITSTREAM_CHANNELS], RakPeerInterface *rakPeer, unsigned char worldId, Time curTime) override
 	{
 		++sendCalls;
 		if (indicesToSend[0] && serializationData[0].GetNumberOfBitsUsed() > 0)
@@ -211,6 +221,7 @@ protected:
 		return added;
 	}
 
+	std::vector<Replica3 *> candidates;
 	NetworkIDManager ids;
 	PassManager manager;
 	RakPeerInterface *peer = nullptr;
@@ -754,26 +765,15 @@ TEST_F(ReplicaManager3SerializePass, UpdateRunWhileAConnectionIsPoppedDoesNothin
 // connection's record. Every other connection still gets each broadcast, once.
 TEST_F(ReplicaManager3SerializePass, OwnListConnectionIsServedOnTheCallingThreadOnly)
 {
-	struct OwnListConnection : PassConnection
-	{
-		using PassConnection::PassConnection;
-		bool QuerySerializationList(std::vector<Replica3 *> &replicasToSerialize)
-		{
-			for (Replica3 *replica : list)
-				replicasToSerialize.push_back(replica);
-			return true;
-		}
-		std::vector<Replica3 *> list;
-	};
-
 	ThreadExecutor executor;
 	manager.SetSerializeExecutor(&executor);
 	PassReplica *held = AddReplica(true);
 	PassReplica *notHeld = AddReplica(true);
 	std::vector<PassConnection *> others = AddConnections(4, {held, notHeld});
-	auto *picker = new OwnListConnection(RakNetGUID(200));
+	candidates = {held, notHeld};
+	auto *picker = new PassConnection(RakNetGUID(200));
 	picker->wanted = {held};
-	picker->list = {held, notHeld};
+	picker->candidates = &candidates;
 	manager.PushConnection(picker);
 	Tick();
 	Tick();
@@ -799,6 +799,40 @@ TEST_F(ReplicaManager3SerializePass, OwnListConnectionIsServedOnTheCallingThread
 	EXPECT_EQ(held->serializeCalls.load(), 1);
 	EXPECT_EQ(notHeld->serializeCalls.load(), 1);
 	manager.SetSerializeExecutor(0);
+}
+
+TEST_F(ReplicaManager3SerializePass, DirtyListSerializePassVisitsOnlySelectedReplicasForEveryObserver)
+{
+	PassReplica *moving = AddReplica(true);
+	PassReplica *stationary = AddReplica(true);
+	auto observers = AddConnections(2, {moving, stationary});
+	Tick();
+	Tick();
+
+	for (auto *observer : observers)
+	{
+		observer->candidates = &candidates;
+		observer->received.clear();
+	}
+	moving->serializeCalls = 0;
+	stationary->serializeCalls = 0;
+
+	Tick();
+	EXPECT_EQ(moving->serializeCalls.load(), 0);
+	EXPECT_EQ(stationary->serializeCalls.load(), 0);
+	for (auto *observer : observers)
+		EXPECT_TRUE(observer->received.empty());
+
+	moving->value = 7;
+	candidates.push_back(moving);
+	Tick();
+	candidates.clear();
+	Tick();
+
+	EXPECT_EQ(moving->serializeCalls.load(), 1);
+	EXPECT_EQ(stationary->serializeCalls.load(), 0);
+	for (auto *observer : observers)
+		EXPECT_EQ(observer->received, std::vector<int>{7});
 }
 
 // What a game callback may do in the middle of a pass on the calling thread: dereference the replica it is
@@ -913,3 +947,77 @@ TEST_P(SerializePassCallbacks, UpdateRunFromInsideAPassReturnsAtOnce)
 
 INSTANTIATE_TEST_SUITE_P(Passes, SerializePassCallbacks, ::testing::Combine(::testing::Bool(), ::testing::Bool()), [](const ::testing::TestParamInfo<std::tuple<bool, bool>> &info)
                          { return std::string(std::get<0>(info.param) ? "Broadcast" : "PerConnection") + (std::get<1>(info.param) ? "Parallel" : "Serial"); });
+
+// The old query returns NEVER after its record was recycled by a game callback.
+// That return belongs only to the removed replica; the new one must still get updates.
+TEST_F(ReplicaManager3SerializePass, CallbackReplacingAReplicaKeepsTheNewRecordEligible)
+{
+	class ReplacingReplica : public PassReplica
+	{
+	public:
+		using PassReplica::PassReplica;
+		std::function<void()> replace;
+		RM3QuerySerializationResult QuerySerialization(Connection_RM3 *) override
+		{
+			if (!replace)
+				return RM3QSR_CALL_SERIALIZE;
+			auto once = std::move(replace);
+			once();
+			return RM3QSR_NEVER_CALL_SERIALIZE;
+		}
+	};
+
+	auto *old = new ReplacingReplica(false);
+	replicas.push_back(old);
+	manager.Reference(old);
+	auto *keeper = AddReplica(true);
+	auto *next = AddReplica(false);
+	auto *connection = AddConnections(1, {old, keeper}).front();
+	Tick();
+	old->replace = [&]
+	{
+		manager.Dereference(old);
+		connection->wanted = {keeper, next};
+		connection->AutoConstructByQuery(&manager, 0);
+	};
+	Tick();
+	ASSERT_TRUE(connection->HasReplicaConstructed(next));
+	connection->received.clear();
+	next->value = 92;
+	Tick();
+	EXPECT_EQ(connection->received, std::vector<int>{92});
+}
+
+// Construction on a newly visible connection starts with a clean per-connection
+// serialization history, even when an old record's storage is available.
+TEST_F(ReplicaManager3SerializePass, ReplacementRecordStartsWithFreshSerializationHistory)
+{
+	class InspectConnection : public PassConnection
+	{
+	public:
+		using PassConnection::PassConnection;
+		LastSerializationResult *Construct(Replica3 *replica, ReplicaManager3 *owner)
+		{
+			OnConstructToThisConnection(replica, owner);
+			return queryToSerializeReplicaList.back();
+		}
+	};
+	auto *old = AddReplica(false);
+	auto *keeper = AddReplica(false);
+	auto *next = AddReplica(false);
+	auto *connection = new InspectConnection(RakNetGUID(100));
+	manager.PushConnection(connection);
+	connection->Construct(keeper, &manager);
+	auto *previous = connection->Construct(old, &manager);
+	previous->AllocBS();
+	previous->lastSerializationResultBS->bitStream[0].Write(7);
+	previous->servedPass = 42;
+	previous->whenLastSerialized = 123;
+	manager.Dereference(old);
+	g_passNowUS += 10000;
+	auto *record = connection->Construct(next, &manager);
+	EXPECT_EQ(record->replica, next);
+	EXPECT_EQ(record->lastSerializationResultBS, nullptr);
+	EXPECT_EQ(record->servedPass, 0u);
+	EXPECT_EQ(record->whenLastSerialized, MafiaNet::GetTime());
+}
