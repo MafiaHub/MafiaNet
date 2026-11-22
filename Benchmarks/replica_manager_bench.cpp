@@ -9,7 +9,6 @@
 
 #include "mafianet/replica_manager3.h"
 
-#if _RAKNET_SUPPORT_ReplicaManager3 == 1
 #include <vector>
 #include "mafianet/network_id_manager.h"
 #include "mafianet/message_identifiers.h"
@@ -390,4 +389,3 @@ BENCHMARK_TEMPLATE(MeasureLargeWorld, true)->Name("ReplicaManager3_LargeWorldDir
 BENCHMARK_TEMPLATE(MeasureLargeWorld, true, true)->Name("ReplicaManager3_LargeWorldBulkFallback")->ArgsProduct({{1, 20}, {50000}})->ArgNames({"clients", "changed_of_50000"})->Iterations(20);
 
 }
-#endif

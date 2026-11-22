@@ -14,7 +14,6 @@
  */
 
 #include "mafianet/native_feature_includes.h"
-#if _RAKNET_SUPPORT_ReplicaManager3 == 1
 
 #include "mafianet/replica_manager3.h"
 #include "mafianet/virtual_world_replica3.h"
@@ -3490,5 +3489,3 @@ RM3ActionOnPopConnection Replica3::QueryActionOnPopConnection_PeerToPeer(MafiaNe
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
-#endif // _RAKNET_SUPPORT_*

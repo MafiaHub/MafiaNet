@@ -23,6 +23,7 @@
 
 #include "mafianet/packet_priority.h"
 #include "mafianet/remote_procedure_call.h"
+#include "mafianet/replication_manager.h"
 #include "mafianet/types.h"
 #include "mafianet/session_crypto.h"
 #include "mafianet/export.h"
@@ -50,6 +51,9 @@ public:
 
 	/// Built-in named calls and signals. Registrations last for the lifetime of this peer.
 	virtual RPC &GetRPC() = 0;
+
+	/// Built-in object replication, available before and after startup.
+	virtual ReplicationManager &GetReplication() = 0;
 
 	///Destructor
 	virtual ~RakPeerInterface() {}

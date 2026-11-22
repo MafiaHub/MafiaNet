@@ -1045,6 +1045,7 @@ void RakPeer::Shutdown(unsigned int blockDuration, unsigned char orderingChannel
 	// Plugins tear down in OnRakPeerShutdown while the update thread may still be running; stop
 	// offering them messages there first, so no hook is mid-call or starts after this point.
 	SetNetworkThreadReceiveStopped(true);
+	replication.Shutdown();
 
 	for (i = 0; i < pluginListTS.size(); i++)
 	{
