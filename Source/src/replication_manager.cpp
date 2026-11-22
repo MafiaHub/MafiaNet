@@ -91,9 +91,9 @@ ManagedReplication &ReplicationManager::Managed()
 	return *managed;
 }
 
-bool ReplicationManager::RegisterType(ReplicaTypeId id, uint16_t version, std::type_index type, bool snapshot, std::function<Replica3 *()> create, std::function<void(Replica3 *)> release)
+bool ReplicationManager::RegisterType(ReplicaTypeId id, uint16_t version, std::type_index type, bool snapshot, bool timed, std::function<Replica3 *()> create, std::function<void(Replica3 *)> release)
 {
-	return Managed().Register(id, version, type, snapshot, std::move(create), std::move(release));
+	return Managed().Register(id, version, type, snapshot, timed, std::move(create), std::move(release));
 }
 
 Replica3 *ReplicationManager::FindReplica(NetworkID id) const
@@ -175,10 +175,17 @@ bool ReplicationManager::HasLocalAuthority(Replica3 &object) const
 	ReplicaManager3::WorldGuard guard(*managed);
 	return managed->Owns(object);
 }
-bool ReplicationManager::SendReport(Replica3 &object, std::type_index type, const BitStream &payload)
+OwnerInputStamp ReplicationManager::GetLocalInputStamp(Replica3 &object) const
+{
+	if (!managed)
+		return {};
+	ReplicaManager3::WorldGuard guard(*managed);
+	return managed->LocalStamp(object);
+}
+bool ReplicationManager::SendReport(Replica3 &object, std::type_index type, const BitStream &payload, OwnerInputStamp *sent)
 {
 	WorldGuard guard(*this);
-	return managed->Submit(object, type, payload);
+	return managed->Submit(object, type, payload, sent);
 }
 
 bool ReplicationManager::Admit(PeerGuid guid)
@@ -260,6 +267,20 @@ void ReplicationManager::Tick()
 		managed->Tick();
 }
 
+bool ReplicationManager::Tick(Time simulationTick)
+{
+	return managed && simulationTick && managed->Tick(simulationTick);
+}
+bool ReplicationManager::SetObserverStateBudget(PeerGuid observer, uint32_t bytesPerTick)
+{
+	WorldGuard guard(*this);
+	return managed->ConfigureObserver(observer, nullptr, bytesPerTick);
+}
+bool ReplicationManager::SetUpdateInterval(PeerGuid observer, Replica3 &replica, unsigned ticks)
+{
+	WorldGuard guard(*this);
+	return ticks && managed->ConfigureObserver(observer, &replica, ticks);
+}
 void ReplicationManager::ReceiveTick()
 {
 	if (tickMode == ReplicationTickMode::Automatic)

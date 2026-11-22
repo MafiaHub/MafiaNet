@@ -370,6 +370,7 @@ public:
 	/// Replica3::Deserialize(), Connection_RM3::DeserializeOnDownloadStarted() and Connection_RM3::DeserializeOnDownloadComplete() are called holding the sender's lock but not the world. While another thread may be running Update(), they must not call what takes the world (the list above, or deleting a replica): Update() would be waiting for the connection they hold. Update() does nothing when it is called, directly or through RakPeerInterface::Receive(), from a callback made under a connection's lock (while one of its messages is handled, or while it is pushed or popped): the next call covers it.
 	/// The queries do not take the world, so a Deserialize() may call them: the getters of connections and replicas, GetConnectionsThatHaveReplicaConstructed(), Connection_RM3::HasReplicaConstructed() and Connection_RM3::GetConstructedReplicas(). A pointer they return is good for as long as the caller keeps that connection from being popped or that replica from being dereferenced: inside a callback of Update(), under a WorldGuard, or, for the sender of the message being handled, until its callback returns.
 	virtual void Update(void);
+	Time GetSimulationTick() const { return simulationTick; }
 
 	/// \brief Holds the world of a ReplicaManager3 for a scope: its connections and replicas stay as they are, for any thread.
 	/// \details While one exists no other thread starts Update(), pushes or pops a connection, or references or dereferences a replica, so its owner can walk the connections and read their replica lists, as after a pass. The thread holding one may hold more, and may call Update() and everything else on the manager. State from a connection still arrives meanwhile (see Update()).
@@ -405,6 +406,7 @@ public:
 	};
 
 protected:
+	Time simulationTick = 0;
 	/// \brief Deliver state while holding the sender and replica lifetime locks.
 	/// \details Holds the sender's lock for its scope, and never the world: the state waits only while Update() serves that same connection (see Update()). Each Deserialize() holds the replica set from the lookup of the replica until its Replica3::Deserialize() returns, so a replica dereferenced on another thread is either delivered to in full or not at all.
 	/// What Replica3::Deserialize() must not do under a connection's lock applies here unchanged. Make one per message, on the stack, and let it go before the message is handed on.
@@ -527,6 +529,7 @@ struct LastSerializationResult
 	uint32_t servedPass;
 	/// \internal Identifies this use of a connection's record slot across callbacks that can recycle it.
 	uint32_t allocationNumber = 0;
+	uint64_t broadcastRevision = 0;
 };
 
 /// Parameters passed to Replica3::Serialize()
@@ -739,6 +742,7 @@ public:
 	// Internal
 
 protected:
+	bool independentStateCache = false;
 	uint64_t clientToken = 0, serverToken = 0;
 	virtual void ConstructionFailed(NetworkID) {}
 	virtual void RecordScopeMessage(unsigned int, bool, bool) {}
@@ -1308,7 +1312,8 @@ public:
 	{
 		PB_SERIALIZE_PER_CONNECTION,
 		PB_NOTHING_TO_SEND,
-		PB_SEND
+		PB_SEND,
+		PB_UNCHANGED
 	};
 	bool broadcastsIdentically;
 	uint32_t preparedPass;
@@ -1317,7 +1322,9 @@ public:
 	uint32_t neededPass;
 	PreparedBroadcast prepared;
 	MafiaNet::Time preparedTimestamp;
-	PRO preparedPro[RM3_NUM_OUTPUT_BITSTREAM_CHANNELS];
+	PRO preparedPro[RM3_NUM_OUTPUT_BITSTREAM_CHANNELS]{};
+	uint64_t broadcastRevision = 0;
+	uint64_t channelRevision[RM3_NUM_OUTPUT_BITSTREAM_CHANNELS]{};
 	MafiaNet::Time lastBroadcast;
 };
 

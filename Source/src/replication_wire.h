@@ -6,7 +6,7 @@
 
 namespace MafiaNet::ReplicationWire
 {
-constexpr uint8_t Version = 2;
+constexpr uint8_t Version = 3;
 constexpr BitSize_t MaxPayloadBits = 8 * 1024 * 1024;
 enum class Kind : uint8_t
 {
@@ -24,7 +24,8 @@ enum class Kind : uint8_t
 	Snapshot,
 	SnapshotAck,
 	StateBatch,
-	SnapshotBatch
+	SnapshotBatch,
+	OwnerCorrection
 };
 
 constexpr unsigned HeaderBytes = 3 + 2 * sizeof(uint64_t);

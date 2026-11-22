@@ -26,6 +26,11 @@ class ManagedReplication;
 class RM3SerializeExecutor;
 struct SnapshotReplicaTag
 {
+	static constexpr std::size_t SnapshotHistoryCapacity = 0;
+	virtual void ResetSnapshotHistory() {}
+
+protected:
+	~SnapshotReplicaTag() = default;
 };
 enum class ChangeDetection
 {
@@ -57,18 +62,25 @@ enum class ReplicaEventKind
 	Disconnected,
 	AuthorityGranted,
 	AuthorityCorrected,
-	AuthorityLost
+	AuthorityLost,
+	InputProcessed
+};
+struct OwnerInputStamp
+{
+	uint64_t epoch = 0, sequence = 0;
 };
 struct ReplicaEvent
 {
 	ReplicaEventKind kind;
 	NetworkID id;
 	PeerGuid source;
+	OwnerInputStamp input{};
 };
 struct Packet;
 struct ReplicationStatistics
 {
 	uint64_t desired = 0, constructed = 0, deferred = 0;
+	uint64_t deferredState = 0;
 	uint64_t enters = 0, leaves = 0, destroys = 0;
 	uint64_t lifecycleBytes = 0, stateBytes = 0;
 };
@@ -98,6 +110,10 @@ public:
 
 	void SetTickMode(ReplicationTickMode mode) { tickMode = mode; }
 	void Tick();
+	/// Drive replication at a strictly increasing authoritative simulation tick.
+	bool Tick(Time simulationTick);
+	bool SetObserverStateBudget(PeerGuid observer, uint32_t bytesPerTick);
+	bool SetUpdateInterval(PeerGuid observer, Replica3 &replica, unsigned ticks);
 
 	/// Register the same numeric ID and codec version at both ends before connecting.
 	template <class T>
@@ -110,7 +126,11 @@ public:
 	template <class T, class Create, class Release>
 	bool RegisterReplica(ReplicaTypeId id, uint16_t version, Create create, Release release)
 	{
-		return RegisterType(id, version, typeid(T), std::is_base_of_v<SnapshotReplicaTag, T>, std::move(create),
+		constexpr bool snapshot = std::is_base_of_v<SnapshotReplicaTag, T>;
+		bool timed = false;
+		if constexpr (snapshot)
+			timed = T::SnapshotHistoryCapacity != 0;
+		return RegisterType(id, version, typeid(T), snapshot, timed, std::move(create),
 		                    [release = std::move(release)](Replica3 *object) mutable
 		                    { release(static_cast<T *>(object)); });
 	}
@@ -132,12 +152,21 @@ public:
 	bool RevokeAuthority(Replica3 &replica);
 	bool CorrectAuthority(Replica3 &replica);
 	bool HasLocalAuthority(Replica3 &replica) const;
+	OwnerInputStamp GetLocalInputStamp(Replica3 &replica) const;
 	template <class Report>
 	bool SendOwnerUpdate(Replica3 &replica, const Report &report)
 	{
 		BitStream out;
 		report.Write(out);
 		return SendReport(replica, typeid(Report), out);
+	}
+	/// Request a canonical correction for predicted input. The stamp is written on success.
+	template <class Report>
+	bool SendOwnerUpdate(Replica3 &replica, const Report &report, OwnerInputStamp &sent)
+	{
+		BitStream out;
+		report.Write(out);
+		return SendReport(replica, typeid(Report), out, &sent);
 	}
 	Replica3 *FindReplica(NetworkID id) const;
 	bool Destroy(Replica3 *replica);
@@ -182,9 +211,9 @@ private:
 	int PathMTU(SystemIndex index) const;
 	void Shutdown();
 
-	bool RegisterType(ReplicaTypeId id, uint16_t version, std::type_index type, bool snapshot, std::function<Replica3 *()> create, std::function<void(Replica3 *)> release);
+	bool RegisterType(ReplicaTypeId id, uint16_t version, std::type_index type, bool snapshot, bool timed, std::function<Replica3 *()> create, std::function<void(Replica3 *)> release);
 	bool RegisterReport(std::type_index object, std::type_index report, uint16_t version, std::function<bool(Replica3 &, PeerGuid, BitStream &)> accept);
-	bool SendReport(Replica3 &object, std::type_index type, const BitStream &payload);
+	bool SendReport(Replica3 &object, std::type_index type, const BitStream &payload, OwnerInputStamp *sent = nullptr);
 	ManagedReplication &Managed();
 
 	bool ProcessPacket(Packet *packet);

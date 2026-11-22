@@ -32,24 +32,71 @@ public:
 	uint64_t Watermark() const { return nextState; }
 	bool Matches(uint64_t client, uint64_t server) const { return clientToken == client && serverToken == server; }
 	ConstructionMode QueryConstructionMode() const override { return QUERY_CONNECTION_FOR_REPLICA_LIST; }
+	uint32_t byteBudget = 0;
+	std::map<NetworkID, unsigned> intervals;
+	// Keep recipient-specific change baselines once this observer has used scheduling.
+	void EnableSchedule() { independentStateCache = true; }
 	bool QuerySerializationList(std::vector<Replica3 *> &out) override
 	{
-		// Retry this connection's previous pass before collecting more changes.
-		// Explicit dirty marks accumulate until the connection can send again.
 		if (!refusedStates.empty())
 			return true;
-		if (runtime.serializationList && runtime.serializationList(ToPeerGuid(guid), out))
+		const bool supplied = runtime.serializationList && runtime.serializationList(ToPeerGuid(guid), out);
+		if (!supplied)
+		{
+			if (runtime.explicitScheduling)
+			{
+				for (auto id : polled)
+					if (auto *object = runtime.owner.FindReplica(id))
+						out.push_back(object);
+				for (auto id : dirty)
+					if (auto *object = runtime.owner.FindReplica(id))
+						out.push_back(object);
+				if (!independentStateCache)
+					dirty.clear();
+			}
+			else if (independentStateCache)
+				GetConstructedReplicas(out);
+			else
+				return false;
+		}
+		if (!independentStateCache)
 			return true;
-		if (!runtime.explicitScheduling)
-			return false;
-		for (auto id : polled)
-			if (auto *object = runtime.owner.FindReplica(id))
-				out.push_back(object);
-		for (auto id : dirty)
-			if (auto *object = runtime.owner.FindReplica(id))
-				out.push_back(object);
-		dirty.clear();
+		++pass;
+		// Carry the last indivisible object's overdraft forward. Idle passes do
+		// not bank credit and newly eligible objects get an immediate first turn.
+		debt = byteBudget && debt > byteBudget ? debt - byteBudget : 0;
+		stats.deferredState = 0;
+		for (auto *object : out)
+			serviceAge.try_emplace(object->GetNetworkID(), ServiceAge{pass, false});
+		auto rank = [&](Replica3 *object)
+		{
+			const auto id = object->GetNetworkID();
+			const auto &age = serviceAge.at(id);
+			const auto interval = intervals.find(id);
+			const auto period = interval == intervals.end() ? 1u : interval->second;
+			return (pass - age.since) / period + (age.served ? 0u : 1u);
+		};
+		out.erase(std::remove_if(out.begin(), out.end(), [&](Replica3 *object)
+		                         { return !rank(object); }),
+		          out.end());
+		std::stable_sort(out.begin(), out.end(), [&](Replica3 *a, Replica3 *b)
+		                 { return rank(a) > rank(b); });
 		return true;
+	}
+	SendSerializeIfChangedResult SendSerializeIfChanged(LastSerializationResult *record, SerializeParameters *params, RakPeerInterface *peer, unsigned char world, ReplicaManager3 *manager, Time now) override
+	{
+		if (independentStateCache)
+		{
+			if (byteBudget && debt >= byteBudget)
+			{
+				++stats.deferredState;
+				return SSICR_DID_NOT_SEND_DATA;
+			}
+			const auto id = record->replica->GetNetworkID();
+			serviceAge[id] = {pass, true};
+			dirty.erase(id);
+		}
+		return Connection_RM3::SendSerializeIfChanged(record, params, peer, world, manager, now);
 	}
 	void QueryReplicaList(std::vector<Replica3 *> &enter, std::vector<Replica3 *> &leave) override
 	{
@@ -154,6 +201,7 @@ public:
 	std::map<NetworkID, Unconfirmed> unconfirmed;
 	void Forget(NetworkID id)
 	{
+		serviceAge.erase(id);
 		if (!refusedStates.empty())
 			refusedStates.erase(std::remove_if(refusedStates.begin(), refusedStates.end(), [id](const PendingState &state)
 			                                   { return state.id == id; }),
@@ -166,6 +214,19 @@ public:
 	void TransmitState(Replica3 &object, BitStream &out, PRO pro, RakPeerInterface &peer) override
 	{
 		const auto id = object.GetNetworkID();
+		// Once a driver predicts this object, its canonical snapshots and input
+		// watermark travel together on the ordered owner stream.
+		if (runtime.owner.GetRole() == ReplicationRole::Server && !runtime.grants.empty())
+		{
+			auto grant = runtime.grants.find(id);
+			if (grant != runtime.grants.end() && grant->second.holder == ToPeerGuid(guid) && grant->second.requestedFeedback)
+			{
+				grant->second.stateChanged = true;
+				return;
+			}
+		}
+		if (byteBudget)
+			debt += out.GetNumberOfBytesUsed();
 		const Kind kind = object.replaceableSnapshot ? Kind::Snapshot : Kind::State;
 		if (object.replaceableSnapshot)
 		{
@@ -275,6 +336,13 @@ public:
 	}
 
 private:
+	struct ServiceAge
+	{
+		uint64_t since;
+		bool served;
+	};
+	std::map<NetworkID, ServiceAge> serviceAge;
+	uint64_t pass = 0, debt = 0;
 	BitStream first, batch;
 	NetworkID firstId = UNASSIGNED_NETWORK_ID;
 	Kind batchKind = Kind::State;
@@ -326,11 +394,11 @@ private:
 	ManagedReplication &runtime;
 };
 
-bool ManagedReplication::Register(ReplicaTypeId id, uint16_t version, std::type_index type, bool snapshot, std::function<Replica3 *()> create, std::function<void(Replica3 *)> release)
+bool ManagedReplication::Register(ReplicaTypeId id, uint16_t version, std::type_index type, bool snapshot, bool timed, std::function<Replica3 *()> create, std::function<void(Replica3 *)> release)
 {
 	if (!sessions.empty() || !create || !release || types.count(id) || typeIds.count(type))
 		return false;
-	types.emplace(id, Type{type, version, std::move(create), std::move(release), snapshot});
+	types.emplace(id, Type{type, version, std::move(create), std::move(release), snapshot, timed});
 	typeIds.emplace(type, id);
 	return true;
 }
@@ -351,6 +419,7 @@ ReplicationStatistics ManagedReplication::Statistics(PeerGuid guid)
 		sum.desired += s.desired;
 		sum.constructed += s.constructed;
 		sum.deferred += s.deferred;
+		sum.deferredState += s.deferredState;
 		sum.enters += s.enters;
 		sum.leaves += s.leaves;
 		sum.destroys += s.destroys;
@@ -358,6 +427,27 @@ ReplicationStatistics ManagedReplication::Statistics(PeerGuid guid)
 		sum.stateBytes += s.stateBytes;
 	}
 	return sum;
+}
+bool ManagedReplication::ConfigureObserver(PeerGuid observer, Replica3 *object, unsigned value)
+{
+	auto *connection = static_cast<Connection *>(GetConnectionByGUID(ToGuid(observer)));
+	if (!connection || owner.GetRole() == ReplicationRole::Client)
+		return false;
+	if (object)
+	{
+		const auto id = object->GetNetworkID();
+		if (owner.FindReplica(id) != object || IsDownload(id))
+			return false;
+		if (value == 1)
+			connection->intervals.erase(id);
+		else
+			connection->intervals[id] = value;
+	}
+	else
+		connection->byteBudget = value;
+	if (connection->byteBudget || !connection->intervals.empty())
+		connection->EnableSchedule();
+	return true;
 }
 bool ManagedReplication::Policy(ReplicaTypeId id, ChangeDetection detection, SnapshotDelivery delivery)
 {
@@ -427,7 +517,7 @@ uint64_t ManagedReplication::Schema() const
 	for (const auto &[id, type] : types)
 	{
 		(void) id;
-		hash ^= static_cast<uint64_t>(type.delivery);
+		hash ^= static_cast<uint64_t>(type.delivery) | (static_cast<uint64_t>(type.timed) << 8);
 		hash *= 1099511628211ull;
 	}
 	hash ^= owner.GetRole() == ReplicationRole::Peer ? 1 : 0;
@@ -539,10 +629,10 @@ void ManagedReplication::RetryControl()
 	                         pendingRevocations.end());
 }
 
-void ManagedReplication::Notify(ReplicaEventKind kind, NetworkID id, PeerGuid source)
+void ManagedReplication::Notify(ReplicaEventKind kind, NetworkID id, PeerGuid source, OwnerInputStamp input)
 {
 	if (replicaChanged)
-		events.push_back({kind, id, source});
+		events.push_back({kind, id, source, input});
 }
 void ManagedReplication::DispatchEvents()
 {
@@ -588,26 +678,27 @@ bool ManagedReplication::Release(NetworkID id, ReplicaEventKind reason)
 	}
 	return true;
 }
-void ManagedReplication::Tick()
+bool ManagedReplication::Tick(Time requested)
 {
 	if (HoldsConnectionLock())
-		return;
+		return false;
 	WorldGuard lock(*this);
-	if (ticking)
-		return;
+	if (ticking || (requested && requested <= simulationTick) || simulationTick == std::numeric_limits<Time>::max())
+		return false;
+	simulationTick = requested ? requested : simulationTick + 1;
 	ticking = true;
 	TickScope scope{*this};
 	if (beforeTick)
 		beforeTick();
 	if (resetRequested)
-		return;
+		return false;
 	RetryControl();
 	if (resetRequested)
-		return;
+		return false;
 	UpdateGrants(false);
 	Update();
 	if (resetRequested)
-		return;
+		return false;
 	// Update has joined every serialization worker. Only the outgoing pass
 	// touches these buffers, and the world guard keeps each connection alive.
 	for (unsigned i = 0; i < GetConnectionCount(); ++i)
@@ -615,6 +706,7 @@ void ManagedReplication::Tick()
 	UpdateGrants(true);
 	if (afterTick)
 		afterTick();
+	return true;
 }
 void ManagedReplication::FinishTick()
 {
@@ -685,6 +777,7 @@ void ManagedReplication::OnFinalDereference(Replica3 &replica)
 		{
 			connection->FlushBatch();
 			connection->Forget(id);
+			connection->intervals.erase(id);
 			connection->incoming.erase(id);
 		}
 	}
@@ -709,6 +802,7 @@ void ManagedReplication::Reset()
 	staticObjects.clear();
 	ordinary.clear();
 	interest.Clear();
+	simulationTick = 0;
 	Clear(false);
 }
 void ManagedReplication::Destroy(Replica3 &replica)
@@ -828,7 +922,7 @@ void ManagedReplication::Receive(Packet &packet)
 		auto *conn = static_cast<Connection *>(delivery.GetConnection());
 		if (!conn)
 			return;
-		if (kind == Kind::OwnerUpdate || kind == Kind::Grant || kind == Kind::Revoke)
+		if (kind == Kind::OwnerUpdate || kind == Kind::Grant || kind == Kind::Revoke || kind == Kind::OwnerCorrection)
 			OwnerPacket(*conn, kind, in);
 		else if (owner.GetRole() == ReplicationRole::Peer || !server)
 			Apply(*conn, kind, in);
@@ -885,9 +979,16 @@ bool ManagedReplication::Owns(Replica3 &object) const
 	return owner.GetRole() == ReplicationRole::Client && owner.FindReplica(id) == &object && grants.count(id);
 }
 
-bool ManagedReplication::Submit(Replica3 &object, std::type_index type, const BitStream &payload)
+OwnerInputStamp ManagedReplication::LocalStamp(Replica3 &object) const
 {
 	if (!Owns(object))
+		return {};
+	const auto &grant = grants.at(object.GetNetworkID());
+	return {grant.epoch, grant.sequence};
+}
+bool ManagedReplication::Submit(Replica3 &object, std::type_index type, const BitStream &payload, OwnerInputStamp *sent)
+{
+	if (!Owns(object) || (sent && !types.at(static_cast<ReplicaTypeId>(object.registeredType)).snapshot))
 		return false;
 	auto codec = reports.find(static_cast<ReplicaTypeId>(object.registeredType));
 	if (codec == reports.end() || codec->second.cppType != type)
@@ -901,9 +1002,12 @@ bool ManagedReplication::Submit(Replica3 &object, std::type_index type, const Bi
 	if (grant.sequence == UINT64_MAX)
 		return false;
 	out.Write(grant.sequence + 1);
+	out.Write(sent != nullptr);
 	if (!WriteBlock(out, payload) || !Send(grant.holder, out))
 		return false;
 	++grant.sequence;
+	if (sent)
+		*sent = {grant.epoch, grant.sequence};
 	return true;
 }
 
@@ -929,21 +1033,33 @@ void ManagedReplication::UpdateGrants(bool publish)
 			Assign(*object, UNASSIGNED_PEER_GUID);
 			continue;
 		}
-		if (!publish || grant.Ready() || !connection->HasReplicaConstructed(object))
+		const bool feedback = grant.Ready();
+		if (!publish || (feedback && grant.requestedFeedback == grant.publishedFeedback && !grant.stateChanged) || !connection->HasReplicaConstructed(object))
 			continue;
 		BitStream snapshot, out;
 		object->SerializeConstruction(&snapshot, connection);
 		it = grants.find(id);
 		if (it == grants.end() || it->second.epoch != grant.epoch)
 			continue;
-		WriteHeader(out, Kind::Grant, sessions.at(grant.holder));
+		WriteHeader(out, feedback ? Kind::OwnerCorrection : Kind::Grant, sessions.at(grant.holder));
 		out.Write(id);
 		out.Write(grant.epoch);
+		if (feedback)
+			out.Write(grant.requestedFeedback);
 		out.Write(connection->Watermark());
 		if (!WriteBlock(out, snapshot))
 			continue;
 		if (Send(grant.holder, out))
+		{
+			it = grants.find(id);
+			if (it == grants.end() || it->second.epoch != grant.epoch)
+				continue;
+			if (feedback)
+				connection->stats.stateBytes += out.GetNumberOfBytesUsed();
 			it->second.publishedEpoch = grant.epoch;
+			it->second.publishedFeedback = grant.requestedFeedback;
+			it->second.stateChanged = false;
+		}
 	}
 }
 
@@ -964,9 +1080,12 @@ void ManagedReplication::OwnerPacket(Connection &connection, Kind kind, BitStrea
 			return;
 		uint64_t seq;
 		BitStream payload;
-		if (!in.Read(seq) || !seq || seq <= it->second.sequence || !ReadBlock(in, payload) || in.GetNumberOfUnreadBits())
+		bool feedback;
+		if (!in.Read(seq) || !seq || seq <= it->second.sequence || !in.Read(feedback) || !ReadBlock(in, payload) || in.GetNumberOfUnreadBits())
 			return;
 		it->second.sequence = seq;
+		if ((feedback || it->second.requestedFeedback) && types.at(static_cast<ReplicaTypeId>(object->registeredType)).snapshot)
+			it->second.requestedFeedback = seq;
 		if (reports.at(static_cast<ReplicaTypeId>(object->registeredType)).accept(*object, sender, payload) && owner.FindReplica(id) == object)
 			Mark(*object);
 		return;
@@ -983,7 +1102,12 @@ void ManagedReplication::OwnerPacket(Connection &connection, Kind kind, BitStrea
 		return;
 	}
 	const bool correction = it != grants.end();
-	if (correction && epoch <= it->second.epoch)
+	const bool feedback = kind == Kind::OwnerCorrection;
+	uint64_t processed = 0;
+	if (feedback && (!correction || it->second.epoch != epoch || !in.Read(processed) || !processed ||
+	                 processed < it->second.publishedFeedback || processed > it->second.sequence))
+		return;
+	if (!feedback && correction && epoch <= it->second.epoch)
 		return;
 	uint64_t watermark;
 	BitStream snapshot;
@@ -1003,8 +1127,18 @@ void ManagedReplication::OwnerPacket(Connection &connection, Kind kind, BitStrea
 			return;
 		for (auto &seq : visit->second.lastState)
 			seq = std::max(seq, watermark);
+		if (feedback)
+		{
+			auto current = grants.find(id);
+			if (current != grants.end() && current->second.epoch == epoch)
+			{
+				current->second.publishedFeedback = processed;
+				Notify(ReplicaEventKind::InputProcessed, id, sender, {epoch, processed});
+			}
+			return;
+		}
 		grants.insert_or_assign(id, Grant{sender, epoch, 0, epoch});
-		Notify(correction ? ReplicaEventKind::AuthorityCorrected : ReplicaEventKind::AuthorityGranted, id, sender);
+		Notify(correction ? ReplicaEventKind::AuthorityCorrected : ReplicaEventKind::AuthorityGranted, id, sender, {epoch, 0});
 	}
 }
 
@@ -1043,6 +1177,8 @@ void ManagedReplication::Apply(Connection &connection, Kind kind, BitStream &in)
 			if (!connection.incoming.count(id) && entry->second.cppType == typeid(*replica) && replica->QueryRemoteConstruction(&connection) &&
 			    before == generation && owner.FindReplica(id) == replica)
 			{
+				if (auto *snapshotObject = dynamic_cast<SnapshotReplicaTag *>(replica))
+					snapshotObject->ResetSnapshotHistory();
 				connection.incoming.insert_or_assign(id, Connection::Visit{visit, replica->referenceIndex});
 				if (baseline)
 					replica->DeserializeConstructionExisting(&snapshot, &connection);
