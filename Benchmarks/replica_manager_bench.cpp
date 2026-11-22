@@ -197,8 +197,7 @@ private:
 	bool changed = false;
 };
 
-// The download markers distinguish the eager state messages sent inside
-// SendConstruction from those produced by the regular pass in the same tick.
+// Classify native construction and state envelopes at the peer send boundary.
 struct ConstructionTraffic : CountingPeer
 {
 	using CountingPeer::Send;
@@ -225,9 +224,8 @@ struct ConstructionTraffic : CountingPeer
 		return 1;
 	}
 
-	bool downloading = false;
-	uint64_t controlBytes = 0, constructionBytes = 0, initialBytes = 0, regularBytes = 0;
-	unsigned records = 0, initialMessages = 0, regularMessages = 0;
+	uint64_t controlBytes = 0, constructionBytes = 0, regularBytes = 0;
+	unsigned records = 0, regularMessages = 0;
 };
 
 // Exercise the application dirty flag outside the sample. A mutation during a
@@ -237,12 +235,12 @@ bool SnapshotUpdatesReachExistingObservers()
 	World<SnapshotReplica, ConstructionTraffic> world(1, 1);
 	auto &traffic = world.peer;
 	world.Tick();
-	if (traffic.records != 1 || traffic.initialMessages != 0 || traffic.regularMessages != 0)
+	if (traffic.records != 1 || traffic.regularMessages != 0)
 		return false;
 	world.replicas.front().SetValue(7);
 	world.manager.PushConnection(new Connection(RakNetGUID(101)));
 	world.Tick();
-	if (traffic.records != 2 || traffic.initialMessages != 0 || traffic.regularMessages != 2)
+	if (traffic.records != 2 || traffic.regularMessages != 2)
 		return false;
 	world.Tick();
 	return traffic.regularMessages == 2;
@@ -267,22 +265,20 @@ void ConstructionBandwidth(benchmark::State &state)
 		auto &traffic = world.peer;
 		traffic.bytes = 0; // exclude connection validation
 		world.Tick();
-		const auto stateBytes = sizeof(uint32_t) * (traffic.records + traffic.initialMessages + traffic.regularMessages);
-		const auto typeBytes = sizeof(uint8_t) * traffic.records;
-		if (traffic.records != count || traffic.bytes != traffic.constructionBytes + traffic.controlBytes + traffic.initialBytes + traffic.regularBytes || traffic.bytes < stateBytes + typeBytes)
+		const auto stateBytes = sizeof(uint32_t) * (traffic.records + traffic.regularMessages);
+		const auto typeBytes = sizeof(uint32_t) * traffic.records;
+		if (traffic.records != count || traffic.bytes != traffic.constructionBytes + traffic.controlBytes + traffic.regularBytes || traffic.bytes < stateBytes + typeBytes)
 		{
 			state.SkipWithError("incomplete construction accounting");
 			return;
 		}
 		state.counters["construction_records"] = traffic.records;
 		state.counters["construction_bytes"] = static_cast<double>(traffic.constructionBytes);
-		state.counters["initial_state_messages"] = traffic.initialMessages;
-		state.counters["initial_state_bytes"] = static_cast<double>(traffic.initialBytes);
 		state.counters["regular_state_messages"] = traffic.regularMessages;
 		state.counters["regular_state_bytes"] = static_cast<double>(traffic.regularBytes);
-		state.counters["download_control_bytes"] = static_cast<double>(traffic.controlBytes);
+		state.counters["control_bytes"] = static_cast<double>(traffic.controlBytes);
 		state.counters["scalar_bytes"] = static_cast<double>(stateBytes);
-		state.counters["allocation_id_bytes"] = static_cast<double>(typeBytes);
+		state.counters["type_id_bytes"] = static_cast<double>(typeBytes);
 		state.counters["framing_bytes"] = static_cast<double>(traffic.bytes - stateBytes - typeBytes);
 	}
 
