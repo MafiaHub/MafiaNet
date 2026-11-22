@@ -33,8 +33,30 @@ bool ReplicationManager::Reference(Replica3 *replica)
 		return false;
 	if (!managed || !managed->SetRegisteredType(*replica))
 		return false;
+	WorldGuard guard(*this);
 	replica->staticBinding = false;
 	managed->Reference(replica);
+	managed->ordinary.emplace(replica->GetNetworkID(), replica);
+	return true;
+}
+
+InterestGrid &ReplicationManager::GetInterestGrid()
+{
+	return Managed().interest;
+}
+
+bool ReplicationManager::Reference(Replica3 *replica, SpatialScope scope)
+{
+	WorldGuard guard(*this);
+	if (!Reference(replica))
+		return false;
+	const auto id = replica->GetNetworkID();
+	if (!managed->interest.Track(id, scope))
+	{
+		managed->Dereference(replica);
+		return false;
+	}
+	managed->ordinary.erase(id);
 	return true;
 }
 
@@ -46,6 +68,7 @@ bool ReplicationManager::ReferenceStatic(Replica3 *replica, NetworkID id)
 	replica->SetNetworkID(id);
 	managed->Reference(replica);
 	managed->staticObjects[id] = replica;
+	managed->ordinary.emplace(id, replica);
 	return true;
 }
 ManagedReplication &ReplicationManager::Managed()

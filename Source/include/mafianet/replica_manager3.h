@@ -432,6 +432,7 @@ protected:
 	virtual void OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason);
 	virtual void OnNewConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, bool isIncoming);
 	virtual void OnRakPeerShutdown(void);
+	virtual void OnFinalDereference(Replica3 &) {}
 
 
 	MafiaNet::Connection_RM3 *PopConnection(unsigned int index, WorldId worldId);

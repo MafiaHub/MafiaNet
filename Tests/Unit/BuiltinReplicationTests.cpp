@@ -136,3 +136,90 @@ TEST(BuiltinReplication, StaticBindingsUpdateExistingObjects)
 	                         { return sink.state.open; }, 5000));
 	EXPECT_EQ(two->GetReplication().FindReplica(0), &sink);
 }
+
+TEST(BuiltinReplication, RadiusAndRoomSubscribersStreamIndependentlyAcrossReentry)
+{
+	SimulatedNetwork net(42);
+	auto *server = net.AddPeer(2, 2);
+	auto *camera = net.AddPeer(1);
+	auto *room = net.AddPeer(1);
+	for (auto *peer : {server, camera, room})
+	{
+		auto &service = peer->GetReplication();
+		ASSERT_TRUE(service.SetRole(peer == server ? ReplicationRole::Server : ReplicationRole::Client));
+		ASSERT_TRUE(service.RegisterReplica<Door>(doorType, 1));
+	}
+	auto &host = server->GetReplication();
+	auto &grid = host.GetInterestGrid();
+	ASSERT_TRUE(grid.Configure({{0, 0}, {160, 64}, 64}));
+	const auto cameraGuid = ToPeerGuid(camera->GetMyGUID());
+	const auto roomGuid = ToPeerGuid(room->GetMyGUID());
+	ASSERT_TRUE(grid.SetObserverRadius(cameraGuid, {63, 20}, 10, 15));
+	ASSERT_TRUE(grid.SetObserverCells(roomGuid, {{1, 0}}));
+	Door door;
+	ASSERT_TRUE(host.Reference(&door, SpatialScope{{72, 20}}));
+	const auto id = door.GetNetworkID();
+	auto cameraCopy = [&]
+	{ return static_cast<Door *>(camera->GetReplication().FindReplica(id)); };
+	auto roomCopy = [&]
+	{ return static_cast<Door *>(room->GetReplication().FindReplica(id)); };
+	ASSERT_TRUE(net.Connect(camera, server));
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return cameraCopy() != nullptr; }, 5000));
+	ASSERT_TRUE(net.Connect(room, server));
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return roomCopy() != nullptr; }, 5000));
+	ASSERT_TRUE(grid.SetPosition(id, {79, 20}));
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return cameraCopy() == nullptr; }, 5000));
+	door.state.open = true;
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return roomCopy() && roomCopy()->state.open; }, 5000));
+	EXPECT_EQ(cameraCopy(), nullptr);
+	ASSERT_TRUE(grid.SetPosition(id, {72, 20}));
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return cameraCopy() && cameraCopy()->state.open; }, 5000));
+	grid.SetObserverWorld(cameraGuid, 1, 0);
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return cameraCopy() == nullptr; }, 5000));
+	EXPECT_NE(roomCopy(), nullptr);
+	ASSERT_TRUE(host.Destroy(&door));
+	EXPECT_FALSE(grid.Contains(id));
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return roomCopy() == nullptr; }, 5000));
+}
+
+TEST(BuiltinReplication, ManualTickBudgetsConstructionAndCancelsPendingEntries)
+{
+	SimulatedNetwork net(56);
+	auto *server = net.AddPeer(1, 1);
+	auto *client = net.AddPeer(1);
+	auto &service = server->GetReplication();
+	auto &remote = client->GetReplication();
+	ASSERT_TRUE(service.SetRole(ReplicationRole::Server));
+	ASSERT_TRUE(remote.SetRole(ReplicationRole::Client));
+	ASSERT_TRUE(service.RegisterReplica<Door>(doorType, 1));
+	ASSERT_TRUE(remote.RegisterReplica<Door>(doorType, 1));
+	service.SetTickMode(ReplicationTickMode::Manual);
+	const auto observer = ToPeerGuid(client->GetMyGUID());
+	auto &grid = service.GetInterestGrid();
+	ASSERT_TRUE(grid.Configure({{0, 0}, {100, 100}, 10}));
+	ASSERT_TRUE(grid.SetObserverCells(observer, {{0, 0}}));
+	grid.SetObserverLimits(observer, 0, 1);
+	Door first, second;
+	ASSERT_TRUE(service.Reference(&first, SpatialScope{{2, 3}, 0, 0, 5}));
+	ASSERT_TRUE(service.Reference(&second, SpatialScope{{2, 3}}));
+	ASSERT_TRUE(net.Connect(client, server));
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return remote.GetPeerStatus(ToPeerGuid(server->GetMyGUID())) == ReplicationPeerStatus::Active; }, 5000));
+	EXPECT_EQ(remote.GetReplicaCount(), 0u);
+	service.Tick();
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return remote.FindReplica(first.GetNetworkID()) != nullptr; }, 5000));
+	EXPECT_EQ(remote.GetReplicaCount(), 1u);
+	ASSERT_TRUE(grid.SetPosition(second.GetNetworkID(), {50, 50}));
+	ASSERT_TRUE(grid.SetPosition(first.GetNetworkID(), {50, 50}));
+	service.Tick();
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return remote.GetReplicaCount() == 0; }, 5000));
+}

@@ -3,6 +3,7 @@
 #pragma once
 
 #include "mafianet/export.h"
+#include "mafianet/interest_grid.h"
 
 #include "mafianet/types.h"
 
@@ -93,6 +94,8 @@ public:
 	bool SetRole(ReplicationRole role);
 	ReplicationRole GetRole() const { return role; }
 	bool Reference(Replica3 *replica);
+	bool Reference(Replica3 *replica, SpatialScope scope);
+	InterestGrid &GetInterestGrid();
 	bool ReferenceStatic(Replica3 *replica, NetworkID id);
 	void Dereference(Replica3 *replica);
 	unsigned int GetReplicaCount() const;

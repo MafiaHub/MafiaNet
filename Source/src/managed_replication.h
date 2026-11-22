@@ -3,6 +3,7 @@
 #include "mafianet/replica_manager3.h"
 #include "mafianet/replication_manager.h"
 #include <map>
+#include <set>
 #include "replication_wire.h"
 
 namespace MafiaNet
@@ -22,6 +23,9 @@ public:
 	ReplicationPeerStatus Status(PeerGuid guid) const;
 	void Receive(Packet &packet);
 	void Destroy(Replica3 &replica);
+	InterestGrid interest;
+	std::map<NetworkID, Replica3 *> ordinary;
+	void OnFinalDereference(Replica3 &replica) override;
 	std::map<NetworkID, Replica3 *> staticObjects;
 	bool automaticAdmission = true;
 	std::function<bool(PeerGuid, std::vector<Replica3 *> &)> serializationList;

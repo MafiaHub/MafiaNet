@@ -602,6 +602,8 @@ void ReplicaManager3::Dereference(MafiaNet::Replica3 *replica3, WorldId worldId)
 		}
 	}
 
+	if (!wasReferenced)
+		return;
 	// Remove from all connections
 	for (index2 = 0; index2 < world->connectionList.size(); index2++)
 	{
@@ -616,6 +618,7 @@ void ReplicaManager3::Dereference(MafiaNet::Replica3 *replica3, WorldId worldId)
 		ReplicaSetChange change(this);
 		if (--replica3->referencingWorlds == 0)
 		{
+			OnFinalDereference(*replica3);
 			const NetworkID networkId = replica3->GetNetworkID();
 			replica3->SetNetworkIDManager(0);
 			replica3->SetNetworkID(networkId);

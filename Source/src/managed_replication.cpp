@@ -27,23 +27,54 @@ public:
 	{
 		if (runtime.owner.GetRole() == ReplicationRole::Client)
 			return;
-		for (unsigned int i = 0; i < runtime.GetReplicaCount(); ++i)
+		const auto observer = ToPeerGuid(guid);
+		std::vector<NetworkID> desired;
+		runtime.interest.GetVisible(observer, desired);
+		for (const auto &[id, object] : runtime.ordinary)
+			if (!runtime.interest.Contains(id) && runtime.interest.Eligible(observer, id))
+				desired.push_back(id);
+
+		std::set<NetworkID> wanted(desired.begin(), desired.end());
+		std::vector<Replica3 *> constructed;
+		GetConstructedReplicas(constructed);
+		for (auto *object : constructed)
+			if (!wanted.count(object->GetNetworkID()) || object->QueryDestruction(this, &runtime) == RM3DS_SEND_DESTRUCTION)
+				leave.push_back(object);
+
+		++tick;
+		for (auto it = pending.begin(); it != pending.end();)
 		{
-			auto *replica = runtime.GetReplicaAtIndex(i);
-			if (replica->creatingSystemGUID != runtime.GetRakPeerInterface()->GetMyGUID())
-				continue;
-			if (!HasReplicaConstructed(replica))
-			{
-				const auto construction = replica->QueryConstruction(this, &runtime);
-				if (construction == RM3CS_SEND_CONSTRUCTION || construction == RM3CS_ALREADY_EXISTS_REMOTELY)
-					enter.push_back(replica);
-			}
-			else if (replica->QueryDestruction(this, &runtime) == RM3DS_SEND_DESTRUCTION)
-				leave.push_back(replica);
+			if (!wanted.count(it->first))
+				it = pending.erase(it);
+			else
+				++it;
 		}
+		for (const auto id : desired)
+		{
+			auto *object = runtime.owner.FindReplica(id);
+			if (!object || object->creatingSystemGUID != runtime.GetRakPeerInterface()->GetMyGUID() || HasReplicaConstructed(object))
+				continue;
+			const auto construction = object->QueryConstruction(this, &runtime);
+			if (construction == RM3CS_SEND_CONSTRUCTION || construction == RM3CS_ALREADY_EXISTS_REMOTELY)
+			{
+				pending.try_emplace(id, tick);
+				enter.push_back(object);
+			}
+		}
+		const auto budget = runtime.interest.GetBudget(observer);
+		if (budget && enter.size() > budget)
+		{
+			std::stable_sort(enter.begin(), enter.end(), [&](Replica3 *a, Replica3 *b)
+			                 { return pending.at(a->GetNetworkID()) < pending.at(b->GetNetworkID()); });
+			enter.resize(budget);
+		}
+		for (auto *object : enter)
+			pending.erase(object->GetNetworkID());
 	}
 
 private:
+	uint64_t tick = 0;
+	std::map<NetworkID, uint64_t> pending;
 	ManagedReplication &runtime;
 };
 
@@ -186,6 +217,7 @@ void ManagedReplication::Disconnected(PeerGuid guid)
 		return;
 	const bool active = it->second.status == ReplicationPeerStatus::Active;
 	sessions.erase(it);
+	interest.RemoveObserver(guid);
 	++generation;
 	std::vector<NetworkID> remove;
 	for (const auto &entry : downloads)
@@ -197,12 +229,21 @@ void ManagedReplication::Disconnected(PeerGuid guid)
 	if (active && connectionChanged)
 		connectionChanged(guid, false);
 }
+void ManagedReplication::OnFinalDereference(Replica3 &replica)
+{
+	const auto id = replica.GetNetworkID();
+	ordinary.erase(id);
+	staticObjects.erase(id);
+	interest.Remove(id);
+}
 void ManagedReplication::Reset()
 {
 	++generation;
 	while (!sessions.empty())
 		Disconnected(sessions.begin()->first);
 	staticObjects.clear();
+	ordinary.clear();
+	interest.Clear();
 	OnRakPeerShutdown();
 }
 void ManagedReplication::Destroy(Replica3 &replica)
