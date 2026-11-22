@@ -223,3 +223,82 @@ TEST(BuiltinReplication, ManualTickBudgetsConstructionAndCancelsPendingEntries)
 	ASSERT_TRUE(net.RunUntil([&]
 	                         { return remote.GetReplicaCount() == 0; }, 5000));
 }
+
+namespace
+{
+struct SwitchReport
+{
+	uint8_t value = 0;
+	void Write(BitStream &out) const { out.Write(value); }
+	bool Read(BitStream &in) { return in.Read(value); }
+};
+struct ControlledDoor : Door
+{
+	unsigned accepted = 0;
+	bool ApplyReport(PeerGuid, const SwitchReport &report)
+	{
+		if (report.value > 1)
+			return false;
+		++accepted;
+		state.open = report.value == 1;
+		return true;
+	}
+};
+}
+
+TEST(BuiltinReplication, AuthorityTransferRejectsReportsFromAnEarlierGrant)
+{
+	SimulatedNetwork net(57);
+	auto *server = net.AddPeer(2, 2), *alice = net.AddPeer(1), *bob = net.AddPeer(1);
+	const auto a = ToPeerGuid(alice->GetMyGUID()), b = ToPeerGuid(bob->GetMyGUID());
+	auto &host = server->GetReplication();
+	for (auto *p : {server, alice, bob})
+	{
+		auto &r = p->GetReplication();
+		ASSERT_TRUE(r.SetRole(p == server ? ReplicationRole::Server : ReplicationRole::Client));
+		ASSERT_TRUE(r.RegisterReplica<ControlledDoor>(doorType, 1));
+		ASSERT_TRUE((r.RegisterOwnerUpdate<ControlledDoor, SwitchReport>(1, &ControlledDoor::ApplyReport)));
+	}
+	auto &grid = host.GetInterestGrid();
+	ASSERT_TRUE(grid.Configure({{0, 0}, {100, 100}, 10}));
+	ControlledDoor door;
+	ASSERT_TRUE(host.Reference(&door, SpatialScope{{90, 90}}));
+	const auto id = door.GetNetworkID();
+	auto copy = [&](RakPeer *p)
+	{ return static_cast<ControlledDoor *>(p->GetReplication().FindReplica(id)); };
+	auto owns = [&](RakPeer *p)
+	{ return copy(p) && p->GetReplication().HasLocalAuthority(*copy(p)); };
+	ASSERT_TRUE(net.Connect(alice, server));
+	ASSERT_TRUE(net.Connect(bob, server));
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return host.GetPeerStatus(a) == ReplicationPeerStatus::Active && host.GetPeerStatus(b) == ReplicationPeerStatus::Active; }, 5000));
+	EXPECT_EQ(copy(alice), nullptr);
+	ASSERT_TRUE(host.SetAuthority(door, a));
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return owns(alice); }, 5000));
+	ASSERT_TRUE(alice->GetReplication().SendOwnerUpdate(*copy(alice), SwitchReport{1}));
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return door.state.open; }, 5000));
+	// Queue input, then transfer away and back before any networking runs.
+	ASSERT_TRUE(alice->GetReplication().SendOwnerUpdate(*copy(alice), SwitchReport{0}));
+	ASSERT_TRUE(host.SetAuthority(door, b));
+	ASSERT_TRUE(host.SetAuthority(door, a));
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return owns(alice) && copy(alice)->state.open; }, 5000));
+	net.RunUntil([]
+	             { return false; }, 300);
+	EXPECT_EQ(door.accepted, 1u);
+	ASSERT_TRUE(host.SetAuthority(door, b));
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return owns(bob) && !copy(alice); }, 5000));
+	ASSERT_TRUE(bob->GetReplication().SendOwnerUpdate(*copy(bob), SwitchReport{42}));
+	ASSERT_TRUE(bob->GetReplication().SendOwnerUpdate(*copy(bob), SwitchReport{0}));
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return !door.state.open; }, 5000));
+	EXPECT_EQ(door.accepted, 2u);
+	grid.SetObserverWorld(b, 0, 55);
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return !copy(bob); }, 5000));
+	EXPECT_FALSE(host.SetAuthority(door, b));
+	EXPECT_TRUE(door.WasReferenced());
+}

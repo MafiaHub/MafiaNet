@@ -110,6 +110,18 @@ uint64_t ManagedReplication::Schema() const
 			word >>= 8;
 		}
 	}
+	for (const auto &[id, report] : reports)
+	{
+		uint64_t word = (static_cast<uint64_t>(id) << 16) | report.version;
+		hash ^= 0xff;
+		hash *= 1099511628211ull;
+		for (unsigned i = 0; i < 6; ++i)
+		{
+			hash ^= word & 255;
+			hash *= 1099511628211ull;
+			word >>= 8;
+		}
+	}
 	hash ^= owner.GetRole() == ReplicationRole::Peer ? 1 : 0;
 	return hash;
 }
@@ -205,7 +217,9 @@ void ManagedReplication::Tick()
 	ticking = true;
 	if (beforeTick)
 		beforeTick();
+	UpdateGrants(false);
 	Update();
+	UpdateGrants(true);
 	if (afterTick)
 		afterTick();
 	ticking = false;
@@ -218,6 +232,13 @@ void ManagedReplication::Disconnected(PeerGuid guid)
 	const bool active = it->second.status == ReplicationPeerStatus::Active;
 	sessions.erase(it);
 	interest.RemoveObserver(guid);
+	for (auto grant = grants.begin(); grant != grants.end();)
+	{
+		if (grant->second.holder == guid)
+			grant = grants.erase(grant);
+		else
+			++grant;
+	}
 	++generation;
 	std::vector<NetworkID> remove;
 	for (const auto &entry : downloads)
@@ -233,6 +254,7 @@ void ManagedReplication::OnFinalDereference(Replica3 &replica)
 {
 	const auto id = replica.GetNetworkID();
 	ordinary.erase(id);
+	grants.erase(id);
 	staticObjects.erase(id);
 	interest.Remove(id);
 }
@@ -241,6 +263,7 @@ void ManagedReplication::Reset()
 	++generation;
 	while (!sessions.empty())
 		Disconnected(sessions.begin()->first);
+	grants.clear();
 	staticObjects.clear();
 	ordinary.clear();
 	interest.Clear();
@@ -317,9 +340,161 @@ void ManagedReplication::Receive(Packet &packet)
 		}
 		return;
 	}
-	if ((owner.GetRole() == ReplicationRole::Peer || !server) && session.status == ReplicationPeerStatus::Active && session.serverToken == serverToken)
-		if (auto *conn = static_cast<Connection *>(GetConnectionByGUID(packet.guid)))
-			Apply(*conn, kind, in);
+	if (session.status != ReplicationPeerStatus::Active || session.serverToken != serverToken)
+		return;
+	auto *conn = static_cast<Connection *>(GetConnectionByGUID(packet.guid));
+	if (!conn)
+		return;
+	if (kind == Kind::OwnerUpdate || kind == Kind::Grant || kind == Kind::Revoke)
+		OwnerPacket(*conn, kind, in);
+	else if (owner.GetRole() == ReplicationRole::Peer || !server)
+		Apply(*conn, kind, in);
+}
+
+bool ManagedReplication::RegisterReport(std::type_index object, Report report)
+{
+	auto it = typeIds.find(object);
+	return !HasSessions() && it != typeIds.end() && reports.emplace(it->second, std::move(report)).second;
+}
+
+bool ManagedReplication::Assign(Replica3 &object, PeerGuid guid, bool force)
+{
+	const auto id = object.GetNetworkID();
+	if (owner.GetRole() != ReplicationRole::Server || owner.FindReplica(id) != &object || !reports.count(static_cast<ReplicaTypeId>(object.registeredType)))
+		return false;
+	if (guid != UNASSIGNED_PEER_GUID && (Status(guid) != ReplicationPeerStatus::Active || !interest.Eligible(guid, id)))
+		return false;
+	auto current = grants.find(id);
+	if (current != grants.end())
+	{
+		if (current->second.holder == guid && !force)
+			return true;
+		if (current->second.ready)
+		{
+			BitStream revoke;
+			WriteHeader(revoke, Kind::Revoke, sessions.at(current->second.holder));
+			revoke.Write(id);
+			revoke.Write(current->second.epoch);
+			Send(current->second.holder, revoke);
+		}
+		grants.erase(current);
+	}
+	else if (guid == UNASSIGNED_PEER_GUID)
+		return false;
+	interest.Require(id, guid);
+	if (guid != UNASSIGNED_PEER_GUID)
+		grants.emplace(id, Grant{guid, ++nextEpoch});
+	return true;
+}
+
+bool ManagedReplication::Correct(Replica3 &object)
+{
+	auto it = grants.find(object.GetNetworkID());
+	return it != grants.end() && Assign(object, it->second.holder, true);
+}
+
+bool ManagedReplication::Owns(Replica3 &object) const
+{
+	const auto id = object.GetNetworkID();
+	return owner.GetRole() == ReplicationRole::Client && owner.FindReplica(id) == &object && grants.count(id);
+}
+
+bool ManagedReplication::Submit(Replica3 &object, std::type_index type, const BitStream &payload)
+{
+	if (!Owns(object))
+		return false;
+	auto codec = reports.find(static_cast<ReplicaTypeId>(object.registeredType));
+	if (codec == reports.end() || codec->second.cppType != type)
+		return false;
+	const auto id = object.GetNetworkID();
+	auto &grant = grants.at(id);
+	BitStream out;
+	WriteHeader(out, Kind::OwnerUpdate, sessions.at(grant.holder));
+	out.Write(id);
+	out.Write(grant.epoch);
+	out.Write(++grant.sequence);
+	if (!WriteBlock(out, payload))
+		return false;
+	Send(grant.holder, out);
+	return true;
+}
+
+void ManagedReplication::UpdateGrants(bool publish)
+{
+	if (owner.GetRole() != ReplicationRole::Server)
+		return;
+	std::vector<NetworkID> ids;
+	for (const auto &entry : grants)
+		ids.push_back(entry.first);
+	for (auto id : ids)
+	{
+		auto it = grants.find(id);
+		if (it == grants.end())
+			continue;
+		const auto grant = it->second;
+		auto *object = owner.FindReplica(id);
+		auto *connection = GetConnectionByGUID(ToGuid(grant.holder));
+		if (!object || !connection)
+			continue;
+		if (!interest.Eligible(grant.holder, id) || (grant.ready && !connection->HasReplicaConstructed(object)))
+		{
+			Assign(*object, UNASSIGNED_PEER_GUID);
+			continue;
+		}
+		if (!publish || grant.ready || !connection->HasReplicaConstructed(object))
+			continue;
+		BitStream snapshot, out;
+		object->SerializeConstruction(&snapshot, connection);
+		it = grants.find(id);
+		if (it == grants.end() || it->second.epoch != grant.epoch)
+			continue;
+		WriteHeader(out, Kind::Grant, sessions.at(grant.holder));
+		out.Write(id);
+		out.Write(grant.epoch);
+		if (!WriteBlock(out, snapshot))
+			continue;
+		Send(grant.holder, out);
+		it->second.ready = true;
+	}
+}
+
+void ManagedReplication::OwnerPacket(Connection &connection, Kind kind, BitStream &in)
+{
+	NetworkID id;
+	uint64_t epoch;
+	if (!in.Read(id) || !in.Read(epoch) || !epoch)
+		return;
+	auto *object = owner.FindReplica(id);
+	if (!object)
+		return;
+	const auto sender = ToPeerGuid(connection.GetRakNetGUID());
+	auto it = grants.find(id);
+	if (kind == Kind::OwnerUpdate)
+	{
+		if (owner.GetRole() != ReplicationRole::Server || it == grants.end() || it->second.holder != sender || it->second.epoch != epoch || !it->second.ready || !interest.Eligible(sender, id) || !connection.HasReplicaConstructed(object))
+			return;
+		uint64_t seq;
+		BitStream payload;
+		if (!in.Read(seq) || !seq || seq <= it->second.sequence || !ReadBlock(in, payload) || in.GetNumberOfUnreadBits())
+			return;
+		it->second.sequence = seq;
+		reports.at(static_cast<ReplicaTypeId>(object->registeredType)).accept(*object, sender, payload);
+		return;
+	}
+	if (owner.GetRole() != ReplicationRole::Client || !downloads.count(id) || downloads.at(id).source != sender)
+		return;
+	if (kind == Kind::Revoke)
+	{
+		if (!in.GetNumberOfUnreadBits() && it != grants.end() && it->second.epoch == epoch)
+			grants.erase(it);
+		return;
+	}
+	BitStream snapshot;
+	if (!ReadBlock(in, snapshot) || in.GetNumberOfUnreadBits() || !reports.count(static_cast<ReplicaTypeId>(object->registeredType)))
+		return;
+	const auto before = generation;
+	if (object->DeserializeConstruction(&snapshot, &connection) && generation == before && owner.FindReplica(id) == object)
+		grants.insert_or_assign(id, Grant{sender, epoch, 0, true});
 }
 
 void ManagedReplication::Apply(Connection &connection, Kind kind, BitStream &in)
@@ -360,6 +535,7 @@ void ManagedReplication::Apply(Connection &connection, Kind kind, BitStream &in)
 			entry->second.release(copy);
 			return;
 		}
+		copy->registeredType = static_cast<uint32_t>(type);
 		copy->creatingSystemGUID = connection.GetRakNetGUID();
 		copy->SetNetworkID(id);
 		Reference(copy);

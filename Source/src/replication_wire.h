@@ -16,7 +16,10 @@ enum class Kind : uint8_t
 	State,
 	Leave,
 	Destroy,
-	Bind
+	Bind,
+	Grant,
+	Revoke,
+	OwnerUpdate
 };
 
 inline void WriteHeader(BitStream &out, Kind kind, uint64_t clientToken, uint64_t serverToken, uint8_t world = 0)

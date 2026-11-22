@@ -32,6 +32,17 @@ public:
 	std::function<void()> beforeTick, afterTick;
 	std::function<void(PeerGuid, bool)> connectionChanged;
 	void Tick();
+	struct Report
+	{
+		std::type_index cppType;
+		uint16_t version;
+		std::function<bool(Replica3 &, PeerGuid, BitStream &)> accept;
+	};
+	bool RegisterReport(std::type_index object, Report report);
+	bool Assign(Replica3 &object, PeerGuid guid, bool force = false);
+	bool Correct(Replica3 &object);
+	bool Owns(Replica3 &object) const;
+	bool Submit(Replica3 &object, std::type_index type, const BitStream &payload);
 	bool HasSessions() const { return !sessions.empty(); }
 
 private:
@@ -70,6 +81,18 @@ private:
 		PeerGuid source;
 	};
 	std::map<NetworkID, Download> downloads;
+	struct Grant
+	{
+		PeerGuid holder;
+		uint64_t epoch;
+		uint64_t sequence = 0;
+		bool ready = false;
+	};
+	std::map<ReplicaTypeId, Report> reports;
+	std::map<NetworkID, Grant> grants;
+	uint64_t nextEpoch = 0;
+	void UpdateGrants(bool publish);
+	void OwnerPacket(Connection &connection, Kind kind, BitStream &in);
 	bool ticking = false;
 	uint64_t generation = 0;
 };

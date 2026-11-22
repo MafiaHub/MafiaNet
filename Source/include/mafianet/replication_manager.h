@@ -3,6 +3,7 @@
 #pragma once
 
 #include "mafianet/export.h"
+#include "mafianet/bit_stream.h"
 #include "mafianet/interest_grid.h"
 
 #include "mafianet/types.h"
@@ -76,6 +77,28 @@ public:
 		                    [release = std::move(release)](Replica3 *object) mutable
 		                    { release(static_cast<T *>(object)); });
 	}
+	/// One upstream report format per replica type. The server decides which fields to apply.
+	template <class T, class Report>
+	bool RegisterOwnerUpdate(uint16_t version, bool (T::*accept)(PeerGuid, const Report &))
+	{
+		if (!accept)
+			return false;
+		return RegisterReport(typeid(T), typeid(Report), version, [accept](Replica3 &object, PeerGuid sender, BitStream &in)
+		                      {
+			Report report{};
+			return report.Read(in) && !in.GetNumberOfUnreadBits() && (static_cast<T&>(object).*accept)(sender,report); });
+	}
+	bool SetAuthority(Replica3 &replica, PeerGuid owner);
+	bool RevokeAuthority(Replica3 &replica);
+	bool CorrectAuthority(Replica3 &replica);
+	bool HasLocalAuthority(Replica3 &replica) const;
+	template <class Report>
+	bool SendOwnerUpdate(Replica3 &replica, const Report &report)
+	{
+		BitStream out;
+		report.Write(out);
+		return SendReport(replica, typeid(Report), out);
+	}
 	Replica3 *FindReplica(NetworkID id) const;
 	bool Destroy(Replica3 *replica);
 	bool ReleaseRemote(NetworkID id);
@@ -115,6 +138,8 @@ private:
 	void Shutdown();
 
 	bool RegisterType(ReplicaTypeId id, uint16_t version, std::type_index type, std::function<Replica3 *()> create, std::function<void(Replica3 *)> release);
+	bool RegisterReport(std::type_index object, std::type_index report, uint16_t version, std::function<bool(Replica3 &, PeerGuid, BitStream &)> accept);
+	bool SendReport(Replica3 &object, std::type_index type, const BitStream &payload);
 	ManagedReplication &Managed();
 
 	bool ProcessPacket(Packet *packet);

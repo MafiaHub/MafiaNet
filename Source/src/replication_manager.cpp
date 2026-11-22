@@ -115,6 +115,39 @@ ReplicationPeerStatus ReplicationManager::GetPeerStatus(PeerGuid guid) const
 	return managed ? managed->Status(guid) : ReplicationPeerStatus::Waiting;
 }
 
+bool ReplicationManager::RegisterReport(std::type_index object, std::type_index type, uint16_t version, std::function<bool(Replica3 &, PeerGuid, BitStream &)> accept)
+{
+	WorldGuard guard(*this);
+	return Managed().RegisterReport(object, {type, version, std::move(accept)});
+}
+bool ReplicationManager::SetAuthority(Replica3 &object, PeerGuid guid)
+{
+	WorldGuard guard(*this);
+	return guid != UNASSIGNED_PEER_GUID && managed->Assign(object, guid);
+}
+bool ReplicationManager::RevokeAuthority(Replica3 &object)
+{
+	WorldGuard guard(*this);
+	return managed->Assign(object, UNASSIGNED_PEER_GUID);
+}
+bool ReplicationManager::CorrectAuthority(Replica3 &object)
+{
+	WorldGuard guard(*this);
+	return managed->Correct(object);
+}
+bool ReplicationManager::HasLocalAuthority(Replica3 &object) const
+{
+	if (!managed)
+		return false;
+	ReplicaManager3::WorldGuard guard(*managed);
+	return managed->Owns(object);
+}
+bool ReplicationManager::SendReport(Replica3 &object, std::type_index type, const BitStream &payload)
+{
+	WorldGuard guard(*this);
+	return managed->Submit(object, type, payload);
+}
+
 bool ReplicationManager::Admit(PeerGuid guid)
 {
 	return managed && managed->Admit(guid);
