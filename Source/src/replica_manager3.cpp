@@ -306,6 +306,7 @@ ReplicaManager3::ReplicaManager3()
 	defaultSendParameters.priority = MafiaNet::Priority::High;
 	defaultSendParameters.reliability = MafiaNet::Reliability::ReliableOrdered;
 	defaultSendParameters.sendReceipt = 0;
+	nextReferenceIndex = 0;
 	autoSerializeInterval = 30;
 	lastAutoSerializeOccurance = 0;
 	autoCreateConnections = true;
@@ -373,8 +374,10 @@ void ReplicaManager3::AutoCreateConnectionList(
 			Connection_RM3 *connection = AllocConnection(rakPeerInterface->GetSystemAddressFromGuid(participantListIn[index]), participantListIn[index]);
 			if (connection)
 			{
-				PushConnection(connection);
-				participantListOut.push_back(connection);
+				if (PushConnection(connection, worldId))
+					participantListOut.push_back(connection);
+				else
+					DeallocConnection(connection);
 			}
 		}
 	}
@@ -457,7 +460,7 @@ MafiaNet::Connection_RM3 *ReplicaManager3::PopConnection(unsigned int index, Wor
 	// automatically from the first system to reference the object. However, if an object changes
 	// owners then it is not going to be returned here, and therefore QueryActionOnPopConnection()
 	// will not be called for the new owner.
-	GetReplicasCreatedByGuid(guid, replicaList);
+	GetReplicasCreatedByGuid(guid, replicaList, worldId);
 
 	for (index2 = 0; index2 < replicaList.size(); index2++)
 	{
@@ -490,7 +493,7 @@ MafiaNet::Connection_RM3 *ReplicaManager3::PopConnection(unsigned int index, Wor
 		}
 	}
 
-	BroadcastDestructionList(broadcastList, connection->GetSystemAddress());
+	BroadcastDestructionList(broadcastList, connection->GetSystemAddress(), worldId);
 	for (index2 = 0; index2 < destructionList.size(); index2++)
 	{
 		// Do lookup in case DeallocReplica destroyed one of of the later Replica3 instances in the list
@@ -619,11 +622,13 @@ void ReplicaManager3::Dereference(MafiaNet::Replica3 *replica3, WorldId worldId)
 		// table too, with its id: no state message finds it again, and it can be destroyed with no thread
 		// walking over it.
 		ReplicaSetChange change(this);
-		if (--replica3->referencingWorlds == 0 && replica3->GetNetworkIDManager() != 0)
+		if (--replica3->referencingWorlds == 0)
 		{
 			const NetworkID networkId = replica3->GetNetworkID();
 			replica3->SetNetworkIDManager(0);
 			replica3->SetNetworkID(networkId);
+			replica3->replicaManager = nullptr;
+			replica3->referenceIndex = static_cast<uint32_t>(-1);
 		}
 	}
 }
@@ -946,27 +951,27 @@ void ReplicaManager3::RM3World::Clear(ReplicaManager3 *replicaManager3)
 		ListLock listLock(replicaManager3->m_WorldListMutex);
 		connectionList.clear();
 	}
-	for (unsigned int i = 0; i < connections.size(); i++)
+	for (Connection_RM3 *connection : connections)
 	{
-		ConnectionLockHolder connectionLock(replicaManager3->LockConnection(connections[i]));
-		--connectionLock.lock->worlds;
-		// Clear out downloadGroup even if not auto destroying the connection, since the packets need to go back to RakPeer
-		if (replicaManager3->GetAutoDestroyConnections() == false)
-			connections[i]->ClearDownloadGroup(replicaManager3->GetRakPeerInterface());
-	}
-	if (replicaManager3->GetAutoDestroyConnections())
-	{
-		for (unsigned int i = 0; i < connections.size(); i++)
-			replicaManager3->DeallocConnection(connections[i]);
+		ConnectionLockHolder connectionLock(replicaManager3->LockConnection(connection));
+		if (--connectionLock.lock->worlds == 0)
+		{
+			connection->ClearDownloadGroup(replicaManager3->GetRakPeerInterface());
+			if (replicaManager3->GetAutoDestroyConnections())
+				replicaManager3->DeallocConnection(connection);
+		}
 	}
 
 	{
 		ReplicaSetChange change(replicaManager3);
-		for (unsigned int i = 0; i < userReplicaList.size(); i++)
+		for (Replica3 *replica : userReplicaList)
 		{
-			userReplicaList[i]->replicaManager = 0;
-			userReplicaList[i]->referencingWorlds = 0;
-			userReplicaList[i]->SetNetworkIDManager(0);
+			if (--replica->referencingWorlds == 0)
+			{
+				replica->replicaManager = nullptr;
+				replica->referenceIndex = static_cast<uint32_t>(-1);
+				replica->SetNetworkIDManager(nullptr);
+			}
 		}
 	}
 	ListLock listLock(replicaManager3->m_WorldListMutex);
@@ -1000,6 +1005,8 @@ void ReplicaManager3::RemoveWorld(WorldId worldId)
 {
 	RakAssert(worldsArray[worldId] != 0 && "World not in use");
 	std::lock_guard<std::recursive_mutex> worldLock(worldMutex);
+	++membershipGeneration;
+	worldsArray[worldId]->Clear(this);
 	ListLock listLock(m_WorldListMutex);
 	for (unsigned int i = 0; i < worldsList.size(); i++)
 	{
@@ -2027,8 +2034,11 @@ PluginReceiveResult ReplicaManager3::OnConstruction(Packet *packet, unsigned cha
 
 				// Forward deletion by remote system
 				if (replica->QueryRelayDestruction(connection))
-					BroadcastDestruction(replica, connection->GetSystemAddress());
-				Dereference(replica);
+					{
+					std::vector<Replica3 *> replicas{replica};
+					BroadcastDestructionList(replicas, connection->GetSystemAddress(), worldId);
+				}
+				Dereference(replica, worldId);
 				DeallocReplicaNoBroadcastDestruction(connection, replica);
 			}
 		}
@@ -3248,7 +3258,14 @@ Replica3::~Replica3()
 {
 	if (replicaManager)
 	{
-		replicaManager->Dereference(this);
+		ReplicaManager3 *manager = replicaManager;
+		std::lock_guard<std::recursive_mutex> worldLock(manager->worldMutex);
+		for (const auto *world : manager->worldsList)
+		{
+			if (referencingWorlds == 0)
+				break;
+			manager->Dereference(this, world->worldId);
+		}
 		// Out of the table here, under the manager's locks: ~NetworkIDObject() would do it under none.
 		Replica3::SetNetworkIDManager(0);
 	}

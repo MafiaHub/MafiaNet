@@ -389,3 +389,66 @@ TEST_F(ReplicaManager3ListMode, SendConstructionGetsStreamedReplicasAsVectors)
 	EXPECT_TRUE(connection->sentNew.empty());
 	EXPECT_EQ(connection->sentDeleted, (std::vector<Replica3 *>{first}));
 }
+
+TEST_F(ReplicaManager3ListMode, FinalDereferenceReleasesManagerAndPreservesIdentity)
+{
+	ListReplica replica;
+	manager.Reference(&replica);
+	const NetworkID id = replica.GetNetworkID();
+	manager.Dereference(&replica);
+	EXPECT_EQ(replica.replicaManager, nullptr);
+	EXPECT_EQ(replica.GetNetworkIDManager(), nullptr);
+	EXPECT_EQ(replica.GetNetworkID(), id);
+
+	manager.Reference(&replica);
+	EXPECT_EQ(replica.GetNetworkID(), id);
+	EXPECT_EQ(replica.replicaManager, &manager);
+}
+
+TEST_F(ReplicaManager3ListMode, AutoCreateConnectionUsesRequestedWorld)
+{
+	manager.AddWorld(255);
+	std::vector<RakNetGUID> participants{RakNetGUID(101)};
+	std::vector<Connection_RM3 *> created;
+	manager.AutoCreateConnectionList(participants, created, 255);
+	ASSERT_EQ(created.size(), 1u);
+	EXPECT_EQ(manager.GetConnectionByGUID(participants.front(), 255), created.front());
+	EXPECT_EQ(manager.GetConnectionCount(0), 0u);
+}
+
+TEST_F(ReplicaManager3ListMode, RemovingPopulatedWorldUnbindsItsReplicas)
+{
+	ListReplica replica;
+	manager.AddWorld(255);
+	manager.SetNetworkIDManager(&ids, 255);
+	manager.Reference(&replica, 255);
+	manager.RemoveWorld(255);
+	EXPECT_EQ(replica.replicaManager, nullptr);
+	EXPECT_EQ(replica.GetNetworkIDManager(), nullptr);
+}
+
+TEST_F(ReplicaManager3ListMode, RemovingOneWorldKeepsTheOtherMembership)
+{
+	ListReplica replica;
+	manager.AddWorld(255);
+	manager.SetNetworkIDManager(&ids, 255);
+	manager.Reference(&replica);
+	manager.Reference(&replica, 255);
+	manager.RemoveWorld(255);
+	EXPECT_EQ(replica.replicaManager, &manager);
+	EXPECT_EQ(replica.GetNetworkIDManager(), &ids);
+	EXPECT_EQ(replica.referencingWorlds, 1u);
+}
+
+TEST_F(ReplicaManager3ListMode, DeletingReplicaDropsItsNonzeroWorldMembership)
+{
+	manager.AddWorld(255);
+	manager.SetNetworkIDManager(&ids, 255);
+	{
+		ListReplica replica;
+		manager.Reference(&replica, 255);
+	}
+	EXPECT_EQ(manager.GetReplicaCount(255), 0u);
+	// Remove the world before fixture shutdown even if the membership was stale.
+	manager.RemoveWorld(255);
+}
