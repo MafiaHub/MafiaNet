@@ -20,7 +20,7 @@ Core Components
    │                  RakPeerInterface                       │
    │  ┌──────────────────────────────────────────────────┐  │
    │  │ Connection Management | Reliability Layer        │  │
-   │  │ Replication | BitStream | RPC | Security                  │  │
+   │  │ Replication | BitStream | RPC | Security         │  │
    │  └──────────────────────────────────────────────────┘  │
    ├─────────────────────────────────────────────────────────┤
    │                    Socket Layer                         │

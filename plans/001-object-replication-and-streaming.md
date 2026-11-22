@@ -4,6 +4,14 @@
 
 Every UDP peer owns one C++17 replication service, accessible as `peer->GetReplication()` before or after startup, just like `peer->GetRPC()`. The peer drives the service directly. A game registers a replica class, references a game object, and supplies state through familiar RM3 callbacks. A server can place that object in a spatial grid, admit observers, and grant a particular client permission to report selected state. All three facilities use the same network identity and object lifecycle. The public API should work for a game with ordinary C++ classes and for an engine that already owns its entities.
 
+## Implemented release
+
+MafiaNet 0.27.0 assigns a single message ID to built-in replication on transport protocol 12. Both endpoints register stable game type IDs and codec versions. A session has one object ID namespace. Worlds and dimensions select the server-side audience. Each owner-report format is identified by the replica type and its registered report version. A lost final replaceable snapshot is sent reliably after 250 ms without application acknowledgment.
+
+The [public guide](../docs/guide/replication.rst) and [two-client sample](../Samples/Replication/main.cpp) use the implemented API. The sample runs on loopback. The deterministic acceptance suite is in [BuiltinReplicationTests.cpp](../Tests/Unit/BuiltinReplicationTests.cpp).
+
+On Apple M5 Pro with Apple Clang 21 and the Release bench preset, the grid workload with 50,000 objects and 20 observers inspected zero candidates per tick at rest and after unrelated distant motion. The clustered move rebuilt four observer sets. Teleporting every observer rebuilt twenty. These counters describe spatial queries. The serializer and game callbacks do additional work.
+
 ## Design inputs
 
 | Evidence | Decision for MafiaNet |
@@ -22,7 +30,7 @@ Add `ReplicationManager& GetReplication()` to `RakPeerInterface` and implement i
 auto& replication = peer->GetReplication();
 replication.SetRole(role);  // Authority is an application decision on a UDP peer.
 replication.RegisterReplica<Vehicle>(VehicleType, VehicleCodecVersion);
-replication.RegisterOwnerUpdate<Vehicle, DriverPose>(&Vehicle::AcceptDriverPose);
+replication.RegisterOwnerUpdate<Vehicle, DriverPose>(1, &Vehicle::AcceptDriverPose);
 
 // Server setup. Receive-driven updates are the default.
 replication.SetTickMode(MafiaNet::ReplicationTickMode::Manual);
@@ -36,7 +44,7 @@ replication.Reference(&vehicle, MafiaNet::SpatialScope{vehiclePosition});
 replication.SetAuthority(vehicle, driverGuid);
 
 // Simulation loop, after accepting inputs and updating positions.
-interest.SetPosition(vehicle, vehiclePosition);
+interest.SetPosition(vehicle.GetNetworkID(), vehiclePosition);
 interest.SetObserverPosition(driverGuid, driverPosition);
 replication.Tick();
 
@@ -134,4 +142,4 @@ ci/format.sh --check
 | `Source/include/mafianet/virtual_world_replica3.h` and `virtual_world.h` | Existing authority-side dimension behavior and global sentinel semantics. |
 | `Tests/Unit/ReplicaManager3DirtyListTests.cpp`, `ReplicaManager3ListModeTests.cpp`, `PointGridSectorizerTests.cpp` | Reusable patterns for late join, scope re-entry, released serialization records and differential tests. |
 | `Tests/Integration/Rm3ReceiveThreadLiveTests.cpp`, `Benchmarks/replica_manager_bench.cpp` | Existing concurrency contract and performance comparisons. |
-| `Source/CMakeLists.txt`, `ci/consumer`, `docs/plugins/replica-manager-3.rst` | Installed/public feature surface and onboarding. |
+| `Source/CMakeLists.txt`, `ci/consumer`, `docs/guide/replication.rst` | Installed/public feature surface and onboarding. |
