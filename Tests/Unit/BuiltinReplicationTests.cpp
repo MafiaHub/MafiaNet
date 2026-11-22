@@ -9,6 +9,7 @@
 
 #include "mafianet/snapshot_replica.h"
 #include "SimulatedNetwork.h"
+#include "../../Source/src/replication_wire.h"
 
 #include <type_traits>
 
@@ -250,6 +251,66 @@ struct ControlledDoor : Door
 		return true;
 	}
 };
+}
+
+namespace
+{
+class RefusingPeer final : public RakPeer
+{
+public:
+	using RakPeer::Send;
+	std::set<ReplicationWire::Kind> refuseOnce;
+	uint32_t Send(const BitStream *data, Priority priority, Reliability reliability, char channel, const AddressOrGUID destination, bool broadcast, uint32_t receipt) override
+	{
+		BitStream input(data->GetData(), data->GetNumberOfBytesUsed(), false);
+		ReplicationWire::Header header;
+		if (ReplicationWire::ReadHeader(input, header) && refuseOnce.erase(header.kind))
+			return 0;
+		return RakPeer::Send(data, priority, reliability, channel, destination, broadcast, receipt);
+	}
+};
+}
+
+TEST(BuiltinReplication, ControlAndRemovalSurviveLocalEnqueueRefusal)
+{
+	using Kind = ReplicationWire::Kind;
+	SimulatedNetwork net;
+	auto *server = static_cast<RefusingPeer *>(net.AddCustomPeer(std::make_unique<RefusingPeer>(), 1, 1));
+	auto *client = static_cast<RefusingPeer *>(net.AddCustomPeer(std::make_unique<RefusingPeer>(), 1));
+	auto &host = server->GetReplication();
+	auto &remote = client->GetReplication();
+	for (auto *p : {server, client})
+	{
+		auto &r = p->GetReplication();
+		ASSERT_TRUE(r.SetRole(p == server ? ReplicationRole::Server : ReplicationRole::Client));
+		ASSERT_TRUE(r.RegisterReplica<ControlledDoor>(doorType, 1));
+		ASSERT_TRUE((r.RegisterOwnerUpdate<ControlledDoor, SwitchReport>(1, &ControlledDoor::ApplyReport)));
+	}
+	client->refuseOnce = {Kind::Hello, Kind::OwnerUpdate};
+	server->refuseOnce = {Kind::Accept, Kind::Grant, Kind::Revoke, Kind::Destroy};
+	ControlledDoor door;
+	ASSERT_TRUE(host.Reference(&door));
+	const auto id = door.GetNetworkID();
+	auto copy = [&]
+	{ return static_cast<ControlledDoor *>(remote.FindReplica(id)); };
+	ASSERT_TRUE(net.Connect(client, server));
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return copy(); }, 5000));
+	ASSERT_TRUE(host.SetAuthority(door, ToPeerGuid(client->GetMyGUID())));
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return remote.HasLocalAuthority(*copy()); }, 5000));
+	EXPECT_FALSE(remote.SendOwnerUpdate(*copy(), SwitchReport{1}));
+	EXPECT_TRUE(remote.SendOwnerUpdate(*copy(), SwitchReport{1}));
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return door.accepted == 1; }, 5000));
+	ASSERT_TRUE(host.RevokeAuthority(door));
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return !remote.HasLocalAuthority(*copy()); }, 5000));
+	ASSERT_TRUE(host.Destroy(&door));
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return !copy(); }, 5000));
+	EXPECT_TRUE(server->refuseOnce.empty());
+	EXPECT_TRUE(client->refuseOnce.empty());
 }
 
 TEST(BuiltinReplication, AuthorityTransferRejectsReportsFromAnEarlierGrant)

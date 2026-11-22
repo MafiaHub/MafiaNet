@@ -1042,6 +1042,13 @@ void ReplicaManager3::SetNetworkIDManager(NetworkIDManager *_networkIDManager, W
 
 void Connection_RM3::AutoConstructByQuery(ReplicaManager3 *replicaManager3, WorldId worldId)
 {
+	// Preserve reliable ordering across an enqueue refusal and an immediate re-entry.
+	while (!pendingRemovals.empty())
+	{
+		if (!TryRemoval(pendingRemovals.front(), *replicaManager3->GetRakPeerInterface()))
+			return;
+		pendingRemovals.pop_front();
+	}
 	ValidateLists(replicaManager3);
 
 	ConstructionMode curConstructionMode = QueryConstructionMode();
@@ -2378,13 +2385,25 @@ void Connection_RM3::SendConstruction(std::vector<Replica3 *> &enter, std::vecto
 }
 void Connection_RM3::SendRemoval(Replica3 &replica, bool destroyed, RakPeerInterface &peer)
 {
+	auto it = outgoingVisits.find(replica.GetNetworkID());
+	if (it == outgoingVisits.end())
+		return;
+	const Removal removal{it->first, it->second, destroyed};
+	outgoingVisits.erase(it);
+	if (!pendingRemovals.empty() || !TryRemoval(removal, peer))
+		pendingRemovals.push_back(removal);
+}
+
+bool Connection_RM3::TryRemoval(const Removal &removal, RakPeerInterface &peer)
+{
 	BitStream out;
-	ReplicationWire::WriteHeader(out, destroyed ? ReplicationWire::Kind::Destroy : ReplicationWire::Kind::Leave, clientToken, serverToken);
-	out.Write(replica.GetNetworkID());
-	out.Write(outgoingVisits[replica.GetNetworkID()]);
-	outgoingVisits.erase(replica.GetNetworkID());
-	if (peer.Send(&out, Priority::High, Reliability::ReliableOrdered, 0, guid, false))
-		RecordScopeMessage(out.GetNumberOfBytesUsed(), false, destroyed);
+	ReplicationWire::WriteHeader(out, removal.destroyed ? ReplicationWire::Kind::Destroy : ReplicationWire::Kind::Leave, clientToken, serverToken);
+	out.Write(removal.id);
+	out.Write(removal.visit);
+	if (!peer.Send(&out, Priority::High, Reliability::ReliableOrdered, 0, guid, false))
+		return false;
+	RecordScopeMessage(out.GetNumberOfBytesUsed(), false, removal.destroyed);
+	return true;
 }
 
 Replica3::Replica3()

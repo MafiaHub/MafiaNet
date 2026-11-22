@@ -4,6 +4,7 @@
 #include "mafianet/network_id_manager.h"
 #include "mafianet/peer_interface.h"
 #include "mafianet/get_time.h"
+#include <algorithm>
 #include <array>
 #include <limits>
 #include <sodium.h>
@@ -310,9 +311,9 @@ void ManagedReplication::WriteHeader(BitStream &out, Kind kind, const Session &s
 {
 	ReplicationWire::WriteHeader(out, kind, session.clientToken, session.serverToken);
 }
-void ManagedReplication::Send(PeerGuid guid, BitStream &packet)
+bool ManagedReplication::Send(PeerGuid guid, BitStream &packet)
 {
-	GetRakPeerInterface()->Send(&packet, Priority::High, Reliability::ReliableOrdered, 0, ToGuid(guid), false);
+	return GetRakPeerInterface()->Send(&packet, Priority::High, Reliability::ReliableOrdered, 0, ToGuid(guid), false);
 }
 void ManagedReplication::Connected(PeerGuid guid, bool incoming)
 {
@@ -338,13 +339,10 @@ bool ManagedReplication::Admit(PeerGuid guid)
 		randombytes_buf(&session.clientToken, sizeof(session.clientToken));
 		if (!session.clientToken)
 			session.clientToken = 1;
-		BitStream out;
-		WriteHeader(out, Kind::Hello, session);
-		out.Write(Schema());
-		Send(guid, out);
+		Handshake(guid, session, Kind::Hello);
 	}
 	else if (session.helloReceived && session.status == ReplicationPeerStatus::Waiting)
-		Start(guid, session);
+		Handshake(guid, session, Kind::Accept);
 	return true;
 }
 ReplicationPeerStatus ManagedReplication::Status(PeerGuid guid) const
@@ -360,20 +358,54 @@ ManagedReplication::Connection *ManagedReplication::Activate(PeerGuid guid, Sess
 	session.status = ReplicationPeerStatus::Active;
 	return connection.release();
 }
-void ManagedReplication::Start(PeerGuid guid, Session &session)
+void ManagedReplication::Handshake(PeerGuid guid, Session &session, Kind kind)
 {
-	randombytes_buf(&session.serverToken, sizeof(session.serverToken));
-	if (!session.serverToken)
-		session.serverToken = 1;
-	if (!Activate(guid, session))
-		return;
+	if (kind == Kind::Accept && !session.serverToken)
+	{
+		randombytes_buf(&session.serverToken, sizeof(session.serverToken));
+		if (!session.serverToken)
+			session.serverToken = 1;
+	}
 	BitStream out;
-	WriteHeader(out, Kind::Accept, session);
-	out.Write(Schema());
-	Send(guid, out);
-	if (connectionChanged)
+	WriteHeader(out, kind, session);
+	if (kind == Kind::Reject)
+		out.Write(static_cast<uint8_t>(session.status));
+	else
+		out.Write(Schema());
+	if (!Send(guid, out))
+	{
+		pendingHandshakes[guid] = kind;
+		return;
+	}
+	if (kind == Kind::Accept && Activate(guid, session) && connectionChanged)
 		connectionChanged(guid, true);
 }
+
+bool ManagedReplication::SendRevoke(const Revocation &revocation)
+{
+	BitStream out;
+	WriteHeader(out, Kind::Revoke, sessions.at(revocation.holder));
+	out.Write(revocation.id);
+	out.Write(revocation.epoch);
+	return Send(revocation.holder, out);
+}
+
+void ManagedReplication::RetryControl()
+{
+	auto handshakes = std::move(pendingHandshakes);
+	pendingHandshakes.clear();
+	for (auto [guid, kind] : handshakes)
+	{
+		auto session = sessions.find(guid);
+		if (session != sessions.end() && !closing.count(guid) && !resetRequested)
+			Handshake(guid, session->second, kind);
+	}
+	pendingRevocations.erase(std::remove_if(pendingRevocations.begin(), pendingRevocations.end(),
+	                                        [this](const Revocation &r)
+	                                        { return SendRevoke(r); }),
+	                         pendingRevocations.end());
+}
+
 bool ManagedReplication::Release(NetworkID id)
 {
 	auto it = downloads.find(id);
@@ -404,6 +436,9 @@ void ManagedReplication::Tick()
 	TickScope scope{*this};
 	if (beforeTick)
 		beforeTick();
+	if (resetRequested)
+		return;
+	RetryControl();
 	if (resetRequested)
 		return;
 	UpdateGrants(false);
@@ -440,6 +475,11 @@ void ManagedReplication::Disconnected(PeerGuid guid)
 	if (it == sessions.end())
 		return;
 	const bool active = it->second.status == ReplicationPeerStatus::Active;
+	pendingHandshakes.erase(guid);
+	pendingRevocations.erase(std::remove_if(pendingRevocations.begin(), pendingRevocations.end(),
+	                                        [guid](const Revocation &r)
+	                                        { return r.holder == guid; }),
+	                         pendingRevocations.end());
 	sessions.erase(it);
 	interest.RemoveObserver(guid);
 	for (auto grant = grants.begin(); grant != grants.end();)
@@ -555,13 +595,10 @@ void ManagedReplication::Receive(Packet &packet)
 		if (version != Version || schema != Schema())
 		{
 			session.status = version != Version ? ReplicationPeerStatus::ProtocolMismatch : ReplicationPeerStatus::SchemaMismatch;
-			BitStream out;
-			WriteHeader(out, Kind::Reject, session);
-			out.Write(static_cast<uint8_t>(session.status));
-			Send(guid, out);
+			Handshake(guid, session, Kind::Reject);
 		}
 		else if (session.admitted)
-			Start(guid, session);
+			Handshake(guid, session, Kind::Accept);
 		return;
 	}
 	if (version != Version || clientToken != session.clientToken || !session.admitted)
@@ -617,13 +654,11 @@ bool ManagedReplication::Assign(Replica3 &object, PeerGuid guid, bool force)
 	{
 		if (current->second.holder == guid && !force)
 			return true;
-		if (current->second.ready)
+		if (current->second.ready && current->second.holder != guid)
 		{
-			BitStream revoke;
-			WriteHeader(revoke, Kind::Revoke, sessions.at(current->second.holder));
-			revoke.Write(id);
-			revoke.Write(current->second.epoch);
-			Send(current->second.holder, revoke);
+			const Revocation revoke{current->second.holder, id, current->second.epoch};
+			if (!SendRevoke(revoke))
+				pendingRevocations.push_back(revoke);
 		}
 		grants.erase(current);
 	}
@@ -662,10 +697,10 @@ bool ManagedReplication::Submit(Replica3 &object, std::type_index type, const Bi
 	out.Write(grant.epoch);
 	if (grant.sequence == UINT64_MAX)
 		return false;
-	out.Write(++grant.sequence);
-	if (!WriteBlock(out, payload))
+	out.Write(grant.sequence + 1);
+	if (!WriteBlock(out, payload) || !Send(grant.holder, out))
 		return false;
-	Send(grant.holder, out);
+	++grant.sequence;
 	return true;
 }
 
@@ -704,8 +739,7 @@ void ManagedReplication::UpdateGrants(bool publish)
 		out.Write(connection->Watermark());
 		if (!WriteBlock(out, snapshot))
 			continue;
-		Send(grant.holder, out);
-		it->second.ready = true;
+		it->second.ready = Send(grant.holder, out);
 	}
 }
 

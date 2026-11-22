@@ -744,6 +744,14 @@ protected:
 	virtual void TransmitState(Replica3 &object, BitStream &out, PRO pro, RakPeerInterface &peer);
 	uint64_t nextVisit = 0, nextState = 0;
 	std::map<NetworkID, uint64_t> outgoingVisits;
+	struct Removal
+	{
+		NetworkID id;
+		uint64_t visit;
+		bool destroyed;
+	};
+	std::deque<Removal> pendingRemovals;
+	bool TryRemoval(const Removal &removal, RakPeerInterface &peer);
 	SystemAddress systemAddress;
 	RakNetGUID guid;
 

@@ -73,9 +73,19 @@ private:
 	Connection_RM3 *AllocConnection(const SystemAddress &, RakNetGUID) const override { return nullptr; }
 	void DeallocConnection(Connection_RM3 *connection) const override { delete connection; }
 	uint64_t Schema() const;
-	void Start(PeerGuid guid, Session &session);
+	void Handshake(PeerGuid guid, Session &session, Kind kind);
+	void RetryControl();
+	std::map<PeerGuid, Kind> pendingHandshakes;
+	struct Revocation
+	{
+		PeerGuid holder;
+		NetworkID id;
+		uint64_t epoch;
+	};
+	std::vector<Revocation> pendingRevocations;
+	bool SendRevoke(const Revocation &revocation);
 	Connection *Activate(PeerGuid guid, Session &session);
-	void Send(PeerGuid guid, BitStream &packet);
+	bool Send(PeerGuid guid, BitStream &packet);
 	void WriteHeader(BitStream &out, Kind kind, const Session &session) const;
 	void ReadState(Connection &connection, StateDelivery &delivery, BitStream &in, bool acknowledge);
 	void Apply(Connection &connection, Kind kind, BitStream &in);
