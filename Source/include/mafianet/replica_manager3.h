@@ -34,6 +34,7 @@
 
 #include <deque>
 #include <mutex>
+#include <map>
 #include <shared_mutex>
 #include <vector>
 
@@ -420,7 +421,7 @@ protected:
 
 		/// Calls Replica3::Deserialize() on the replica of that id, with DeserializeParameters::sourceConnection set to the sender.
 		/// \return false, having called nothing, if there is no sender, or no replica of that id referenced by this manager.
-		bool Deserialize(NetworkID networkId, DeserializeParameters *parameters);
+		bool Deserialize(NetworkID networkId, DeserializeParameters *parameters, uint32_t referenceIndex = UINT32_MAX);
 
 	private:
 		ReplicaManager3 &replicaManager;
@@ -740,6 +741,8 @@ public:
 
 protected:
 	uint64_t clientToken = 0, serverToken = 0;
+	uint64_t nextVisit = 0, nextState = 0;
+	std::map<NetworkID, uint64_t> outgoingVisits;
 	SystemAddress systemAddress;
 	RakNetGUID guid;
 

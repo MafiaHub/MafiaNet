@@ -66,7 +66,7 @@ public:
 		in.IgnoreBytes(2 + 2 * sizeof(uint64_t));
 		in.Read(world);
 		in.Read(message.networkId);
-		in.IgnoreBytes(sizeof(Time));
+		in.IgnoreBytes(2 * sizeof(uint64_t) + sizeof(Time));
 		for (int z = 0; z < RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; z++)
 		{
 			in.Read(message.written[z]);

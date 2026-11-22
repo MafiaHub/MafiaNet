@@ -1246,14 +1246,14 @@ ReplicaManager3::StateDelivery::~StateDelivery()
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-bool ReplicaManager3::StateDelivery::Deserialize(NetworkID networkId, DeserializeParameters *parameters)
+bool ReplicaManager3::StateDelivery::Deserialize(NetworkID networkId, DeserializeParameters *parameters, uint32_t referenceIndex)
 {
 	if (connection == 0 || networkIDManager == 0)
 		return false;
 	// From the lookup to the end of Deserialize(): the replica stays in the table and alive, see Dereference().
 	ReplicaSetDelivery delivery(&replicaManager);
 	Replica3 *replica = networkIDManager->GET_OBJECT_FROM_ID<Replica3 *>(networkId);
-	if (replica == 0 || replica->replicaManager != &replicaManager || replica->referencingWorlds == 0)
+	if (replica == 0 || replica->replicaManager != &replicaManager || replica->referencingWorlds == 0 || (referenceIndex != UINT32_MAX && referenceIndex != replica->referenceIndex))
 		return false;
 	parameters->sourceConnection = connection;
 	replica->Deserialize(parameters);
@@ -1773,6 +1773,8 @@ void Connection_RM3::SendSerializeHeader(MafiaNet::Replica3 *replica, MafiaNet::
 	bs->Reset();
 	ReplicationWire::WriteHeader(*bs, ReplicationWire::Kind::State, clientToken, serverToken, worldId);
 	bs->Write(replica->GetNetworkID());
+	bs->Write(outgoingVisits[replica->GetNetworkID()]);
+	bs->Write(++nextState);
 	bs->Write(timestamp);
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -2060,6 +2062,7 @@ void Connection_RM3::OnLocalReference(Replica3 *replica3, ReplicaManager3 *repli
 
 void Connection_RM3::OnDereference(Replica3 *replica3, ReplicaManager3 *replicaManager)
 {
+	outgoingVisits.erase(replica3->GetNetworkID());
 	ValidateLists(replicaManager);
 
 	if (replica3->GetNetworkIDManager() == 0)
@@ -2397,6 +2400,8 @@ void Connection_RM3::SendConstruction(std::vector<Replica3 *> &enter, std::vecto
 		BitStream out, snapshot;
 		ReplicationWire::WriteHeader(out, replica->staticBinding ? ReplicationWire::Kind::Bind : ReplicationWire::Kind::Spawn, clientToken, serverToken, world);
 		out.Write(replica->GetNetworkID());
+		outgoingVisits[replica->GetNetworkID()] = ++nextVisit;
+		out.Write(nextVisit);
 		out.Write(replica->registeredType);
 		if (replica->staticBinding)
 			replica->SerializeConstructionExisting(&snapshot, this);
@@ -2413,6 +2418,8 @@ void Connection_RM3::SendRemoval(Replica3 &replica, bool destroyed, RakPeerInter
 	BitStream out;
 	ReplicationWire::WriteHeader(out, destroyed ? ReplicationWire::Kind::Destroy : ReplicationWire::Kind::Leave, clientToken, serverToken, world);
 	out.Write(replica.GetNetworkID());
+	out.Write(outgoingVisits[replica.GetNetworkID()]);
+	outgoingVisits.erase(replica.GetNetworkID());
 	peer.Send(&out, Priority::High, Reliability::ReliableOrdered, 0, guid, false);
 }
 

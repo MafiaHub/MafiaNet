@@ -234,7 +234,6 @@ bool ReplicationManager::ProcessPacket(Packet *packet)
 	{
 		if (managed && role != ReplicationRole::Unconfigured)
 		{
-			WorldGuard guard(*this);
 			managed->Receive(*packet);
 		}
 		return true;

@@ -3,6 +3,7 @@
 #include "mafianet/message_identifiers.h"
 #include "mafianet/network_id_manager.h"
 #include "mafianet/peer_interface.h"
+#include <array>
 #include <limits>
 #include <sodium.h>
 
@@ -18,6 +19,14 @@ public:
 		clientToken = session.clientToken;
 		serverToken = session.serverToken;
 	}
+	struct Visit
+	{
+		uint64_t incarnation;
+		uint32_t referenceIndex;
+		std::array<uint64_t, RM3_NUM_OUTPUT_BITSTREAM_CHANNELS> lastState{};
+	};
+	std::map<NetworkID, Visit> incoming;
+	bool Matches(uint64_t client, uint64_t server) const { return clientToken == client && serverToken == server; }
 	ConstructionMode QueryConstructionMode() const override { return QUERY_CONNECTION_FOR_REPLICA_LIST; }
 	bool QuerySerializationList(std::vector<Replica3 *> &out) override
 	{
@@ -283,8 +292,7 @@ void ManagedReplication::Destroy(Replica3 &replica)
 void ManagedReplication::Receive(Packet &packet)
 {
 	const auto guid = ToPeerGuid(packet.guid);
-	auto it = sessions.find(guid);
-	if (it == sessions.end() || packet.length > (MaxPayloadBits / 8) * RM3_NUM_OUTPUT_BITSTREAM_CHANNELS + 256 ||
+	if (packet.length > (MaxPayloadBits / 8) * RM3_NUM_OUTPUT_BITSTREAM_CHANNELS + 256 ||
 	    packet.bitSize > static_cast<uint64_t>(packet.length) * 8)
 		return;
 	BitStream in(packet.data, packet.length, false);
@@ -295,6 +303,20 @@ void ManagedReplication::Receive(Packet &packet)
 	WorldId world;
 	uint64_t clientToken, serverToken;
 	if (!in.Read(version) || !in.Read(kind) || !in.Read(clientToken) || !in.Read(serverToken) || !in.Read(world) || world != 0 || !clientToken)
+		return;
+	if (kind == Kind::State)
+	{
+		if (version != Version || owner.GetRole() == ReplicationRole::Server)
+			return;
+		StateDelivery delivery(*this, packet.guid);
+		auto *connection = static_cast<Connection *>(delivery.GetConnection());
+		if (connection && connection->Matches(clientToken, serverToken))
+			ReadState(*connection, delivery, in);
+		return;
+	}
+	WorldGuard guard(*this);
+	auto it = sessions.find(guid);
+	if (it == sessions.end())
 		return;
 	auto &session = it->second;
 	const bool server = !session.initiator;
@@ -342,7 +364,8 @@ void ManagedReplication::Receive(Packet &packet)
 	}
 	if (session.status != ReplicationPeerStatus::Active || session.serverToken != serverToken)
 		return;
-	auto *conn = static_cast<Connection *>(GetConnectionByGUID(packet.guid));
+	StateDelivery delivery(*this, packet.guid);
+	auto *conn = static_cast<Connection *>(delivery.GetConnection());
 	if (!conn)
 		return;
 	if (kind == Kind::OwnerUpdate || kind == Kind::Grant || kind == Kind::Revoke)
@@ -500,13 +523,16 @@ void ManagedReplication::OwnerPacket(Connection &connection, Kind kind, BitStrea
 void ManagedReplication::Apply(Connection &connection, Kind kind, BitStream &in)
 {
 	NetworkID id;
-	if (!in.Read(id) || id == UNASSIGNED_NETWORK_ID)
+	uint64_t visit;
+	if (!in.Read(id) || id == UNASSIGNED_NETWORK_ID || !in.Read(visit) || !visit)
 		return;
 	if (kind == Kind::Leave || kind == Kind::Destroy)
 	{
-		auto it = downloads.find(id);
-		if (!in.GetNumberOfUnreadBits() && it != downloads.end() && it->second.source == ToPeerGuid(connection.GetRakNetGUID()))
-			Release(id);
+		auto it = connection.incoming.find(id);
+		if (in.GetNumberOfUnreadBits() || it == connection.incoming.end() || it->second.incarnation != visit)
+			return;
+		connection.incoming.erase(it);
+		Release(id);
 		return;
 	}
 	auto *replica = static_cast<Replica3 *>(GetNetworkIDManager()->GET_BASE_OBJECT_FROM_ID(id));
@@ -522,7 +548,10 @@ void ManagedReplication::Apply(Connection &connection, Kind kind, BitStream &in)
 		if (kind == Kind::Bind)
 		{
 			if (entry->second.cppType == typeid(*replica) && replica->QueryRemoteConstruction(&connection))
+			{
+				connection.incoming.insert_or_assign(id, Connection::Visit{visit, replica->referenceIndex});
 				replica->DeserializeConstructionExisting(&snapshot, &connection);
+			}
 			return;
 		}
 		const auto before = generation;
@@ -539,19 +568,40 @@ void ManagedReplication::Apply(Connection &connection, Kind kind, BitStream &in)
 		copy->creatingSystemGUID = connection.GetRakNetGUID();
 		copy->SetNetworkID(id);
 		Reference(copy);
+		connection.incoming.insert_or_assign(id, Connection::Visit{visit, copy->referenceIndex});
 		downloads.emplace(id, Download{type, ToPeerGuid(connection.GetRakNetGUID())});
 	}
-	else if (kind == Kind::State && replica && (replica->creatingSystemGUID == connection.GetRakNetGUID() || (staticObjects.count(id) && replica->QueryRemoteConstruction(&connection))))
-	{
-		DeserializeParameters params{};
-		params.sourceConnection = &connection;
-		if (!in.Read(params.timeStamp))
+}
+
+void ManagedReplication::ReadState(Connection &connection, StateDelivery &delivery, BitStream &in)
+{
+	NetworkID id;
+	uint64_t incarnation, seq;
+	DeserializeParameters params{};
+	if (!in.Read(id) || !in.Read(incarnation) || !in.Read(seq) || !seq || !in.Read(params.timeStamp))
+		return;
+	auto it = connection.incoming.find(id);
+	if (it == connection.incoming.end() || it->second.incarnation != incarnation)
+		return;
+	for (unsigned i = 0; i < RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; ++i)
+		if (!in.Read(params.bitstreamWrittenTo[i]) || (params.bitstreamWrittenTo[i] && !ReadBlock(in, params.serializationBitstream[i])))
 			return;
-		for (unsigned int i = 0; i < RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; ++i)
-			if (!in.Read(params.bitstreamWrittenTo[i]) || (params.bitstreamWrittenTo[i] && !ReadBlock(in, params.serializationBitstream[i])))
-				return;
-		if (!in.GetNumberOfUnreadBits())
-			replica->Deserialize(&params);
+	if (in.GetNumberOfUnreadBits())
+		return;
+	bool changed = false;
+	for (unsigned i = 0; i < RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; ++i)
+	{
+		if (!params.bitstreamWrittenTo[i])
+			continue;
+		if (seq <= it->second.lastState[i])
+		{
+			params.bitstreamWrittenTo[i] = false;
+			continue;
+		}
+		it->second.lastState[i] = seq;
+		changed = true;
 	}
+	if (changed)
+		delivery.Deserialize(id, &params, it->second.referenceIndex);
 }
 }

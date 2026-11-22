@@ -3,6 +3,7 @@
 #include <gtest/gtest.h>
 
 #include "mafianet/peer_handle.h"
+#include "mafianet/message_identifiers.h"
 #include "mafianet/replication_manager.h"
 #include "mafianet/replica_manager3.h"
 
@@ -301,4 +302,54 @@ TEST(BuiltinReplication, AuthorityTransferRejectsReportsFromAnEarlierGrant)
 	                         { return !copy(bob); }, 5000));
 	EXPECT_FALSE(host.SetAuthority(door, b));
 	EXPECT_TRUE(door.WasReferenced());
+}
+
+TEST(BuiltinReplication, DelayedStateFromPreviousCellVisitCannotOverwriteFreshBaseline)
+{
+	struct Recorder : Door
+	{
+		BitStream earlier;
+		void OnSerializeTransmission(BitStream *packet, Connection_RM3 *, BitSize_t *, Time) override
+		{
+			if (state.open && packet->GetNumberOfBitsUsed() && !earlier.GetNumberOfBitsUsed())
+				earlier.WriteBits(packet->GetData(), packet->GetNumberOfBitsUsed(), false);
+		}
+	};
+	SimulatedNetwork net(62);
+	auto *server = net.AddPeer(1, 1), *client = net.AddPeer(1);
+	auto &host = server->GetReplication(), &view = client->GetReplication();
+	host.SetRole(ReplicationRole::Server);
+	view.SetRole(ReplicationRole::Client);
+	ASSERT_TRUE(host.RegisterReplica<Recorder>(doorType, 1));
+	ASSERT_TRUE(view.RegisterReplica<Recorder>(doorType, 1));
+	auto &grid = host.GetInterestGrid();
+	ASSERT_TRUE(grid.Configure({{0, 0}, {100, 100}, 10}));
+	ASSERT_TRUE(grid.SetObserverCells(ToPeerGuid(client->GetMyGUID()), {{1, 1}}));
+	Recorder door;
+	ASSERT_TRUE(host.Reference(&door, SpatialScope{{15, 15}}));
+	const auto id = door.GetNetworkID();
+	auto copy = [&]
+	{ return static_cast<Recorder *>(view.FindReplica(id)); };
+	ASSERT_TRUE(net.Connect(client, server));
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return copy() != nullptr; }, 5000));
+	door.state.open = true;
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return copy()->state.open && door.earlier.GetNumberOfBitsUsed(); }, 5000));
+	ASSERT_TRUE(grid.SetPosition(id, {80, 80}));
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return !copy(); }, 5000));
+	door.state.open = false;
+	ASSERT_TRUE(grid.SetPosition(id, {15, 15}));
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return copy() != nullptr; }, 5000));
+	ASSERT_FALSE(copy()->state.open);
+	host.SetTickMode(ReplicationTickMode::Manual);
+	net.Step(300);
+	ASSERT_TRUE(server->Send(&door.earlier, Priority::High, Reliability::ReliableOrdered, 0, client->GetMyGUID(), false));
+	BitStream marker;
+	marker.Write(static_cast<MessageID>(ID_USER_PACKET_ENUM));
+	ASSERT_TRUE(server->Send(&marker, Priority::High, Reliability::ReliableOrdered, 0, client->GetMyGUID(), false));
+	ASSERT_TRUE(net.RunUntilReceived(client, ID_USER_PACKET_ENUM, 5000));
+	EXPECT_FALSE(copy()->state.open);
 }

@@ -69,6 +69,7 @@ private:
 	Connection *Activate(PeerGuid guid, Session &session);
 	void Send(PeerGuid guid, BitStream &packet);
 	void WriteHeader(BitStream &out, Kind kind, const Session &session) const;
+	void ReadState(Connection &connection, StateDelivery &delivery, BitStream &in);
 	void Apply(Connection &connection, Kind kind, BitStream &in);
 
 	ReplicationManager &owner;
