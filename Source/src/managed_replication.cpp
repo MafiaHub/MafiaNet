@@ -495,13 +495,11 @@ void ManagedReplication::Receive(Packet &packet)
 		return;
 	BitStream in(packet.data, packet.length, false);
 	in.SetWriteOffset(packet.bitSize);
-	in.IgnoreBytes(1);
-	uint8_t version;
-	Kind kind;
-	WorldId world;
-	uint64_t clientToken, serverToken;
-	if (!in.Read(version) || !in.Read(kind) || !in.Read(clientToken) || !in.Read(serverToken) || !in.Read(world) || world != 0 || !clientToken)
+	Header header{};
+	if (!ReadHeader(in, header) || header.world != 0 || !header.clientToken)
 		return;
+	const auto &[version, kind, clientToken, serverToken, world] = header;
+
 	if (kind == Kind::State || kind == Kind::Snapshot || kind == Kind::SnapshotAck)
 	{
 		if (version != Version || (kind != Kind::SnapshotAck && owner.GetRole() == ReplicationRole::Server))
