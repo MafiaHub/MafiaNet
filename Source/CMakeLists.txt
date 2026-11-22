@@ -29,6 +29,7 @@ set(MAFIANET_SOURCES
     src/get_time.cpp
     src/get_time_of_day.cpp
     src/grid_sectorizer.cpp
+    src/interest_grid.cpp
     src/guid_util.cpp
     src/handshake_challenge.cpp
     src/incremental_read_interface.cpp
@@ -148,6 +149,7 @@ set(MAFIANET_HEADERS
     include/mafianet/get_time.h
     include/mafianet/get_time_of_day.h
     include/mafianet/grid_sectorizer.h
+    include/mafianet/interest_grid.h
     include/mafianet/guid_util.h
     include/mafianet/handshake_challenge.h
     include/mafianet/http_connection.h
