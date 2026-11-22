@@ -80,12 +80,6 @@
 #ifndef _RAKNET_SUPPORT_ReadyEvent
 #define _RAKNET_SUPPORT_ReadyEvent 1
 #endif
-#if defined(_RAKNET_SUPPORT_ReplicaManager3) && !_RAKNET_SUPPORT_ReplicaManager3
-#error "Object replication is built into the peer. Remove _RAKNET_SUPPORT_ReplicaManager3=0."
-#endif
-#ifndef _RAKNET_SUPPORT_ReplicaManager3
-#define _RAKNET_SUPPORT_ReplicaManager3 1
-#endif
 #ifndef _RAKNET_SUPPORT_Router2
 #define _RAKNET_SUPPORT_Router2 1
 #endif

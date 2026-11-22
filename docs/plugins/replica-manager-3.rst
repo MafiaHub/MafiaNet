@@ -18,16 +18,24 @@ Setup
 
 .. code-block:: cpp
 
-   #include "mafianet/replica_manager3.h"
+   #include "mafianet/peer_interface.h"
+   #include "mafianet/snapshot_replica.h"
+
+   struct DoorState {
+       bool open{};
+       void Write(MafiaNet::BitStream &out) const { out.Write(open); }
+       bool Read(MafiaNet::BitStream &in) { return in.Read(open); }
+   };
+   struct Door : MafiaNet::SnapshotReplica<DoorState> {};
 
    auto &replication = peer->GetReplication();
-   auto *replicaManager = replication.UseLegacyProtocol<GameReplicaManager>();
+   replication.SetRole(role);
+   replication.RegisterReplica<Door>(MafiaNet::ReplicaTypeId{17}, 1);
 
-Use your existing ``ReplicaManager3`` subclass for ``GameReplicaManager``.
-The peer creates it once, supplies a default network ID manager, and runs its
-callbacks from the ordinary receive loop. Match the allocation and payload
-codecs on both endpoints. Rebuild downstream binaries for the peer interface
-and RM3 ABI change.
+Register the type on both endpoints before connecting. On the server,
+``replication.Reference(&door)`` borrows a game-owned object and sends its current
+state to admitted clients. Changes to ``door.state.open`` are replicated from
+the ordinary receive loop. Call ``replication.Destroy(&door)`` to remove it.
 
 Creating Replica Objects
 ------------------------

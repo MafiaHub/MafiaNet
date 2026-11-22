@@ -9,9 +9,9 @@ Unreleased — breaking
 **Built-in object replication**
 
 * Every UDP peer owns its replication service, including in minimal builds.
-  Use ``peer->GetReplication()``. Games with an RM3 subclass can select the
-  original wire protocol through ``UseLegacyProtocol<GameReplicaManager>()``.
-  Rebuild downstream binaries for the peer and RM3 ABI changes.
+  Register replica types through ``peer->GetReplication()`` and configure a
+  server, client or peer role. Rebuild both endpoints for transport protocol 12.
+
 
 **Built-in RPC**
 

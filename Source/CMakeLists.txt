@@ -71,6 +71,7 @@ set(MAFIANET_SOURCES
     src/reliability_layer.cpp
     src/replica_manager3.cpp
     src/replication_manager.cpp
+    src/managed_replication.cpp
     src/router2.cpp
     src/rpc.cpp
     src/send_to_thread.cpp
@@ -201,6 +202,7 @@ set(MAFIANET_HEADERS
     include/mafianet/replica_enums.h
     include/mafianet/replica_manager3.h
     include/mafianet/replication_manager.h
+    include/mafianet/snapshot_replica.h
     include/mafianet/router2.h
     include/mafianet/remote_procedure_call.h
     include/mafianet/send_to_thread.h
@@ -295,10 +297,6 @@ set(MAFIANET_OPTIONAL_FEATURES
 # into the list of _RAKNET_SUPPORT_<Name>=0 definitions applied to every
 # library target. Unknown names are a configure error rather than a silent
 # no-op, since a typo here would otherwise ship the plugin it meant to drop.
-if("ReplicaManager3" IN_LIST MAFIANET_DISABLED_FEATURES)
-    message(DEPRECATION "ReplicaManager3 is built into the peer. Remove it from MAFIANET_DISABLED_FEATURES.")
-    list(REMOVE_ITEM MAFIANET_DISABLED_FEATURES ReplicaManager3)
-endif()
 set(MAFIANET_FEATURE_DEFINITIONS "")
 if(MAFIANET_MINIMAL)
     set(_mafianet_disabled ${MAFIANET_OPTIONAL_FEATURES})

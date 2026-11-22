@@ -279,7 +279,7 @@ const char *PacketLogger::BaseIDTOString(unsigned char Id)
 	        "ID_RAKVOICE_DATA",
 	        "ID_RAKVOICE_RELAY_DATA",
 	        "ID_RESERVED_49",
-	        "ID_RESERVED_50",
+	        "ID_REPLICATION",
 	        "ID_RESERVED_51",
 	        "ID_RESERVED_52",
 	        "ID_RESERVED_53",

@@ -93,6 +93,7 @@ private:
 class Manager : public ReplicaManager3
 {
 public:
+	using ReplicaManager3::ReplicaManager3;
 	Connection_RM3 *AllocConnection(const SystemAddress &, RakNetGUID guid) const override { return new Connection(guid); }
 	void DeallocConnection(Connection_RM3 *connection) const override { delete connection; }
 };
@@ -108,7 +109,7 @@ struct World
 {
 	NetworkIDManager ids;
 	Peer peer;
-	Manager &manager = *peer.GetReplication().template UseLegacyProtocol<Manager>();
+	Manager manager{peer};
 	std::vector<Replica> replicas;
 	explicit World(int clients, size_t replicaCount = 100, const SerializationCandidates *candidates = nullptr)
 	    : replicas(replicaCount)
@@ -130,6 +131,7 @@ struct World
 	}
 	~World()
 	{
+		manager.Clear(false);
 		SetTimeSourceOverride(nullptr);
 	}
 	void Tick()

@@ -299,6 +299,12 @@ private:
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
+ReplicaManager3::ReplicaManager3(RakPeerInterface &peer)
+    : ReplicaManager3()
+{
+	rakPeerInterface = &peer;
+}
+
 ReplicaManager3::ReplicaManager3()
 {
 	defaultSendParameters.orderingChannel = 0;
@@ -408,7 +414,8 @@ bool ReplicaManager3::PushConnection(MafiaNet::Connection_RM3 *newConnection, Wo
 		}
 
 		// Send message to validate the connection
-		newConnection->SendValidation(rakPeerInterface, worldId);
+		if (!newConnection->isValidated)
+			newConnection->SendValidation(rakPeerInterface, worldId);
 
 		Connection_RM3::ConstructionMode constructionMode = newConnection->QueryConstructionMode();
 		if (constructionMode == Connection_RM3::QUERY_REPLICA_FOR_CONSTRUCTION || constructionMode == Connection_RM3::QUERY_REPLICA_FOR_CONSTRUCTION_AND_DESTRUCTION)

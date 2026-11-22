@@ -1,23 +1,13 @@
 // Copyright (c) 2026, MafiaHub. MIT license.
 
 #include "mafianet/replication_manager.h"
+#include "managed_replication.h"
 #include "mafianet/network_id_manager.h"
 #include "mafianet/message_identifiers.h"
 #include "mafianet/replica_manager3.h"
 
 namespace MafiaNet
 {
-namespace
-{
-class ManagedEngine final : public ReplicaManager3
-{
-public:
-	// Connections are enrolled only after peers agree on their replication protocol.
-	Connection_RM3 *AllocConnection(const SystemAddress &, RakNetGUID) const override { return nullptr; }
-	void DeallocConnection(Connection_RM3 *connection) const override { delete connection; }
-};
-}
-
 ReplicationManager::ReplicationManager(RakPeerInterface &peer)
     : peer(peer)
 {
@@ -27,52 +17,149 @@ ReplicationManager::~ReplicationManager() = default;
 
 bool ReplicationManager::SetRole(ReplicationRole requested)
 {
-	if (legacy)
-		return false;
 	if (requested == role)
 		return true;
-	if (engine && (engine->GetReplicaCount() || engine->GetConnectionCount()))
+	if (managed && (managed->GetReplicaCount() || managed->HasSessions()))
 		return false;
 	role = requested;
+	if (requested != ReplicationRole::Unconfigured)
+		Managed();
 	return true;
 }
 
 bool ReplicationManager::Reference(Replica3 *replica)
 {
-	if (role != ReplicationRole::Server || !replica || replica->WasReferenced())
+	if ((role != ReplicationRole::Server && role != ReplicationRole::Peer) || !replica || replica->WasReferenced())
 		return false;
-	if (!engine)
-		Initialize(std::make_unique<ManagedEngine>());
-	engine->Reference(replica);
+	if (!managed || !managed->IsRegistered(*replica))
+		return false;
+	managed->Reference(replica);
 	return true;
+}
+
+bool ReplicationManager::ReferenceStatic(Replica3 *replica, NetworkID id)
+{
+	if (!replica || id == UNASSIGNED_NETWORK_ID || FindReplica(id) || replica->WasReferenced() || !managed || !managed->IsRegistered(*replica))
+		return false;
+	replica->SetNetworkID(id);
+	managed->Reference(replica);
+	managed->staticObjects[id] = replica;
+	return true;
+}
+ManagedReplication &ReplicationManager::Managed()
+{
+	if (!managed)
+	{
+		ids = std::make_unique<NetworkIDManager>();
+		managed = std::make_unique<ManagedReplication>(*this, peer);
+		managed->SetNetworkIDManager(ids.get());
+	}
+	return *managed;
+}
+
+bool ReplicationManager::RegisterType(ReplicaTypeId id, uint16_t version, std::type_index type, std::function<Replica3 *()> create, std::function<void(Replica3 *)> release)
+{
+	return Managed().Register(id, version, type, std::move(create), std::move(release));
+}
+
+Replica3 *ReplicationManager::FindReplica(NetworkID id) const
+{
+	return ids ? static_cast<Replica3 *>(ids->GET_BASE_OBJECT_FROM_ID(id)) : nullptr;
+}
+
+bool ReplicationManager::Destroy(Replica3 *replica)
+{
+	if (!managed || role == ReplicationRole::Client || !replica || replica->replicaManager != managed.get())
+		return false;
+	WorldGuard guard(*this);
+	managed->Destroy(*replica);
+	return true;
+}
+
+ReplicationManager::WorldGuard::WorldGuard(ReplicationManager &manager)
+    : lock(manager.Managed().worldMutex) {}
+bool ReplicationManager::ReleaseRemote(NetworkID id)
+{
+	if (!managed)
+		return false;
+	WorldGuard guard(*this);
+	return managed->Release(id);
+}
+ReplicationPeerStatus ReplicationManager::GetPeerStatus(PeerGuid guid) const
+{
+	return managed ? managed->Status(guid) : ReplicationPeerStatus::Waiting;
+}
+
+bool ReplicationManager::Admit(PeerGuid guid)
+{
+	return managed && managed->Admit(guid);
+}
+void ReplicationManager::SetAutomaticAdmission(bool enabled)
+{
+	Managed().automaticAdmission = enabled;
 }
 
 void ReplicationManager::Dereference(Replica3 *replica)
 {
-	if (engine && replica && replica->replicaManager == engine.get())
-		engine->Dereference(replica);
+	if (managed && role != ReplicationRole::Client && replica && replica->replicaManager == managed.get())
+	{
+		managed->staticObjects.erase(replica->GetNetworkID());
+		managed->Dereference(replica);
+	}
 }
 
 unsigned int ReplicationManager::GetReplicaCount() const
 {
-	return engine ? engine->GetReplicaCount() : 0;
+	return managed ? managed->GetReplicaCount() : 0;
 }
 
-void ReplicationManager::Initialize(std::unique_ptr<ReplicaManager3> manager)
+unsigned int ReplicationManager::GetConnectionCount() const
 {
-	manager->rakPeerInterface = &peer;
-	if (!manager->GetNetworkIDManager())
-	{
-		ids = std::make_unique<NetworkIDManager>();
-		manager->SetNetworkIDManager(ids.get());
-	}
-	engine = std::move(manager);
+	return managed ? managed->GetConnectionCount() : 0;
 }
-
+Replica3 *ReplicationManager::GetReplicaAtIndex(unsigned int index) const
+{
+	return managed && index < managed->GetReplicaCount() ? managed->GetReplicaAtIndex(index) : nullptr;
+}
+void ReplicationManager::GetLocalReplicas(std::vector<Replica3 *> &out) const
+{
+	out.clear();
+	if (managed)
+		managed->GetReplicasCreatedByMe(out);
+}
+bool ReplicationManager::SetObserverVirtualWorld(PeerGuid guid, uint32_t dimension)
+{
+	auto *connection = managed ? managed->GetConnectionByGUID(ToGuid(guid)) : nullptr;
+	if (!connection)
+		return false;
+	connection->SetVirtualWorld(dimension);
+	return true;
+}
+void ReplicationManager::SetSerializeInterval(Time interval)
+{
+	Managed().SetAutoSerializeInterval(interval);
+}
+void ReplicationManager::SetSerializeExecutor(RM3SerializeExecutor *executor)
+{
+	Managed().SetSerializeExecutor(executor);
+}
+void ReplicationManager::SetSerializationList(std::function<bool(PeerGuid, std::vector<Replica3 *> &)> query)
+{
+	Managed().serializationList = std::move(query);
+}
+void ReplicationManager::SetTickCallbacks(std::function<void()> before, std::function<void()> after)
+{
+	Managed().beforeTick = std::move(before);
+	Managed().afterTick = std::move(after);
+}
+void ReplicationManager::SetConnectionCallback(std::function<void(PeerGuid, bool)> callback)
+{
+	Managed().connectionChanged = std::move(callback);
+}
 void ReplicationManager::Tick()
 {
-	if (engine)
-		engine->Update();
+	if (managed)
+		managed->Tick();
 }
 
 void ReplicationManager::ReceiveTick()
@@ -81,28 +168,39 @@ void ReplicationManager::ReceiveTick()
 		Tick();
 }
 
-PluginReceiveResult ReplicationManager::ProcessPacket(Packet *packet)
+bool ReplicationManager::ProcessPacket(Packet *packet)
 {
-	if (!legacy || !packet->length)
-		return RR_CONTINUE_PROCESSING;
+	if (!packet->length)
+		return false;
+	if (packet->data[0] == ID_REPLICATION)
+	{
+		if (managed && role != ReplicationRole::Unconfigured)
+		{
+			WorldGuard guard(*this);
+			managed->Receive(*packet);
+		}
+		return true;
+	}
+	if (!managed || role == ReplicationRole::Unconfigured)
+		return false;
+	WorldGuard guard(*this);
 	switch (packet->data[0])
 	{
 	case ID_CONNECTION_REQUEST_ACCEPTED:
 	case ID_NEW_INCOMING_CONNECTION:
-		engine->OnNewConnection(packet->systemAddress, packet->guid, packet->data[0] == ID_NEW_INCOMING_CONNECTION);
-		return RR_CONTINUE_PROCESSING;
+		managed->Connected(ToPeerGuid(packet->guid), packet->data[0] == ID_NEW_INCOMING_CONNECTION);
+		break;
 	case ID_CONNECTION_LOST:
 	case ID_DISCONNECTION_NOTIFICATION:
-		engine->OnClosedConnection(packet->systemAddress, packet->guid, packet->data[0] == ID_CONNECTION_LOST ? LCR_CONNECTION_LOST : LCR_DISCONNECTION_NOTIFICATION);
-		return RR_CONTINUE_PROCESSING;
-	default:
-		return engine->OnReceive(packet);
+		managed->Disconnected(ToPeerGuid(packet->guid));
+		break;
 	}
+	return false;
 }
 
 void ReplicationManager::Shutdown()
 {
-	if (engine)
-		engine->OnRakPeerShutdown();
+	if (managed)
+		managed->Reset();
 }
 }

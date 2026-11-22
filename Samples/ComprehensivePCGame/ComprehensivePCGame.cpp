@@ -76,7 +76,7 @@ RakPeerInterface *rakPeer;
 
 // Purpose: Game object replication
 // Required?: No, but manages object replication automatically. Some form of this is required for almost every game
-ReplicaManager3 *gameReplicaManager3;
+ReplicationManager *gameReplicaManager3;
 
 // Purpose: Lookup game objects given ID. Used by ReplicaManager3
 // Required?: Required to use ReplicaManager3, and some form of this is required for almost every game
@@ -170,10 +170,7 @@ public:
 	}
 	virtual bool QueryRemoteConstruction(MafiaNet::Connection_RM3 *sourceConnection)
 	{
-		// unused parameters
-		(void) sourceConnection;
-
-		return true;
+		return sourceConnection->GetRakNetGUID() == fullyConnectedMesh2->GetConnectedHost();
 	}
 	virtual void SerializeConstruction(MafiaNet::BitStream *constructionBitstream, MafiaNet::Connection_RM3 *destinationConnection)
 	{
@@ -209,6 +206,7 @@ public:
 		constructionBitstream->Read(gameInLobby);
 		constructionBitstream->Read(masterServerRow);
 		printf("Downloaded game. locked=%i. inLobby=%i\n", lockGame, gameInLobby);
+		EnterPhase(gameInLobby ? IN_LOBBY_WITH_HOST : IN_GAME);
 	}
 	virtual void SerializeDestruction(MafiaNet::BitStream *destructionBitstream, MafiaNet::Connection_RM3 *destinationConnection)
 	{
@@ -535,53 +533,6 @@ public:
 };
 
 
-// Required by ReplicaManager3. Acts as a class factory for Replica3 derived instances
-class SampleConnectionRM3 : public Connection_RM3
-{
-public:
-	SampleConnectionRM3(const SystemAddress &_systemAddress, RakNetGUID _guid)
-	    : Connection_RM3(_systemAddress, _guid)
-	{
-	}
-	virtual ~SampleConnectionRM3()
-	{
-	}
-	virtual Replica3 *AllocReplica(MafiaNet::BitStream *allocationIdBitstream, ReplicaManager3 *replicaManager3)
-	{
-		// unused parameters
-		(void) replicaManager3;
-
-		std::string objectType;
-		// Types are written by WriteAllocationID()
-		allocationIdBitstream->Read(objectType);
-		if (objectType == "User")
-			return new User;
-		RakAssert("Unknown type in AllocReplica" && 0);
-		return 0;
-	}
-};
-
-// Required by ReplicaManager3. Acts as a class factory for Connection_RM3 derived instances
-class SampleRM3 : public ReplicaManager3
-{
-public:
-	SampleRM3()
-	{
-	}
-	virtual ~SampleRM3()
-	{
-	}
-	virtual Connection_RM3 *AllocConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID) const
-	{
-		return new SampleConnectionRM3(systemAddress, rakNetGUID);
-	}
-	virtual void DeallocConnection(Connection_RM3 *connection) const
-	{
-		delete connection;
-	}
-};
-
-// ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 // Helper functions
 // ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -619,9 +570,7 @@ void SerializeToJSON(std::string &outputString, std::string &roomName, std::vect
 // This operation happens after FullyConnectedMesh2 has told us about who the host is.
 void RegisterGameParticipant(RakNetGUID guid)
 {
-	Connection_RM3 *connection = gameReplicaManager3->AllocConnection(rakPeer->GetSystemAddressFromGuid(guid), guid);
-	if (gameReplicaManager3->PushConnection(connection) == false)
-		gameReplicaManager3->DeallocConnection(connection);
+	gameReplicaManager3->Admit(ToPeerGuid(guid));
 	readyEvent->AddToWaitList(0, guid);
 }
 
@@ -852,7 +801,10 @@ int main(void)
 	natTypeDetectionClient = NatTypeDetectionClient::GetInstance();
 #endif
 	readyEvent = ReadyEvent::GetInstance();
-	gameReplicaManager3 = rakPeer->GetReplication().UseLegacyProtocol<SampleRM3>();
+	gameReplicaManager3 = &rakPeer->GetReplication();
+	gameReplicaManager3->SetRole(ReplicationRole::Peer);
+	gameReplicaManager3->RegisterReplica<Game>(ReplicaTypeId{1}, 1);
+	gameReplicaManager3->RegisterReplica<User>(ReplicaTypeId{2}, 1);
 	httpConnection2 = HTTPConnection2::GetInstance();
 
 	// ---------------------------------------------------------------------------------------------------------------------
@@ -874,19 +826,16 @@ int main(void)
 	fullyConnectedMesh2->SetAutoparticipateConnections(false);
 
 	// Tell ReplicaManager3 which networkIDManager to use for object lookup, used for automatic serialization
-	gameReplicaManager3->SetNetworkIDManager(networkIDManager);
 	// Do not automatically count new connections, but do drop lost connections automatically
-	gameReplicaManager3->SetAutoManageConnections(false, true);
+	gameReplicaManager3->SetAutomaticAdmission(false);
 
 	// Reference static game objects that always exist
 	game = new Game;
-	game->SetNetworkIDManager(networkIDManager);
 	game->SetNetworkID(0);
-	gameReplicaManager3->Reference(game);
+	gameReplicaManager3->ReferenceStatic(game, 0);
 
 	// Setup my own user
 	User *user = new User;
-	user->SetNetworkIDManager(networkIDManager);
 	user->userName = MafiaNet::to_string(rakPeer->GetMyGUID()).c_str();
 
 	// ---------------------------------------------------------------------------------------------------------------------
@@ -1219,21 +1168,6 @@ int main(void)
 				game->EnterPhase(Game::SEARCH_FOR_GAMES);
 				break;
 			}
-
-			case ID_REPLICA_MANAGER_DOWNLOAD_COMPLETE:
-			{
-				if (gameReplicaManager3->GetAllConnectionDownloadsCompleted() == true)
-				{
-					printf("Completed all remote downloads\n");
-
-					if (game->gameInLobby)
-						game->EnterPhase(Game::IN_LOBBY_WITH_HOST);
-					else
-						game->EnterPhase(Game::IN_GAME);
-				}
-
-				break;
-			}
 			}
 		}
 
@@ -1475,8 +1409,8 @@ int main(void)
 					// Clear out state data from plugins
 					fullyConnectedMesh2->Clear();
 					readyEvent->DeleteEvent(0);
-					gameReplicaManager3->Clear(false);
-					gameReplicaManager3->Reference(game);
+					gameReplicaManager3->Dereference(game);
+					gameReplicaManager3->ReferenceStatic(game, 0);
 
 					game->Reset();
 					game->EnterPhase(Game::SEARCH_FOR_GAMES);

@@ -1621,15 +1621,7 @@ Packet *RakPeer::Receive(void)
 
 		if (packet)
 		{
-			const auto result = replication.ProcessPacket(packet);
-			if (result == RR_STOP_PROCESSING)
-			{
-				packet = nullptr;
-				if (shutdownGeneration != generation)
-					return nullptr;
-				continue;
-			}
-			const bool consumed = result == RR_STOP_PROCESSING_AND_DEALLOCATE || (shutdownGeneration == generation && rpc.ProcessPacket(packet));
+			const bool consumed = replication.ProcessPacket(packet) || (shutdownGeneration == generation && rpc.ProcessPacket(packet));
 			if (consumed || shutdownGeneration != generation)
 			{
 				DeallocatePacket(packet);

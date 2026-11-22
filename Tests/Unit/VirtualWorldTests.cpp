@@ -62,6 +62,7 @@ protected:
 class VWTestRM3 : public ReplicaManager3
 {
 public:
+	using ReplicaManager3::ReplicaManager3;
 	Connection_RM3 *AllocConnection(const SystemAddress &sa, RakNetGUID g) const { return new VWTestConnection(sa, g); }
 	void DeallocConnection(Connection_RM3 *c) const { delete c; }
 };
@@ -193,7 +194,7 @@ protected:
 	}
 
 	RakPeerInterface *peer = RakPeerInterface::GetInstance();
-	VWTestRM3 &rm3 = *peer->GetReplication().UseLegacyProtocol<VWTestRM3>();
+	VWTestRM3 rm3{*peer};
 	VWTestConnection *c5a = nullptr;
 	VWTestConnection *c5b = nullptr;
 	VWTestConnection *c7 = nullptr;

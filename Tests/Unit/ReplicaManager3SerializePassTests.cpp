@@ -162,6 +162,7 @@ public:
 class PassManager : public ReplicaManager3
 {
 public:
+	using ReplicaManager3::ReplicaManager3;
 	Connection_RM3 *AllocConnection(const SystemAddress &, RakNetGUID guid) const { return new PassConnection(guid); }
 	void DeallocConnection(Connection_RM3 *connection) const { delete connection; }
 	// What RakPeer::Receive() calls with a connection's message, on whichever thread receives.
@@ -187,6 +188,7 @@ protected:
 			manager.Dereference(replica);
 			delete replica;
 		}
+		manager.Clear(false);
 		RakPeerInterface::DestroyInstance(peer);
 		SetTimeSourceOverride(nullptr);
 	}
@@ -221,7 +223,7 @@ protected:
 	std::vector<Replica3 *> candidates;
 	NetworkIDManager ids;
 	RakPeerInterface *peer = RakPeerInterface::GetInstance();
-	PassManager &manager = *peer->GetReplication().UseLegacyProtocol<PassManager>();
+	PassManager manager{*peer};
 	std::vector<PassReplica *> replicas;
 };
 } // namespace

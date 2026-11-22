@@ -41,7 +41,6 @@
 using namespace MafiaNet;
 
 // Avatars read "am I on the server?" from their manager to pick the topology default.
-class PlayerRM3;
 static bool IsServerRM(ReplicaManager3 *rm);
 
 // A networked player avatar, scoped by virtual world. Server-created and
@@ -111,36 +110,9 @@ protected:
 	}
 };
 
-class PlayerConnection : public Connection_RM3
-{
-public:
-	PlayerConnection(const SystemAddress &sa, RakNetGUID g)
-	    : Connection_RM3(sa, g) {}
-	bool QueryGroupDownloadMessages(void) const { return true; }
-	Replica3 *AllocReplica(BitStream *allocationId, ReplicaManager3 *)
-	{
-		std::string typeName;
-		allocationId->Read(typeName);
-		if (typeName == "Player")
-			return new Player;
-		return 0;
-	}
-};
-
-class PlayerRM3 : public ReplicaManager3
-{
-public:
-	PlayerRM3()
-	    : isServer(false) {}
-	Connection_RM3 *AllocConnection(const SystemAddress &sa, RakNetGUID g) const { return new PlayerConnection(sa, g); }
-	void DeallocConnection(Connection_RM3 *c) const { delete c; }
-	bool isServer;
-};
-
 static bool IsServerRM(ReplicaManager3 *rm)
 {
-	PlayerRM3 *prm = (PlayerRM3 *) rm;
-	return prm && prm->isServer;
+	return rm && rm->GetRakPeerInterface()->GetReplication().GetRole() == ReplicationRole::Server;
 }
 
 // --- Driver helpers ---
@@ -178,7 +150,6 @@ int main(void)
 	printf("Two clients connect to a server. The server owns each player's avatar\n");
 	printf("and decides its virtual world; clients only see avatars in their world.\n\n");
 
-	NetworkIDManager serverIds, c1Ids, c2Ids;
 
 	// NOTE: on POSIX, a peer's GUID is seeded from the microsecond clock at
 	// construction (RakPeerInterface::Get64BitUniqueRandomNumber). Creating
@@ -195,17 +166,19 @@ int main(void)
 	SocketDescriptor sd(0, 0);
 	server->Startup(8, &sd, 1);
 	server->SetMaximumIncomingConnections(8);
-	auto &serverRm = *server->GetReplication().UseLegacyProtocol<PlayerRM3>();
-	serverRm.isServer = true;
-	serverRm.SetNetworkIDManager(&serverIds);
+	auto &serverRm = server->GetReplication();
+	serverRm.SetRole(ReplicationRole::Server);
+	serverRm.RegisterReplica<Player>(ReplicaTypeId{1}, 1);
 
 	SocketDescriptor sdC(0, 0);
 	c1->Startup(1, &sdC, 1);
-	auto &c1Rm = *c1->GetReplication().UseLegacyProtocol<PlayerRM3>();
-	c1Rm.SetNetworkIDManager(&c1Ids);
+	auto &c1Rm = c1->GetReplication();
+	c1Rm.SetRole(ReplicationRole::Client);
+	c1Rm.RegisterReplica<Player>(ReplicaTypeId{1}, 1);
 	c2->Startup(1, &sdC, 1);
-	auto &c2Rm = *c2->GetReplication().UseLegacyProtocol<PlayerRM3>();
-	c2Rm.SetNetworkIDManager(&c2Ids);
+	auto &c2Rm = c2->GetReplication();
+	c2Rm.SetRole(ReplicationRole::Client);
+	c2Rm.RegisterReplica<Player>(ReplicaTypeId{1}, 1);
 
 	unsigned short serverPort = server->GetInternalID(UNASSIGNED_SYSTEM_ADDRESS).GetPort();
 	c1->Connect("127.0.0.1", serverPort, 0, 0);
@@ -252,8 +225,8 @@ int main(void)
 	// what client 2 perceives (its connection) and how others see player 2 (the
 	// avatar). The engine despawns the now-hidden avatars on the next update.
 	printf("\n[Step 2] Server moves player 2 into virtual world 1 (the apartment)...\n");
-	Connection_RM3 *serverConnToC2 = serverRm.GetConnectionByGUID(c2Guid);
-	serverRm.SetPlayerVirtualWorld(serverConnToC2, avatar2, 1);
+	serverRm.SetObserverVirtualWorld(ToPeerGuid(c2Guid), 1);
+	avatar2->SetVirtualWorld(1);
 
 	bool ok2 = WaitUntil(peers, 3, 600, [&]
 	                     { return c1Rm.GetReplicaCount() == 1 && c2Rm.GetReplicaCount() == 1; });
@@ -268,7 +241,8 @@ int main(void)
 
 	// Step 3: move player 2 back to the overworld; the two players see each other again.
 	printf("\n[Step 3] Server moves player 2 back to virtual world %u (re-entry)...\n", (unsigned) VIRTUAL_WORLD_DEFAULT);
-	serverRm.SetPlayerVirtualWorld(serverConnToC2, avatar2, VIRTUAL_WORLD_DEFAULT);
+	serverRm.SetObserverVirtualWorld(ToPeerGuid(c2Guid), VIRTUAL_WORLD_DEFAULT);
+	avatar2->SetVirtualWorld(VIRTUAL_WORLD_DEFAULT);
 
 	bool ok3 = WaitUntil(peers, 3, 600, [&]
 	                     { return c1Rm.GetReplicaCount() == 2 && c2Rm.GetReplicaCount() == 2; });
@@ -288,5 +262,7 @@ int main(void)
 	for (int i = 0; i < 3; i++)
 		RakPeerInterface::DestroyInstance(peers[i]);
 
+	delete avatar1;
+	delete avatar2;
 	return rc;
 }

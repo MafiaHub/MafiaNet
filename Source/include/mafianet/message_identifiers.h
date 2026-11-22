@@ -213,7 +213,7 @@ enum DefaultMessageIDTypes
 
 	// Retired Autopatcher wire IDs. Keep later message numbers stable.
 	ID_RESERVED_49,
-	ID_RESERVED_50,
+	ID_REPLICATION,
 	ID_RESERVED_51,
 	ID_RESERVED_52,
 	ID_RESERVED_53,

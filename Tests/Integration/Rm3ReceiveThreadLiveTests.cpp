@@ -214,53 +214,6 @@ private:
 	ClientStats *stats;
 };
 
-class ClientConnection : public Connection_RM3
-{
-public:
-	ClientConnection(const SystemAddress &address, RakNetGUID guid, ClientStats *stats)
-	    : Connection_RM3(address, guid), stats(stats)
-	{
-	}
-
-	Replica3 *AllocReplica(BitStream *, ReplicaManager3 *) override { return new ServerOwnedCopy(stats); }
-
-private:
-	ClientStats *stats;
-};
-
-class ClientManager : public ReplicaManager3
-{
-public:
-	explicit ClientManager(ClientStats *stats)
-	    : stats(stats)
-	{
-	}
-
-	// One pass for each turn of the client's loop, not one for each packet it receives.
-	void Update() override {}
-	void RunPass() { ReplicaManager3::Update(); }
-
-	Connection_RM3 *AllocConnection(const SystemAddress &address, RakNetGUID guid) const override { return new ClientConnection(address, guid, stats); }
-	void DeallocConnection(Connection_RM3 *connection) const override { delete connection; }
-
-private:
-	ClientStats *stats;
-};
-
-class ServerConnection : public Connection_RM3
-{
-public:
-	ServerConnection(const SystemAddress &address, RakNetGUID guid, ServerView *view)
-	    : Connection_RM3(address, guid), view(view)
-	{
-	}
-
-	Replica3 *AllocReplica(BitStream *, ReplicaManager3 *) override { return new MirroredReplica(view); }
-
-private:
-	ServerView *view;
-};
-
 // Serves the connections on two threads, as an application's pool would.
 class TwoThreadExecutor : public RM3SerializeExecutor
 {
@@ -290,15 +243,27 @@ private:
 
 // As the Framework's ReplicationManager: Receive() updates every plugin for each packet it hands
 // over, so that Update() does nothing, and the owner runs the pass itself, from its own thread.
-class ServerManager : public ReplicaManager3
+class ServerManager
 {
 public:
-	explicit ServerManager(ServerView *view)
-	    : view(view)
+	ServerManager(ServerView *view, ReplicationManager &replication)
+	    : view(view), replication(replication)
 	{
+		replication.SetRole(ReplicationRole::Peer);
+		replication.SetTickMode(ReplicationTickMode::Manual);
+		replication.SetSerializeInterval(0);
+		replication.RegisterReplica<MirroredReplica>(ReplicaTypeId{1}, 1, [view]
+		                                             { return new MirroredReplica(view); }, [](MirroredReplica *replica)
+		                                             { delete replica; });
+		replication.RegisterReplica<ServerOwnedReplica>(ReplicaTypeId{2}, 1, []
+		                                                { return new ServerOwnedReplica(false); }, [](ServerOwnedReplica *replica)
+		                                                { delete replica; });
+		replication.SetConnectionCallback([view](PeerGuid, bool open)
+		                                  { if (open) ++view->opened; else ++view->closed; });
 	}
-
-	void Update() override {}
+	unsigned int GetReplicaCount() const { return replication.GetReplicaCount(); }
+	unsigned int GetConnectionCount() const { return replication.GetConnectionCount(); }
+	void SetSerializeExecutor(RM3SerializeExecutor *executor) { replication.SetSerializeExecutor(executor); }
 
 	// Set before the threads start. With a world of its own, the pass thread also creates, changes and
 	// destroys the server's replicas, destroys the clients' doomed ones, and walks the connections
@@ -309,7 +274,7 @@ public:
 	{
 		if (!ownsAWorld)
 		{
-			ReplicaManager3::Update();
+			replication.Tick();
 			++view->passes;
 			return;
 		}
@@ -326,29 +291,10 @@ public:
 
 		// The world is held past the pass for what the owner then does with every connection it served:
 		// the receive thread cannot drop one meanwhile.
-		WorldGuard world(*this);
-		ReplicaManager3::Update();
-		unsigned int connections = 0;
-		for (unsigned int i = 0; i < GetConnectionCount(); i++)
-			connections += GetConnectionAtIndex(i)->GetRakNetGUID() != UNASSIGNED_RAKNET_GUID ? 1 : 0;
-		view->connectionsSeenByPass += connections;
+		ReplicationManager::WorldGuard world(replication);
+		replication.Tick();
+		view->connectionsSeenByPass += replication.GetConnectionCount();
 		++view->passes;
-	}
-
-	Connection_RM3 *AllocConnection(const SystemAddress &address, RakNetGUID guid) const override { return new ServerConnection(address, guid, view); }
-	void DeallocConnection(Connection_RM3 *connection) const override { delete connection; }
-
-protected:
-	void OnNewConnection(const SystemAddress &address, RakNetGUID guid, bool isIncoming) override
-	{
-		ReplicaManager3::OnNewConnection(address, guid, isIncoming);
-		++view->opened;
-	}
-
-	void OnClosedConnection(const SystemAddress &address, RakNetGUID guid, PI2_LostConnectionReason reason) override
-	{
-		ReplicaManager3::OnClosedConnection(address, guid, reason);
-		++view->closed;
 	}
 
 private:
@@ -362,12 +308,11 @@ private:
 		if (own.size() < SERVER_REPLICAS || steps % 2 == 0)
 		{
 			own.push_back(std::make_unique<ServerOwnedReplica>(steps % 4 != 0));
-			Reference(own.back().get());
+			replication.Reference(own.back().get());
 		}
 		else
 		{
-			own.front()->BroadcastDestruction();
-			Dereference(own.front().get());
+			replication.Destroy(own.front().get());
 			own.pop_front();
 			++view->churned;
 		}
@@ -375,7 +320,7 @@ private:
 		// And now and then one a client is sending state for goes, with that state still arriving.
 		if (steps % 8 != 0)
 			return;
-		WorldGuard world(*this); // or the receive thread could drop its connection, and the replica with it
+		ReplicationManager::WorldGuard world(replication); // or the receive thread could drop its connection, and the replica with it
 		MirroredReplica *replica = 0;
 		{
 			std::lock_guard<std::mutex> lock(view->doomedMutex);
@@ -384,13 +329,13 @@ private:
 		}
 		if (replica)
 		{
-			Dereference(replica);
-			delete replica;
+			replication.ReleaseRemote(replica->GetNetworkID());
 			++view->culled;
 		}
 	}
 
 	ServerView *view;
+	ReplicationManager &replication;
 	TimeMS lastStep = 0;
 	unsigned int steps = 0;
 	std::deque<std::unique_ptr<ServerOwnedReplica>> own;
@@ -439,7 +384,17 @@ struct Client
 	ClientStats stats;
 	std::vector<std::unique_ptr<OwnedReplica>> replicas;
 	Peer peer;
-	ClientManager &manager = *peer->GetReplication().UseLegacyProtocol<ClientManager>(&stats);
+	ReplicationManager &manager = peer->GetReplication();
+	Client()
+	{
+		manager.SetRole(ReplicationRole::Peer);
+		manager.SetTickMode(ReplicationTickMode::Manual);
+		manager.SetSerializeInterval(0);
+		manager.RegisterReplica<OwnedReplica>(ReplicaTypeId{1}, 1);
+		manager.RegisterReplica<ServerOwnedCopy>(ReplicaTypeId{2}, 1, [this]
+		                                         { return new ServerOwnedCopy(&stats); }, [](ServerOwnedCopy *replica)
+		                                         { delete replica; });
+	}
 };
 
 class Rm3ReceiveThread : public ::testing::Test
@@ -447,8 +402,8 @@ class Rm3ReceiveThread : public ::testing::Test
 protected:
 	void StartServer()
 	{
-		serverManager.SetNetworkIDManager(&serverIds);
-		serverManager.SetAutoSerializeInterval(0);
+
+
 		SocketDescriptor serverSocket(0, "127.0.0.1");
 		ASSERT_EQ(RAKNET_STARTED, server->Startup(MAX_CLIENTS, &serverSocket, 1));
 		server->SetMaximumIncomingConnections(MAX_CLIENTS);
@@ -465,8 +420,8 @@ protected:
 		const uint32_t first = static_cast<uint32_t>(clients.size()) * REPLICAS_PER_CLIENT;
 		clients.push_back(std::make_unique<Client>());
 		Client &client = *clients.back();
-		client.manager.SetNetworkIDManager(&client.ids);
-		client.manager.SetAutoSerializeInterval(0);
+
+
 		SocketDescriptor clientSocket;
 		ASSERT_EQ(RAKNET_STARTED, client.peer->Startup(1, &clientSocket, 1));
 		for (uint32_t i = 0; i < REPLICAS_PER_CLIENT; i++)
@@ -488,7 +443,7 @@ protected:
 				++replica->counter;
 			for (auto packet : client->peer.incoming())
 				(void) packet;
-			client->manager.RunPass();
+			client->manager.Tick();
 		}
 		RakSleep(5);
 	}
@@ -525,7 +480,7 @@ protected:
 	std::vector<std::unique_ptr<Client>> clients;
 	std::vector<unsigned int> watched;
 	Peer server;
-	ServerManager &serverManager = *server->GetReplication().UseLegacyProtocol<ServerManager>(&view);
+	ServerManager serverManager{&view, server->GetReplication()};
 	unsigned short serverPort = 0;
 	SystemAddress serverAddress;
 	std::unique_ptr<ServerThreads> serverThreads;

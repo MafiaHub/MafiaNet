@@ -105,6 +105,7 @@ class RAK_DLL_EXPORT ReplicaManager3
 {
 public:
 	ReplicaManager3();
+	explicit ReplicaManager3(RakPeerInterface &peer);
 	virtual ~ReplicaManager3();
 	RakPeerInterface *GetRakPeerInterface() const { return rakPeerInterface; }
 

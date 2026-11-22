@@ -161,6 +161,7 @@ public:
 class ListManager : public ReplicaManager3
 {
 public:
+	using ReplicaManager3::ReplicaManager3;
 	Connection_RM3 *AllocConnection(const SystemAddress &, RakNetGUID guid) const { return new ListConnection(guid); }
 	void DeallocConnection(Connection_RM3 *connection) const { delete connection; }
 };
@@ -184,6 +185,7 @@ protected:
 			delete replica;
 		}
 		replicas.clear();
+		manager.Clear(false);
 		RakPeerInterface::DestroyInstance(peer);
 		SetTimeSourceOverride(nullptr);
 	}
@@ -212,7 +214,7 @@ protected:
 
 	NetworkIDManager ids;
 	RakPeerInterface *peer = RakPeerInterface::GetInstance();
-	ListManager &manager = *peer->GetReplication().UseLegacyProtocol<ListManager>();
+	ListManager manager{*peer};
 	std::vector<ListReplica *> replicas;
 };
 } // namespace

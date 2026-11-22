@@ -34,11 +34,7 @@ RakPeerInterface *rakPeer;
 
 // Purpose: Game object replication
 // Required?: No, but manages object replication automatically. Some form of this is required for almost every game
-ReplicaManager3 *g_replicaManager3;
-
-// Purpose: Lookup game objects given ID. Used by ReplicaManager3
-// Required?: Required to use ReplicaManager3, and some form of this is required for almost every game
-NetworkIDManager *networkIDManager;
+ReplicationManager *g_replicaManager3;
 
 bool runningAsServer;
 
@@ -152,8 +148,7 @@ public:
 			User *u = (User *) g_replicaManager3->GetReplicaAtIndex(i);
 			if (u->guid == guid)
 			{
-				u->BroadcastDestruction();
-				g_replicaManager3->Dereference(u);
+				g_replicaManager3->Destroy(u);
 				delete u;
 				break;
 			}
@@ -175,67 +170,14 @@ public:
 	RakNetGUID guid;
 };
 
-// Required by ReplicaManager3. Acts as a class factory for Replica3 derived instances
-class SampleConnectionRM3 : public Connection_RM3
-{
-public:
-	SampleConnectionRM3(const SystemAddress &_systemAddress, RakNetGUID _guid)
-	    : Connection_RM3(_systemAddress, _guid)
-	{
-	}
-	virtual ~SampleConnectionRM3()
-	{
-	}
-	virtual Replica3 *AllocReplica(MafiaNet::BitStream *allocationIdBitstream, ReplicaManager3 *replicaManager3)
-	{
-		// unused parameters
-		(void) replicaManager3;
-
-		std::string objectType;
-		// Types are written by WriteAllocationID()
-		allocationIdBitstream->Read(objectType);
-		if (objectType == "User")
-			return new User;
-		RakAssert("Unknown type in AllocReplica" && 0);
-		return 0;
-	}
-};
-
-// Required by ReplicaManager3. Acts as a class factory for Connection_RM3 derived instances
-class SampleRM3 : public ReplicaManager3
-{
-public:
-	SampleRM3()
-	{
-	}
-	virtual ~SampleRM3()
-	{
-	}
-	virtual Connection_RM3 *AllocConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID) const
-	{
-		return new SampleConnectionRM3(systemAddress, rakNetGUID);
-	}
-	virtual void DeallocConnection(Connection_RM3 *connection) const
-	{
-		delete connection;
-	}
-};
-
 int serverMain(void);
 int clientMain(void);
 
 int main(void)
 {
 	rakPeer = MafiaNet::RakPeerInterface::GetInstance();
-	networkIDManager = NetworkIDManager::GetInstance();
-	g_replicaManager3 = rakPeer->GetReplication().UseLegacyProtocol<SampleRM3>();
-
-	// ---------------------------------------------------------------------------------------------------------------------
-	// Attach plugins
-	// ---------------------------------------------------------------------------------------------------------------------
-
-	// Tell ReplicaManager3 which networkIDManager to use for object lookup, used for automatic serialization
-	g_replicaManager3->SetNetworkIDManager(networkIDManager);
+	g_replicaManager3 = &rakPeer->GetReplication();
+	g_replicaManager3->RegisterReplica<User>(ReplicaTypeId{1}, 1);
 
 	printf("(S)erver or (C)lient?\n");
 	int ch = _getch();
@@ -248,6 +190,7 @@ int main(void)
 int serverMain(void)
 {
 	runningAsServer = true;
+	g_replicaManager3->SetRole(ReplicationRole::Server);
 
 	MafiaNet::SocketDescriptor sd;
 	sd.port = 60000;
@@ -303,6 +246,7 @@ int serverMain(void)
 int clientMain(void)
 {
 	runningAsServer = false;
+	g_replicaManager3->SetRole(ReplicationRole::Client);
 
 	MafiaNet::SocketDescriptor sd;
 	sd.port = 0;

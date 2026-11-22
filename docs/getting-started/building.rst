@@ -96,9 +96,7 @@ Minimal builds
 Every optional plugin in the core library (``FileListTransfer``, the NAT traversal plugins, ``TCPInterface`` and its
 users, and so on) is guarded by a ``_RAKNET_SUPPORT_<Name>`` flag declared in
 ``mafianet/native_feature_includes.h``. The transport itself, ``BitStream``,
-``RakPeer``, the reliability layer, ``RPC``, object replication and ``RakVoice`` are always built. Remove
-``ReplicaManager3`` from old disable lists and remove any direct
-``_RAKNET_SUPPORT_ReplicaManager3=0`` definition.
+``RakPeer``, the reliability layer, ``RPC``, object replication and ``RakVoice`` are always built.
 
 The supported way to compile plugins out is through CMake, not by editing the
 header:
