@@ -2,10 +2,11 @@
 #pragma once
 #include "mafianet/bit_stream.h"
 #include "mafianet/message_identifiers.h"
+#include <array>
 
 namespace MafiaNet::ReplicationWire
 {
-constexpr uint8_t Version = 1;
+constexpr uint8_t Version = 2;
 constexpr BitSize_t MaxPayloadBits = 8 * 1024 * 1024;
 enum class Kind : uint8_t
 {
@@ -21,7 +22,45 @@ enum class Kind : uint8_t
 	Revoke,
 	OwnerUpdate,
 	Snapshot,
-	SnapshotAck
+	SnapshotAck,
+	StateBatch,
+	SnapshotBatch
+};
+
+constexpr unsigned HeaderBytes = 3 + 2 * sizeof(uint64_t);
+constexpr unsigned MaxBatchBytes = 1200;
+constexpr unsigned MaxBatchRecords = 32;
+
+struct StateRecord
+{
+	unsigned char *data;
+	uint16_t bits;
+};
+
+// Bodies start at byte boundaries. Validate all record boundaries before
+// handing any of the borrowed views to the receiving game.
+struct StateBatchView
+{
+	std::array<StateRecord, MaxBatchRecords> records;
+	unsigned count = 0;
+	bool Read(BitStream &in)
+	{
+		count = 0;
+		if (in.GetNumberOfBitsUsed() > MaxBatchBytes * 8 || in.GetReadOffset() % 8)
+			return false;
+		while (in.GetNumberOfUnreadBits())
+		{
+			uint16_t bits;
+			if (count == records.size() || !in.Read(bits) || bits < (sizeof(NetworkID) + 2 * sizeof(uint64_t)) * 8)
+				return false;
+			const auto padded = BITS_TO_BYTES(bits) * 8u;
+			if (padded > in.GetNumberOfUnreadBits())
+				return false;
+			records[count++] = {in.GetData() + in.GetReadOffset() / 8, bits};
+			in.IgnoreBits(padded);
+		}
+		return count >= 2;
+	}
 };
 
 struct Header

@@ -1254,9 +1254,17 @@ ReplicaManager3::StateDelivery::~StateDelivery()
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
+Connection_RM3 *ReplicaManager3::StateDelivery::GetConnection() const
+{
+	// The held lock outlives a sender removed by a callback on this thread.
+	return lock && lock->worlds ? connection : nullptr;
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
 bool ReplicaManager3::StateDelivery::Deserialize(NetworkID networkId, DeserializeParameters *parameters, uint32_t referenceIndex)
 {
-	if (connection == 0 || networkIDManager == 0)
+	if (!GetConnection() || networkIDManager == 0)
 		return false;
 	// From the lookup to the end of Deserialize(): the replica stays in the table and alive, see Dereference().
 	ReplicaSetDelivery delivery(&replicaManager);

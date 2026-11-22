@@ -147,6 +147,14 @@ Each dynamic visit starts with a current baseline. State messages identify
 the visit and carry a sequence, tracked separately per channel. Full snapshots
 decode into a temporary before replacing the previous state.
 
+Within each tick the service batches consecutive state updates for the same
+recipient, priority, reliability and ordering channel. A batch holds up to
+32 records and 1,200 bytes, with a lower ceiling on smaller negotiated MTUs.
+Each record retains its own object ID, visit, sequence and exact payload bit
+length. Immediate, sequenced and receipt-bearing sends keep individual
+message boundaries, as do oversized records. A single pending update goes
+out in the same tick. Replication wire version 2 introduces this framing.
+
 After registering a snapshot type, use
 ``SetSnapshotPolicy(type, ChangeDetection::Explicit, SnapshotDelivery::Replaceable)``
 for frequently changing state. Mark changed objects with ``MarkDirty(object)``
@@ -158,6 +166,10 @@ channel. A refused transport enqueue of a handshake, grant, revocation or
 removal is retried on a subsequent tick. ``SendOwnerUpdate`` returns false
 when the report could not be queued, allowing the client to retry.
 Both modes progress while the application drives replication.
+
+A state callback can request peer shutdown. Delivery stops at that record,
+and the peer shuts down after the callback releases its locks and before
+the enclosing receive call returns.
 
 ``SetAutomaticAdmission(false)`` lets the game call ``Admit(guid)`` after its
 login checks. Check ``GetPeerStatus(guid)`` for activation or schema rejection.

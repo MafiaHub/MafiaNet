@@ -418,7 +418,7 @@ protected:
 		StateDelivery &operator=(const StateDelivery &) = delete;
 
 		/// The sender's connection, or 0 when it is not in that world: nothing is delivered then.
-		Connection_RM3 *GetConnection() const { return connection; }
+		Connection_RM3 *GetConnection() const;
 
 		/// Calls Replica3::Deserialize() on the replica of that id, with DeserializeParameters::sourceConnection set to the sender.
 		/// \return false, having called nothing, if there is no sender, or no replica of that id referenced by this manager.

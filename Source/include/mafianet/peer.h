@@ -774,7 +774,7 @@ public:
 		MafiaNet::Time connectionTime;                                            /// connection time, if active.
 		                                                                          //		int connectionSocketIndex; // index into connectionSockets to send back on.
 		RakNetGUID guid;
-		int MTUSize;
+		std::atomic<int> MTUSize;
 		// Reference counted socket to send back on
 		RakNetSocket2 *rakNetSocket;
 		SystemIndex remoteSystemIndex;
@@ -891,6 +891,7 @@ public:
 	};
 
 protected:
+	friend class ReplicationManager;
 	friend class SimulatedNetwork; // inspects a manual peer between updates
 	friend RAK_THREAD_DECLARATION(UpdateNetworkLoop);
 	//friend RAK_THREAD_DECLARATION(RecvFromLoop);

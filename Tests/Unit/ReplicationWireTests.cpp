@@ -23,3 +23,34 @@ TEST(ReplicationWire, ReadsACompleteHeaderAndRejectsEachTruncatedPrefix)
 		}
 	}
 }
+
+TEST(ReplicationWire, BatchFramingChecksAllBoundariesBeforeDelivery)
+{
+	using namespace ReplicationWire;
+	BitStream wire;
+	WriteHeader(wire, Kind::StateBatch, 1, 2);
+	const uint16_t bits = 193;
+	unsigned char body[25]{};
+	for (unsigned i = 0; i < 2; ++i)
+	{
+		wire.Write(bits);
+		wire.WriteAlignedBytes(body, sizeof(body));
+	}
+	const auto full = wire.GetNumberOfBitsUsed();
+	for (BitSize_t length = HeaderBytes * 8; length <= full; ++length)
+	{
+		BitStream input(wire.GetData(), wire.GetNumberOfBytesUsed(), false);
+		input.SetWriteOffset(length);
+		input.SetReadOffset(HeaderBytes * 8);
+		StateBatchView view;
+		EXPECT_EQ(view.Read(input), length == full);
+	}
+	for (unsigned i = 2; i <= MaxBatchRecords; ++i)
+	{
+		wire.Write(bits);
+		wire.WriteAlignedBytes(body, sizeof(body));
+	}
+	wire.SetReadOffset(HeaderBytes * 8);
+	StateBatchView view;
+	EXPECT_FALSE(view.Read(wire));
+}

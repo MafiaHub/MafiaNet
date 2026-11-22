@@ -177,7 +177,9 @@ public:
 
 private:
 	friend class RakPeer;
-	explicit ReplicationManager(RakPeerInterface &peer);
+	friend class ManagedReplication;
+	explicit ReplicationManager(RakPeer &peer);
+	int PathMTU(SystemIndex index) const;
 	void Shutdown();
 
 	bool RegisterType(ReplicaTypeId id, uint16_t version, std::type_index type, bool snapshot, std::function<Replica3 *()> create, std::function<void(Replica3 *)> release);
@@ -187,7 +189,7 @@ private:
 
 	bool ProcessPacket(Packet *packet);
 	void ReceiveTick();
-	RakPeerInterface &peer;
+	RakPeer &peer;
 	std::unique_ptr<NetworkIDManager> ids;
 	std::unique_ptr<ManagedReplication> managed;
 	ReplicationTickMode tickMode = ReplicationTickMode::Automatic;

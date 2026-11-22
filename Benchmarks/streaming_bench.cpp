@@ -1,6 +1,7 @@
 // Copyright (c) 2026, MafiaHub. MIT license.
 #include <benchmark/benchmark.h>
 #include "SimulatedNetwork.h"
+#include "mafianet/message_identifiers.h"
 #include "mafianet/snapshot_replica.h"
 #include <algorithm>
 #include <chrono>
@@ -28,11 +29,25 @@ constexpr unsigned observers = 20;
 constexpr ReplicaTypeId actorType{1};
 using Clock = std::chrono::steady_clock;
 
+class MeteredPeer final : public RakPeer
+{
+public:
+	using RakPeer::Send;
+	uint64_t enqueues = 0;
+	uint32_t Send(const BitStream *data, Priority priority, Reliability reliability, char channel, const AddressOrGUID target, bool broadcast, uint32_t receipt) override
+	{
+		const auto result = RakPeer::Send(data, priority, reliability, channel, target, broadcast, receipt);
+		if (result && data->GetNumberOfBytesUsed() && data->GetData()[0] == ID_REPLICATION)
+			++enqueues;
+		return result;
+	}
+};
+
 class Scene
 {
 public:
 	explicit Scene(unsigned count)
-	    : actors(count), server(net.AddPeer(observers, observers)), host(server->GetReplication()) {}
+	    : actors(count), server(static_cast<MeteredPeer *>(net.AddCustomPeer(std::make_unique<MeteredPeer>(), observers, observers))), host(server->GetReplication()) {}
 	bool Start(unsigned cells)
 	{
 		if (!host.SetRole(ReplicationRole::Server) || !host.RegisterReplica<Actor>(actorType, 1) ||
@@ -91,7 +106,7 @@ public:
 	}
 	std::vector<Actor> actors;
 	SimulatedNetwork net;
-	RakPeer *server;
+	MeteredPeer *server;
 	ReplicationManager &host;
 	std::vector<RakPeer *> clients;
 };
@@ -136,6 +151,7 @@ void BM_StreamingDenseMutations(benchmark::State &state)
 		return;
 	}
 	const auto before = scene.Bytes();
+	const auto enqueuesBefore = scene.server->enqueues;
 	std::vector<double> samples;
 	for (auto _ : state)
 	{
@@ -150,6 +166,8 @@ void BM_StreamingDenseMutations(benchmark::State &state)
 		}
 	}
 	Counters(state, samples, scene.Bytes() - before);
+	if (!samples.empty())
+		state.counters["enqueues_per_tick"] = static_cast<double>(scene.server->enqueues - enqueuesBefore) / samples.size();
 }
 
 // Twenty players cross a room boundary together. Each room contains 100 actors,

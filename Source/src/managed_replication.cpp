@@ -1,5 +1,6 @@
 // Copyright (c) 2026, MafiaHub. MIT license.
 #include "managed_replication.h"
+#include "replication_receive_scope.h"
 #include "mafianet/message_identifiers.h"
 #include "mafianet/network_id_manager.h"
 #include "mafianet/peer_interface.h"
@@ -54,6 +55,9 @@ public:
 	{
 		if (runtime.owner.GetRole() == ReplicationRole::Client)
 			return;
+		// Leave room for IP/UDP, encryption and reliability framing on this path.
+		const int mtu = runtime.owner.PathMTU(systemAddress.systemIndex);
+		batchLimit = static_cast<unsigned>(std::clamp(mtu - 96, 0, static_cast<int>(MaxBatchBytes)));
 		const auto observer = ToPeerGuid(guid);
 		std::vector<NetworkID> desired;
 		runtime.interest.GetVisible(observer, desired);
@@ -161,21 +165,83 @@ public:
 	}
 	void TransmitState(Replica3 &object, BitStream &out, PRO pro, RakPeerInterface &peer) override
 	{
-		if (!object.replaceableSnapshot)
+		const auto id = object.GetNetworkID();
+		const Kind kind = object.replaceableSnapshot ? Kind::Snapshot : Kind::State;
+		if (object.replaceableSnapshot)
 		{
-			if (refusedStates.empty() && peer.Send(&out, pro.priority, pro.reliability, pro.orderingChannel, guid, false, pro.sendReceipt))
-				stats.stateBytes += out.GetNumberOfBytesUsed();
-			else
-				refusedStates.push_back({object.GetNetworkID(), pro, out.GetNumberOfBitsUsed(), {out.GetData(), out.GetData() + out.GetNumberOfBytesUsed()}});
+			auto &item = unconfirmed[id];
+			item.seq = nextState;
+			item.sent = GetTimeMS();
+			item.bits = out.GetNumberOfBitsUsed();
+			item.bytes.assign(out.GetData(), out.GetData() + out.GetNumberOfBytesUsed());
+			pro = {pro.priority, Reliability::Unreliable, 0, 0};
+		}
+		// Receipt and sequenced modes have per-message semantics. Preserve those
+		// boundaries, as well as immediate priority and oversized single records.
+		const bool share = !pro.sendReceipt && pro.priority != Priority::Immediate &&
+		                   (pro.reliability == Reliability::ReliableOrdered || pro.reliability == Reliability::Reliable || pro.reliability == Reliability::Unreliable);
+		const auto bytes = out.GetNumberOfBytesUsed();
+		if (!share || bytes <= HeaderBytes || bytes + sizeof(uint16_t) > batchLimit)
+		{
+			FlushBatch();
+			SendSingle(id, kind, out, pro, peer);
 			return;
 		}
-		auto &item = unconfirmed[object.GetNetworkID()];
-		item.seq = nextState;
-		item.sent = GetTimeMS();
-		item.bits = out.GetNumberOfBitsUsed();
-		item.bytes.assign(out.GetData(), out.GetData() + out.GetNumberOfBytesUsed());
-		if (peer.Send(&out, pro.priority, Reliability::Unreliable, 0, guid, false))
-			stats.stateBytes += out.GetNumberOfBytesUsed();
+		const unsigned recordBytes = static_cast<unsigned>(bytes - HeaderBytes + sizeof(uint16_t));
+		if (recordCount && (pro != batchPro || kind != batchKind || recordCount == MaxBatchRecords || batchBytes + recordBytes > batchLimit))
+			FlushBatch();
+		if (recordCount == 0)
+		{
+			first.Reset();
+			first.WriteBits(out.GetData(), out.GetNumberOfBitsUsed(), false);
+			firstId = id;
+			batchKind = kind;
+			batchPro = pro;
+			batchBytes = HeaderBytes;
+		}
+		else
+		{
+			if (recordCount == 1)
+			{
+				batch.Reset();
+				ReplicationWire::WriteHeader(batch, kind == Kind::Snapshot ? Kind::SnapshotBatch : Kind::StateBatch, clientToken, serverToken);
+				AppendRecord(first);
+			}
+			AppendRecord(out);
+		}
+		batchBytes += recordBytes;
+		++recordCount;
+	}
+	void FlushBatch()
+	{
+		if (recordCount == 0)
+			return;
+		auto &peer = *runtime.GetRakPeerInterface();
+		if (recordCount == 1)
+			SendSingle(firstId, batchKind, first, batchPro, peer);
+		else if ((batchKind == Kind::Snapshot || refusedStates.empty()) && peer.Send(&batch, batchPro.priority, batchPro.reliability, batchPro.orderingChannel, guid, false))
+			stats.stateBytes += batch.GetNumberOfBytesUsed();
+		else if (batchKind == Kind::State)
+		{
+			// Keep retries addressable by object so a leave/destroy can cancel
+			// its record without affecting the rest of a refused batch.
+			batch.SetReadOffset(HeaderBytes * 8);
+			StateBatchView view;
+			if (view.Read(batch))
+				for (unsigned i = 0; i < view.count; ++i)
+				{
+					const auto record = view.records[i];
+					BitStream body(record.data, BITS_TO_BYTES(record.bits), false);
+					NetworkID id;
+					if (!body.Read(id))
+						continue;
+					BitStream single;
+					ReplicationWire::WriteHeader(single, Kind::State, clientToken, serverToken);
+					single.WriteBits(record.data, record.bits, false);
+					QueueRefused(id, single, batchPro);
+				}
+		}
+		recordCount = 0;
 	}
 	void FlushUnconfirmed()
 	{
@@ -209,6 +275,30 @@ public:
 	}
 
 private:
+	BitStream first, batch;
+	NetworkID firstId = UNASSIGNED_NETWORK_ID;
+	Kind batchKind = Kind::State;
+	PRO batchPro{};
+	unsigned batchLimit = 0, batchBytes = 0, recordCount = 0;
+	void AppendRecord(const BitStream &packet)
+	{
+		const auto bits = static_cast<uint16_t>(packet.GetNumberOfBitsUsed() - HeaderBytes * 8);
+		batch.Write(bits);
+		batch.WriteAlignedBytes(packet.GetData() + HeaderBytes, BITS_TO_BYTES(bits));
+		if (const unsigned tail = bits % 8)
+			batch.GetData()[batch.GetNumberOfBytesUsed() - 1] &= static_cast<unsigned char>(0xffu << (8 - tail));
+	}
+	void QueueRefused(NetworkID id, const BitStream &packet, PRO pro)
+	{
+		refusedStates.push_back({id, pro, packet.GetNumberOfBitsUsed(), {packet.GetData(), packet.GetData() + packet.GetNumberOfBytesUsed()}});
+	}
+	void SendSingle(NetworkID id, Kind kind, BitStream &packet, PRO pro, RakPeerInterface &peer)
+	{
+		if ((kind == Kind::Snapshot || refusedStates.empty()) && peer.Send(&packet, pro.priority, pro.reliability, pro.orderingChannel, guid, false, pro.sendReceipt))
+			stats.stateBytes += packet.GetNumberOfBytesUsed();
+		else if (kind == Kind::State)
+			QueueRefused(id, packet, pro);
+	}
 	struct PendingState
 	{
 		NetworkID id;
@@ -349,6 +439,12 @@ void ManagedReplication::WriteHeader(BitStream &out, Kind kind, const Session &s
 }
 bool ManagedReplication::Send(PeerGuid guid, BitStream &packet)
 {
+	if (ticking)
+	{
+		StateDelivery delivery(*this, ToGuid(guid));
+		if (auto *connection = static_cast<Connection *>(delivery.GetConnection()))
+			connection->FlushBatch();
+	}
 	return GetRakPeerInterface()->Send(&packet, Priority::High, Reliability::ReliableOrdered, 0, ToGuid(guid), false);
 }
 void ManagedReplication::Connected(PeerGuid guid, const SystemAddress &address, bool incoming)
@@ -512,6 +608,10 @@ void ManagedReplication::Tick()
 	Update();
 	if (resetRequested)
 		return;
+	// Update has joined every serialization worker. Only the outgoing pass
+	// touches these buffers, and the world guard keeps each connection alive.
+	for (unsigned i = 0; i < GetConnectionCount(); ++i)
+		static_cast<Connection *>(GetConnectionAtIndex(i))->FlushBatch();
 	UpdateGrants(true);
 	if (afterTick)
 		afterTick();
@@ -583,6 +683,7 @@ void ManagedReplication::OnFinalDereference(Replica3 &replica)
 		StateDelivery lock(*this, guid);
 		if (auto *connection = static_cast<Connection *>(lock.GetConnection()))
 		{
+			connection->FlushBatch();
 			connection->Forget(id);
 			connection->incoming.erase(id);
 		}
@@ -616,7 +717,10 @@ void ManagedReplication::Destroy(Replica3 &replica)
 	{
 		auto *connection = static_cast<Connection *>(GetConnectionAtIndex(i));
 		if (connection->HasReplicaConstructed(&replica))
+		{
+			connection->FlushBatch();
 			connection->SendRemoval(replica, true, *GetRakPeerInterface());
+		}
 	}
 	Dereference(&replica);
 }
@@ -634,10 +738,12 @@ void ManagedReplication::Receive(Packet &packet)
 		return;
 	const auto &[version, kind, clientToken, serverToken] = header;
 
-	if (kind == Kind::State || kind == Kind::Snapshot || kind == Kind::SnapshotAck)
+	const bool batched = kind == Kind::StateBatch || kind == Kind::SnapshotBatch;
+	if (batched || kind == Kind::State || kind == Kind::Snapshot || kind == Kind::SnapshotAck)
 	{
 		if (version != Version || (kind != Kind::SnapshotAck && owner.GetRole() == ReplicationRole::Server))
 			return;
+		ReplicationReceiveScope receive(*GetRakPeerInterface());
 		StateDelivery delivery(*this, packet.guid);
 		auto *connection = static_cast<Connection *>(delivery.GetConnection());
 		if (!connection || !connection->Matches(clientToken, serverToken))
@@ -651,6 +757,19 @@ void ManagedReplication::Receive(Packet &packet)
 			auto it = connection->unconfirmed.find(id);
 			if (it != connection->unconfirmed.end() && it->second.seq == seq)
 				connection->unconfirmed.erase(it);
+		}
+		else if (batched)
+		{
+			StateBatchView view;
+			if (!view.Read(in))
+				return;
+			for (unsigned i = 0; i < view.count && !receive.IsClosing() && delivery.GetConnection(); ++i)
+			{
+				const auto record = view.records[i];
+				BitStream body(record.data, BITS_TO_BYTES(record.bits), false);
+				body.SetWriteOffset(record.bits);
+				ReadState(*connection, delivery, body, kind == Kind::SnapshotBatch);
+			}
 		}
 		else
 			ReadState(*connection, delivery, in, kind == Kind::Snapshot);
@@ -981,7 +1100,7 @@ void ManagedReplication::ReadState(Connection &connection, StateDelivery &delive
 		it->second.lastState[i] = seq;
 		changed = true;
 	}
-	if (changed && delivery.Deserialize(id, &params, it->second.referenceIndex) && acknowledge)
+	if (changed && delivery.Deserialize(id, &params, it->second.referenceIndex) && acknowledge && delivery.GetConnection() && !ReplicationReceiveScope::IsClosing(*GetRakPeerInterface()))
 		connection.Acknowledge(id, seq);
 }
 }
