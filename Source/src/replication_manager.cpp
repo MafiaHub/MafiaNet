@@ -82,9 +82,9 @@ ManagedReplication &ReplicationManager::Managed()
 	return *managed;
 }
 
-bool ReplicationManager::RegisterType(ReplicaTypeId id, uint16_t version, std::type_index type, std::function<Replica3 *()> create, std::function<void(Replica3 *)> release)
+bool ReplicationManager::RegisterType(ReplicaTypeId id, uint16_t version, std::type_index type, bool snapshot, std::function<Replica3 *()> create, std::function<void(Replica3 *)> release)
 {
-	return Managed().Register(id, version, type, std::move(create), std::move(release));
+	return Managed().Register(id, version, type, snapshot, std::move(create), std::move(release));
 }
 
 Replica3 *ReplicationManager::FindReplica(NetworkID id) const
@@ -119,6 +119,21 @@ bool ReplicationManager::RegisterReport(std::type_index object, std::type_index 
 {
 	WorldGuard guard(*this);
 	return Managed().RegisterReport(object, {type, version, std::move(accept)});
+}
+bool ReplicationManager::SetSnapshotPolicy(ReplicaTypeId id, ChangeDetection detection, SnapshotDelivery delivery)
+{
+	WorldGuard guard(*this);
+	return managed->Policy(id, detection, delivery);
+}
+bool ReplicationManager::MarkDirty(Replica3 &object)
+{
+	WorldGuard guard(*this);
+	return managed->Mark(object);
+}
+void ReplicationManager::MarkAllDirty()
+{
+	WorldGuard guard(*this);
+	managed->MarkAll();
 }
 bool ReplicationManager::SetAuthority(Replica3 &object, PeerGuid guid)
 {

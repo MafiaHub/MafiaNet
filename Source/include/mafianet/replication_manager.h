@@ -24,6 +24,19 @@ class Replica3;
 class NetworkIDManager;
 class ManagedReplication;
 class RM3SerializeExecutor;
+struct SnapshotReplicaTag
+{
+};
+enum class ChangeDetection
+{
+	Compare,
+	Explicit
+};
+enum class SnapshotDelivery
+{
+	Reliable,
+	Replaceable
+};
 enum class ReplicaTypeId : uint32_t
 {
 };
@@ -73,7 +86,7 @@ public:
 	template <class T, class Create, class Release>
 	bool RegisterReplica(ReplicaTypeId id, uint16_t version, Create create, Release release)
 	{
-		return RegisterType(id, version, typeid(T), std::move(create),
+		return RegisterType(id, version, typeid(T), std::is_base_of_v<SnapshotReplicaTag, T>, std::move(create),
 		                    [release = std::move(release)](Replica3 *object) mutable
 		                    { release(static_cast<T *>(object)); });
 	}
@@ -88,6 +101,9 @@ public:
 			Report report{};
 			return report.Read(in) && !in.GetNumberOfUnreadBits() && (static_cast<T&>(object).*accept)(sender,report); });
 	}
+	bool SetSnapshotPolicy(ReplicaTypeId id, ChangeDetection detection, SnapshotDelivery delivery);
+	bool MarkDirty(Replica3 &object);
+	void MarkAllDirty();
 	bool SetAuthority(Replica3 &replica, PeerGuid owner);
 	bool RevokeAuthority(Replica3 &replica);
 	bool CorrectAuthority(Replica3 &replica);
@@ -137,7 +153,7 @@ private:
 	explicit ReplicationManager(RakPeerInterface &peer);
 	void Shutdown();
 
-	bool RegisterType(ReplicaTypeId id, uint16_t version, std::type_index type, std::function<Replica3 *()> create, std::function<void(Replica3 *)> release);
+	bool RegisterType(ReplicaTypeId id, uint16_t version, std::type_index type, bool snapshot, std::function<Replica3 *()> create, std::function<void(Replica3 *)> release);
 	bool RegisterReport(std::type_index object, std::type_index report, uint16_t version, std::function<bool(Replica3 &, PeerGuid, BitStream &)> accept);
 	bool SendReport(Replica3 &object, std::type_index type, const BitStream &payload);
 	ManagedReplication &Managed();

@@ -2,6 +2,7 @@
 #pragma once
 
 #include "mafianet/replica_manager3.h"
+#include "mafianet/replication_manager.h"
 #include <utility>
 
 namespace MafiaNet
@@ -9,7 +10,7 @@ namespace MafiaNet
 /// A complete state value with Write(BitStream&) const and bool Read(BitStream&).
 /// Decoding into a temporary keeps the last good state after an incomplete snapshot.
 template <class State>
-class SnapshotReplica : public Replica3
+class SnapshotReplica : public Replica3, public SnapshotReplicaTag
 {
 public:
 	State state{};

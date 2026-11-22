@@ -13,7 +13,10 @@ class ManagedReplication final : public ReplicaManager3
 public:
 	ManagedReplication(ReplicationManager &owner, RakPeerInterface &peer)
 	    : ReplicaManager3(peer), owner(owner) {}
-	bool Register(ReplicaTypeId id, uint16_t version, std::type_index type, std::function<Replica3 *()> create, std::function<void(Replica3 *)> release);
+	bool Register(ReplicaTypeId id, uint16_t version, std::type_index type, bool snapshot, std::function<Replica3 *()> create, std::function<void(Replica3 *)> release);
+	bool Policy(ReplicaTypeId id, ChangeDetection detection, SnapshotDelivery delivery);
+	bool Mark(Replica3 &object);
+	void MarkAll();
 	bool SetRegisteredType(Replica3 &replica) const;
 	void Connected(PeerGuid guid, bool incoming);
 	void Disconnected(PeerGuid guid);
@@ -54,6 +57,9 @@ private:
 		uint16_t version;
 		std::function<Replica3 *()> create;
 		std::function<void(Replica3 *)> release;
+		bool snapshot;
+		ChangeDetection detection = ChangeDetection::Compare;
+		SnapshotDelivery delivery = SnapshotDelivery::Reliable;
 	};
 	struct Session
 	{
@@ -69,11 +75,12 @@ private:
 	Connection *Activate(PeerGuid guid, Session &session);
 	void Send(PeerGuid guid, BitStream &packet);
 	void WriteHeader(BitStream &out, Kind kind, const Session &session) const;
-	void ReadState(Connection &connection, StateDelivery &delivery, BitStream &in);
+	void ReadState(Connection &connection, StateDelivery &delivery, BitStream &in, bool acknowledge);
 	void Apply(Connection &connection, Kind kind, BitStream &in);
 
 	ReplicationManager &owner;
 	std::map<ReplicaTypeId, Type> types;
+	bool explicitScheduling = false;
 	std::map<std::type_index, ReplicaTypeId> typeIds;
 	std::map<PeerGuid, Session> sessions;
 	struct Download

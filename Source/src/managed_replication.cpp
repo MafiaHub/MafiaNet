@@ -3,6 +3,7 @@
 #include "mafianet/message_identifiers.h"
 #include "mafianet/network_id_manager.h"
 #include "mafianet/peer_interface.h"
+#include "mafianet/get_time.h"
 #include <array>
 #include <limits>
 #include <sodium.h>
@@ -30,7 +31,18 @@ public:
 	ConstructionMode QueryConstructionMode() const override { return QUERY_CONNECTION_FOR_REPLICA_LIST; }
 	bool QuerySerializationList(std::vector<Replica3 *> &out) override
 	{
-		return runtime.serializationList && runtime.serializationList(ToPeerGuid(guid), out);
+		if (runtime.serializationList && runtime.serializationList(ToPeerGuid(guid), out))
+			return true;
+		if (!runtime.explicitScheduling)
+			return false;
+		for (auto id : polled)
+			if (auto *object = runtime.owner.FindReplica(id))
+				out.push_back(object);
+		for (auto id : dirty)
+			if (auto *object = runtime.owner.FindReplica(id))
+				out.push_back(object);
+		dirty.clear();
+		return true;
 	}
 	void QueryReplicaList(std::vector<Replica3 *> &enter, std::vector<Replica3 *> &leave) override
 	{
@@ -50,6 +62,9 @@ public:
 			if (!wanted.count(object->GetNetworkID()) || object->QueryDestruction(this, &runtime) == RM3DS_SEND_DESTRUCTION)
 				leave.push_back(object);
 
+		for (auto *object : leave)
+			Forget(object->GetNetworkID());
+		FlushUnconfirmed();
 		++tick;
 		for (auto it = pending.begin(); it != pending.end();)
 		{
@@ -78,7 +93,70 @@ public:
 			enter.resize(budget);
 		}
 		for (auto *object : enter)
-			pending.erase(object->GetNetworkID());
+		{
+			const auto id = object->GetNetworkID();
+			pending.erase(id);
+			if (runtime.explicitScheduling && runtime.types.at(static_cast<ReplicaTypeId>(object->registeredType)).detection == ChangeDetection::Compare)
+				polled.insert(id);
+		}
+	}
+
+	std::set<NetworkID> dirty, polled;
+	struct Unconfirmed
+	{
+		uint64_t seq;
+		TimeMS sent;
+		BitSize_t bits;
+		std::vector<unsigned char> bytes;
+	};
+	std::map<NetworkID, Unconfirmed> unconfirmed;
+	void Forget(NetworkID id)
+	{
+		dirty.erase(id);
+		polled.erase(id);
+		unconfirmed.erase(id);
+		pending.erase(id);
+	}
+	void TransmitState(Replica3 &object, BitStream &out, PRO pro, RakPeerInterface &peer) override
+	{
+		if (!object.replaceableSnapshot)
+		{
+			Connection_RM3::TransmitState(object, out, pro, peer);
+			return;
+		}
+		auto &item = unconfirmed[object.GetNetworkID()];
+		item.seq = nextState;
+		item.sent = GetTimeMS();
+		item.bits = out.GetNumberOfBitsUsed();
+		item.bytes.assign(out.GetData(), out.GetData() + out.GetNumberOfBytesUsed());
+		peer.Send(&out, pro.priority, Reliability::Unreliable, 0, guid, false);
+	}
+	void FlushUnconfirmed()
+	{
+		const auto now = GetTimeMS();
+		for (auto it = unconfirmed.begin(); it != unconfirmed.end();)
+		{
+			auto &item = it->second;
+			if (now - item.sent < 250)
+			{
+				++it;
+				continue;
+			}
+			BitStream retry(item.bytes.data(), static_cast<unsigned>(item.bytes.size()), false);
+			retry.SetWriteOffset(item.bits);
+			if (runtime.GetRakPeerInterface()->Send(&retry, Priority::High, Reliability::ReliableOrdered, 0, guid, false))
+				it = unconfirmed.erase(it);
+			else
+				++it;
+		}
+	}
+	void Acknowledge(NetworkID id, uint64_t seq)
+	{
+		BitStream ack;
+		ReplicationWire::WriteHeader(ack, Kind::SnapshotAck, clientToken, serverToken);
+		ack.Write(id);
+		ack.Write(seq);
+		runtime.GetRakPeerInterface()->Send(&ack, Priority::High, Reliability::Unreliable, 0, guid, false);
 	}
 
 private:
@@ -87,20 +165,50 @@ private:
 	ManagedReplication &runtime;
 };
 
-bool ManagedReplication::Register(ReplicaTypeId id, uint16_t version, std::type_index type, std::function<Replica3 *()> create, std::function<void(Replica3 *)> release)
+bool ManagedReplication::Register(ReplicaTypeId id, uint16_t version, std::type_index type, bool snapshot, std::function<Replica3 *()> create, std::function<void(Replica3 *)> release)
 {
 	if (!sessions.empty() || !create || !release || types.count(id) || typeIds.count(type))
 		return false;
-	types.emplace(id, Type{type, version, std::move(create), std::move(release)});
+	types.emplace(id, Type{type, version, std::move(create), std::move(release), snapshot});
 	typeIds.emplace(type, id);
 	return true;
 }
 
+bool ManagedReplication::Policy(ReplicaTypeId id, ChangeDetection detection, SnapshotDelivery delivery)
+{
+	auto it = types.find(id);
+	if (HasSessions() || GetReplicaCount() || it == types.end() || !it->second.snapshot)
+		return false;
+	it->second.detection = detection;
+	it->second.delivery = delivery;
+	explicitScheduling = std::any_of(types.begin(), types.end(), [](const auto &entry)
+	                                 { return entry.second.detection == ChangeDetection::Explicit; });
+	return true;
+}
+bool ManagedReplication::Mark(Replica3 &object)
+{
+	const auto id = object.GetNetworkID();
+	if (owner.FindReplica(id) != &object || object.creatingSystemGUID != GetRakPeerInterface()->GetMyGUID() || types.at(static_cast<ReplicaTypeId>(object.registeredType)).detection != ChangeDetection::Explicit)
+		return false;
+	for (unsigned i = 0; i < GetConnectionCount(); ++i)
+	{
+		auto *c = static_cast<Connection *>(GetConnectionAtIndex(i));
+		if (c->HasReplicaConstructed(&object))
+			c->dirty.insert(id);
+	}
+	return true;
+}
+void ManagedReplication::MarkAll()
+{
+	for (unsigned i = 0; i < GetReplicaCount(); ++i)
+		Mark(*GetReplicaAtIndex(i));
+}
 bool ManagedReplication::SetRegisteredType(Replica3 &replica) const
 {
 	auto it = typeIds.find(typeid(replica));
 	if (it == typeIds.end())
 		return false;
+	replica.replaceableSnapshot = types.at(it->second).delivery == SnapshotDelivery::Replaceable;
 	replica.registeredType = static_cast<uint32_t>(it->second);
 	return true;
 }
@@ -130,6 +238,12 @@ uint64_t ManagedReplication::Schema() const
 			hash *= 1099511628211ull;
 			word >>= 8;
 		}
+	}
+	for (const auto &[id, type] : types)
+	{
+		(void) id;
+		hash ^= static_cast<uint64_t>(type.delivery);
+		hash *= 1099511628211ull;
 	}
 	hash ^= owner.GetRole() == ReplicationRole::Peer ? 1 : 0;
 	return hash;
@@ -208,6 +322,11 @@ bool ManagedReplication::Release(NetworkID id)
 	if (it == downloads.end())
 		return false;
 	const auto type = it->second.type;
+	{
+		StateDelivery guard(*this, ToGuid(it->second.source));
+		if (auto *conn = static_cast<Connection *>(guard.GetConnection()))
+			conn->incoming.erase(id);
+	}
 	downloads.erase(it);
 	auto *replica = GetNetworkIDManager()->GET_BASE_OBJECT_FROM_ID(id);
 	if (replica)
@@ -262,6 +381,13 @@ void ManagedReplication::Disconnected(PeerGuid guid)
 void ManagedReplication::OnFinalDereference(Replica3 &replica)
 {
 	const auto id = replica.GetNetworkID();
+	for (unsigned i = 0; i < GetConnectionCount(); ++i)
+	{
+		auto guid = GetConnectionAtIndex(i)->GetRakNetGUID();
+		StateDelivery lock(*this, guid);
+		if (auto *connection = static_cast<Connection *>(lock.GetConnection()))
+			connection->Forget(id);
+	}
 	ordinary.erase(id);
 	grants.erase(id);
 	staticObjects.erase(id);
@@ -304,14 +430,26 @@ void ManagedReplication::Receive(Packet &packet)
 	uint64_t clientToken, serverToken;
 	if (!in.Read(version) || !in.Read(kind) || !in.Read(clientToken) || !in.Read(serverToken) || !in.Read(world) || world != 0 || !clientToken)
 		return;
-	if (kind == Kind::State)
+	if (kind == Kind::State || kind == Kind::Snapshot || kind == Kind::SnapshotAck)
 	{
-		if (version != Version || owner.GetRole() == ReplicationRole::Server)
+		if (version != Version || (kind != Kind::SnapshotAck && owner.GetRole() == ReplicationRole::Server))
 			return;
 		StateDelivery delivery(*this, packet.guid);
 		auto *connection = static_cast<Connection *>(delivery.GetConnection());
-		if (connection && connection->Matches(clientToken, serverToken))
-			ReadState(*connection, delivery, in);
+		if (!connection || !connection->Matches(clientToken, serverToken))
+			return;
+		if (kind == Kind::SnapshotAck)
+		{
+			NetworkID id;
+			uint64_t seq;
+			if (!in.Read(id) || !in.Read(seq) || in.GetNumberOfUnreadBits())
+				return;
+			auto it = connection->unconfirmed.find(id);
+			if (it != connection->unconfirmed.end() && it->second.seq == seq)
+				connection->unconfirmed.erase(it);
+		}
+		else
+			ReadState(*connection, delivery, in, kind == Kind::Snapshot);
 		return;
 	}
 	WorldGuard guard(*this);
@@ -573,7 +711,7 @@ void ManagedReplication::Apply(Connection &connection, Kind kind, BitStream &in)
 	}
 }
 
-void ManagedReplication::ReadState(Connection &connection, StateDelivery &delivery, BitStream &in)
+void ManagedReplication::ReadState(Connection &connection, StateDelivery &delivery, BitStream &in, bool acknowledge)
 {
 	NetworkID id;
 	uint64_t incarnation, seq;
@@ -601,7 +739,7 @@ void ManagedReplication::ReadState(Connection &connection, StateDelivery &delive
 		it->second.lastState[i] = seq;
 		changed = true;
 	}
-	if (changed)
-		delivery.Deserialize(id, &params, it->second.referenceIndex);
+	if (changed && delivery.Deserialize(id, &params, it->second.referenceIndex) && acknowledge)
+		connection.Acknowledge(id, seq);
 }
 }

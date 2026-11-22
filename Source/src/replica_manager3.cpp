@@ -615,10 +615,11 @@ void ReplicaManager3::Dereference(MafiaNet::Replica3 *replica3, WorldId worldId)
 		// Waits for a Deserialize() of it under way on the receive thread. Out of its last world, it leaves the
 		// table too, with its id: no state message finds it again, and it can be destroyed with no thread
 		// walking over it.
+		if (replica3->referencingWorlds == 1)
+			OnFinalDereference(*replica3);
 		ReplicaSetChange change(this);
 		if (--replica3->referencingWorlds == 0)
 		{
-			OnFinalDereference(*replica3);
 			const NetworkID networkId = replica3->GetNetworkID();
 			replica3->SetNetworkIDManager(0);
 			replica3->SetNetworkID(networkId);
@@ -1768,10 +1769,14 @@ bool Connection_RM3::HasReplicaConstructed(MafiaNet::Replica3 *replica)
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+void Connection_RM3::TransmitState(Replica3 &, BitStream &out, PRO pro, RakPeerInterface &peer)
+{
+	peer.Send(&out, pro.priority, pro.reliability, pro.orderingChannel, systemAddress, false, pro.sendReceipt);
+}
 void Connection_RM3::SendSerializeHeader(MafiaNet::Replica3 *replica, MafiaNet::Time timestamp, MafiaNet::BitStream *bs, WorldId worldId)
 {
 	bs->Reset();
-	ReplicationWire::WriteHeader(*bs, ReplicationWire::Kind::State, clientToken, serverToken, worldId);
+	ReplicationWire::WriteHeader(*bs, replica->replaceableSnapshot ? ReplicationWire::Kind::Snapshot : ReplicationWire::Kind::State, clientToken, serverToken, worldId);
 	bs->Write(replica->GetNetworkID());
 	bs->Write(outgoingVisits[replica->GetNetworkID()]);
 	bs->Write(++nextState);
@@ -1832,7 +1837,7 @@ SendSerializeIfChangedResult Connection_RM3::SendSerialize(MafiaNet::Replica3 *r
 			}
 		}
 		replica->OnSerializeTransmission(&out, this, bitsPerChannel, curTime);
-		rakPeer->Send(&out, pro.priority, pro.reliability, pro.orderingChannel, systemAddress, false, pro.sendReceipt);
+		TransmitState(*replica, out, pro, *rakPeer);
 	}
 	return SSICR_SENT_DATA;
 }

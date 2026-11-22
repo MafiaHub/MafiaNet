@@ -19,7 +19,9 @@ enum class Kind : uint8_t
 	Bind,
 	Grant,
 	Revoke,
-	OwnerUpdate
+	OwnerUpdate,
+	Snapshot,
+	SnapshotAck
 };
 
 inline void WriteHeader(BitStream &out, Kind kind, uint64_t clientToken, uint64_t serverToken, uint8_t world = 0)

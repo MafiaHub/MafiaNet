@@ -353,3 +353,36 @@ TEST(BuiltinReplication, DelayedStateFromPreviousCellVisitCannotOverwriteFreshBa
 	ASSERT_TRUE(net.RunUntilReceived(client, ID_USER_PACKET_ENUM, 5000));
 	EXPECT_FALSE(copy()->state.open);
 }
+
+TEST(BuiltinReplication, MarkedSnapshotsConvergeAfterFinalDatagramLoss)
+{
+	SimulatedNetwork net(91);
+	auto *server = net.AddPeer(1, 1), *client = net.AddPeer(1);
+	auto &host = server->GetReplication(), &view = client->GetReplication();
+	for (auto *p : {server, client})
+	{
+		auto &r = p->GetReplication();
+		r.SetRole(p == server ? ReplicationRole::Server : ReplicationRole::Client);
+		ASSERT_TRUE(r.RegisterReplica<Door>(doorType, 1));
+		ASSERT_TRUE(r.SetSnapshotPolicy(doorType, ChangeDetection::Explicit, SnapshotDelivery::Replaceable));
+	}
+	Door door;
+	ASSERT_TRUE(host.Reference(&door));
+	ASSERT_TRUE(net.Connect(client, server));
+	auto copy = [&]
+	{ return static_cast<Door *>(view.FindReplica(door.GetNetworkID())); };
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return copy() != nullptr; }, 5000));
+	door.state.open = true;
+	net.Step(300);
+	EXPECT_FALSE(copy()->state.open);
+	SimulatedNetwork::LinkRule loss;
+	loss.dark = true;
+	net.SetLink(server, client, loss);
+	ASSERT_TRUE(host.MarkDirty(door));
+	net.Step(100);
+	EXPECT_FALSE(copy()->state.open);
+	net.SetLink(server, client, {});
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return copy()->state.open; }, 5000));
+}

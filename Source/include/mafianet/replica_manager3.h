@@ -741,6 +741,7 @@ public:
 
 protected:
 	uint64_t clientToken = 0, serverToken = 0;
+	virtual void TransmitState(Replica3 &object, BitStream &out, PRO pro, RakPeerInterface &peer);
 	uint64_t nextVisit = 0, nextState = 0;
 	std::map<NetworkID, uint64_t> outgoingVisits;
 	SystemAddress systemAddress;
@@ -1268,6 +1269,7 @@ public:
 	friend class ManagedReplication;
 	friend class ReplicationManager;
 	uint32_t registeredType = 0;
+	bool replaceableSnapshot = false;
 	bool staticBinding = false;
 	RakNetGUID creatingSystemGUID;
 	/// GUID of the system that caused the item to send a deletion command over the network
