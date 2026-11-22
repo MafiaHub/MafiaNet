@@ -499,7 +499,7 @@ void ManagedReplication::Destroy(Replica3 &replica)
 	{
 		auto *connection = static_cast<Connection *>(GetConnectionAtIndex(i));
 		if (connection->HasReplicaConstructed(&replica))
-			connection->SendRemoval(replica, true, *GetRakPeerInterface(), 0);
+			connection->SendRemoval(replica, true, *GetRakPeerInterface());
 	}
 	Dereference(&replica);
 }
@@ -513,9 +513,9 @@ void ManagedReplication::Receive(Packet &packet)
 	BitStream in(packet.data, packet.length, false);
 	in.SetWriteOffset(packet.bitSize);
 	Header header{};
-	if (!ReadHeader(in, header) || header.world != 0 || !header.clientToken)
+	if (!ReadHeader(in, header) || !header.clientToken)
 		return;
-	const auto &[version, kind, clientToken, serverToken, world] = header;
+	const auto &[version, kind, clientToken, serverToken] = header;
 
 	if (kind == Kind::State || kind == Kind::Snapshot || kind == Kind::SnapshotAck)
 	{

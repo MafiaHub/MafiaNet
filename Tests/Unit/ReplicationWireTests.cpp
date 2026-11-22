@@ -8,6 +8,7 @@ TEST(ReplicationWire, ReadsACompleteHeaderAndRejectsEachTruncatedPrefix)
 {
 	BitStream encoded;
 	ReplicationWire::WriteHeader(encoded, ReplicationWire::Kind::Spawn, 41, 73);
+	EXPECT_EQ(encoded.GetNumberOfBytesUsed(), 19u);
 	for (BitSize_t length = 0; length <= encoded.GetNumberOfBitsUsed(); ++length)
 	{
 		BitStream in(encoded.GetData(), encoded.GetNumberOfBytesUsed(), false);

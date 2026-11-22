@@ -714,7 +714,7 @@ public:
 	virtual void SendConstruction(std::vector<Replica3 *> &newObjects, std::vector<Replica3 *> &deletedObjects, PRO sendParameters, MafiaNet::RakPeerInterface *rakPeer, unsigned char worldId, ReplicaManager3 *replicaManager3);
 
 	/// \internal
-	void SendRemoval(Replica3 &replica, bool destroyed, RakPeerInterface &peer, WorldId worldId);
+	void SendRemoval(Replica3 &replica, bool destroyed, RakPeerInterface &peer);
 
 	/// \internal
 	void AutoConstructByQuery(ReplicaManager3 *replicaManager3, WorldId worldId);
@@ -805,7 +805,7 @@ protected:
 	void OnSendDestructionFromQuery(unsigned int queryToDestructIdx, ReplicaManager3 *replicaManager);
 	void OnDoNotQueryDestruction(unsigned int queryToDestructIdx, ReplicaManager3 *replicaManager);
 	void ValidateLists(ReplicaManager3 *replicaManager) const;
-	void SendSerializeHeader(MafiaNet::Replica3 *replica, MafiaNet::Time timestamp, MafiaNet::BitStream *bs, WorldId worldId);
+	void SendSerializeHeader(MafiaNet::Replica3 *replica, MafiaNet::Time timestamp, MafiaNet::BitStream *bs);
 
 	// The list of objects that our local system and this remote system both have
 	// Either we sent this object to them, or they sent this object to us

@@ -1641,7 +1641,7 @@ void ReplicaManager3::BroadcastDestructionList(std::vector<Replica3 *> &replicaL
 			continue;
 		for (auto *replica : replicaListSource)
 			if (connection->HasReplicaConstructed(replica))
-				connection->SendRemoval(*replica, true, *rakPeerInterface, worldId);
+				connection->SendRemoval(*replica, true, *rakPeerInterface);
 	}
 }
 
@@ -1716,10 +1716,10 @@ void Connection_RM3::TransmitState(Replica3 &, BitStream &out, PRO pro, RakPeerI
 {
 	peer.Send(&out, pro.priority, pro.reliability, pro.orderingChannel, systemAddress, false, pro.sendReceipt);
 }
-void Connection_RM3::SendSerializeHeader(MafiaNet::Replica3 *replica, MafiaNet::Time timestamp, MafiaNet::BitStream *bs, WorldId worldId)
+void Connection_RM3::SendSerializeHeader(MafiaNet::Replica3 *replica, MafiaNet::Time timestamp, MafiaNet::BitStream *bs)
 {
 	bs->Reset();
-	ReplicationWire::WriteHeader(*bs, replica->replaceableSnapshot ? ReplicationWire::Kind::Snapshot : ReplicationWire::Kind::State, clientToken, serverToken, worldId);
+	ReplicationWire::WriteHeader(*bs, replica->replaceableSnapshot ? ReplicationWire::Kind::Snapshot : ReplicationWire::Kind::State, clientToken, serverToken);
 	bs->Write(replica->GetNetworkID());
 	bs->Write(outgoingVisits[replica->GetNetworkID()]);
 	bs->Write(++nextState);
@@ -1727,7 +1727,7 @@ void Connection_RM3::SendSerializeHeader(MafiaNet::Replica3 *replica, MafiaNet::
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-SendSerializeIfChangedResult Connection_RM3::SendSerialize(MafiaNet::Replica3 *replica, bool indicesToSend[RM3_NUM_OUTPUT_BITSTREAM_CHANNELS], MafiaNet::BitStream serializationData[RM3_NUM_OUTPUT_BITSTREAM_CHANNELS], MafiaNet::Time timestamp, PRO sendParameters[RM3_NUM_OUTPUT_BITSTREAM_CHANNELS], RakPeerInterface *rakPeer, unsigned char worldId, MafiaNet::Time curTime)
+SendSerializeIfChangedResult Connection_RM3::SendSerialize(MafiaNet::Replica3 *replica, bool indicesToSend[RM3_NUM_OUTPUT_BITSTREAM_CHANNELS], MafiaNet::BitStream serializationData[RM3_NUM_OUTPUT_BITSTREAM_CHANNELS], MafiaNet::Time timestamp, PRO sendParameters[RM3_NUM_OUTPUT_BITSTREAM_CHANNELS], RakPeerInterface *rakPeer, unsigned char, MafiaNet::Time curTime)
 {
 	// A channel goes out only when it is selected and holds data. The selection is what counts: a
 	// replica's cached broadcast record keeps the bytes of channels it no longer selects.
@@ -1760,7 +1760,7 @@ SendSerializeIfChangedResult Connection_RM3::SendSerialize(MafiaNet::Replica3 *r
 			continue;
 
 		const PRO pro = sendParameters[first];
-		SendSerializeHeader(replica, timestamp, &out, worldId);
+		SendSerializeHeader(replica, timestamp, &out);
 		for (int z = 0; z < RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; z++)
 		{
 			const bool channelHasData = pending[z] && sendParameters[z] == pro;
@@ -2352,11 +2352,11 @@ void Connection_RM3::SendConstruction(std::vector<Replica3 *> &enter, std::vecto
 	auto *ids = manager->GetNetworkIDManager(world);
 	for (auto id : arrivals)
 	{
-		auto *replica = ids->GET_OBJECT_FROM_ID<Replica3 *>(id);
+		auto *replica = static_cast<Replica3 *>(ids->GET_BASE_OBJECT_FROM_ID(id));
 		if (!replica || !HasReplicaConstructed(replica))
 			continue;
 		BitStream out, snapshot;
-		ReplicationWire::WriteHeader(out, replica->staticBinding ? ReplicationWire::Kind::Bind : ReplicationWire::Kind::Spawn, clientToken, serverToken, world);
+		ReplicationWire::WriteHeader(out, replica->staticBinding ? ReplicationWire::Kind::Bind : ReplicationWire::Kind::Spawn, clientToken, serverToken);
 		out.Write(replica->GetNetworkID());
 		outgoingVisits[replica->GetNetworkID()] = ++nextVisit;
 		out.Write(nextVisit);
@@ -2365,7 +2365,7 @@ void Connection_RM3::SendConstruction(std::vector<Replica3 *> &enter, std::vecto
 			replica->SerializeConstructionExisting(&snapshot, this);
 		else
 			replica->SerializeConstruction(&snapshot, this);
-		if (ids->GET_OBJECT_FROM_ID<Replica3 *>(id) != replica || !HasReplicaConstructed(replica))
+		if (static_cast<Replica3 *>(ids->GET_BASE_OBJECT_FROM_ID(id)) != replica || !HasReplicaConstructed(replica))
 			continue;
 		if (ReplicationWire::WriteBlock(out, snapshot) && peer->Send(&out, Priority::High, Reliability::ReliableOrdered, 0, guid, false))
 			RecordScopeMessage(out.GetNumberOfBytesUsed(), true, false);
@@ -2373,13 +2373,13 @@ void Connection_RM3::SendConstruction(std::vector<Replica3 *> &enter, std::vecto
 			ConstructionFailed(id);
 	}
 	for (auto id : departures)
-		if (auto *replica = ids->GET_OBJECT_FROM_ID<Replica3 *>(id))
-			SendRemoval(*replica, false, *peer, world);
+		if (auto *replica = static_cast<Replica3 *>(ids->GET_BASE_OBJECT_FROM_ID(id)))
+			SendRemoval(*replica, false, *peer);
 }
-void Connection_RM3::SendRemoval(Replica3 &replica, bool destroyed, RakPeerInterface &peer, WorldId world)
+void Connection_RM3::SendRemoval(Replica3 &replica, bool destroyed, RakPeerInterface &peer)
 {
 	BitStream out;
-	ReplicationWire::WriteHeader(out, destroyed ? ReplicationWire::Kind::Destroy : ReplicationWire::Kind::Leave, clientToken, serverToken, world);
+	ReplicationWire::WriteHeader(out, destroyed ? ReplicationWire::Kind::Destroy : ReplicationWire::Kind::Leave, clientToken, serverToken);
 	out.Write(replica.GetNetworkID());
 	out.Write(outgoingVisits[replica.GetNetworkID()]);
 	outgoingVisits.erase(replica.GetNetworkID());

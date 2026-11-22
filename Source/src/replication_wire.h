@@ -29,22 +29,20 @@ struct Header
 	uint8_t version;
 	Kind kind;
 	uint64_t clientToken, serverToken;
-	uint8_t world;
 };
 inline bool ReadHeader(BitStream &in, Header &header)
 {
 	MessageID id;
 	return in.Read(id) && id == ID_REPLICATION && in.Read(header.version) && in.Read(header.kind) &&
-	       in.Read(header.clientToken) && in.Read(header.serverToken) && in.Read(header.world);
+	       in.Read(header.clientToken) && in.Read(header.serverToken);
 }
-inline void WriteHeader(BitStream &out, Kind kind, uint64_t clientToken, uint64_t serverToken, uint8_t world = 0)
+inline void WriteHeader(BitStream &out, Kind kind, uint64_t clientToken, uint64_t serverToken)
 {
 	out.Write(static_cast<MessageID>(ID_REPLICATION));
 	out.Write(Version);
 	out.Write(kind);
 	out.Write(clientToken);
 	out.Write(serverToken);
-	out.Write(world);
 }
 
 inline bool WriteBlock(BitStream &out, const BitStream &data)

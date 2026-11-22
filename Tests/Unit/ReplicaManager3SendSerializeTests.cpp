@@ -60,11 +60,9 @@ public:
 		MafiaNet::BitStream in(bitStream->GetData(), bitStream->GetNumberOfBytesUsed(), false);
 		SentMessage message;
 		MessageID id;
-		WorldId world;
 		in.Read(id);
 		EXPECT_EQ(id, ID_REPLICATION);
 		in.IgnoreBytes(2 + 2 * sizeof(uint64_t));
-		in.Read(world);
 		in.Read(message.networkId);
 		in.IgnoreBytes(2 * sizeof(uint64_t) + sizeof(Time));
 		for (int z = 0; z < RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; z++)
