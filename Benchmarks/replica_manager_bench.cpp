@@ -106,16 +106,15 @@ TimeUS TickClock()
 template <typename Replica = StateReplica, typename Peer = CountingPeer>
 struct World
 {
-	Peer peer;
 	NetworkIDManager ids;
-	Manager manager;
+	Peer peer;
+	Manager &manager = *peer.GetReplication().template UseLegacyProtocol<Manager>();
 	std::vector<Replica> replicas;
 	explicit World(int clients, size_t replicaCount = 100, const SerializationCandidates *candidates = nullptr)
 	    : replicas(replicaCount)
 	{
 		tickUS = 1000000;
 		SetTimeSourceOverride(TickClock);
-		peer.AttachPlugin(&manager);
 		manager.SetNetworkIDManager(&ids);
 		manager.SetAutoSerializeInterval(0);
 		for (int i = 0; i < clients; ++i)
@@ -131,7 +130,6 @@ struct World
 	}
 	~World()
 	{
-		peer.DetachPlugin(&manager);
 		SetTimeSourceOverride(nullptr);
 	}
 	void Tick()

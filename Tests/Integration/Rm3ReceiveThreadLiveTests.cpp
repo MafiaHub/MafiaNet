@@ -437,9 +437,9 @@ struct Client
 {
 	NetworkIDManager ids;
 	ClientStats stats;
-	ClientManager manager{&stats};
 	std::vector<std::unique_ptr<OwnedReplica>> replicas;
 	Peer peer;
+	ClientManager &manager = *peer->GetReplication().UseLegacyProtocol<ClientManager>(&stats);
 };
 
 class Rm3ReceiveThread : public ::testing::Test
@@ -449,7 +449,6 @@ protected:
 	{
 		serverManager.SetNetworkIDManager(&serverIds);
 		serverManager.SetAutoSerializeInterval(0);
-		server->AttachPlugin(&serverManager);
 		SocketDescriptor serverSocket(0, "127.0.0.1");
 		ASSERT_EQ(RAKNET_STARTED, server->Startup(MAX_CLIENTS, &serverSocket, 1));
 		server->SetMaximumIncomingConnections(MAX_CLIENTS);
@@ -468,7 +467,6 @@ protected:
 		Client &client = *clients.back();
 		client.manager.SetNetworkIDManager(&client.ids);
 		client.manager.SetAutoSerializeInterval(0);
-		client.peer->AttachPlugin(&client.manager);
 		SocketDescriptor clientSocket;
 		ASSERT_EQ(RAKNET_STARTED, client.peer->Startup(1, &clientSocket, 1));
 		for (uint32_t i = 0; i < REPLICAS_PER_CLIENT; i++)
@@ -523,11 +521,11 @@ protected:
 	// Destroyed last to first: the threads stop, then the peers shut down, which empties the managers.
 	ServerView view;
 	NetworkIDManager serverIds;
-	ServerManager serverManager{&view};
 	TwoThreadExecutor executor{&view};
 	std::vector<std::unique_ptr<Client>> clients;
 	std::vector<unsigned int> watched;
 	Peer server;
+	ServerManager &serverManager = *server->GetReplication().UseLegacyProtocol<ServerManager>(&view);
 	unsigned short serverPort = 0;
 	SystemAddress serverAddress;
 	std::unique_ptr<ServerThreads> serverThreads;

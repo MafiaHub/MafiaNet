@@ -42,7 +42,7 @@ struct InternalPacket;
 
 /// For each message that arrives on an instance of RakPeer, the plugins get an opportunity to process them first. This enumeration represents what to do with the message
 /// \ingroup PLUGIN_INTERFACE_GROUP
-enum PluginReceiveResult
+enum PluginReceiveResult : int
 {
 	/// The plugin used this message and it shouldn't be given to the user.
 	RR_STOP_PROCESSING_AND_DEALLOCATE = 0,

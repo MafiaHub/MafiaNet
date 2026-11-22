@@ -179,8 +179,6 @@ int main(void)
 	printf("and decides its virtual world; clients only see avatars in their world.\n\n");
 
 	NetworkIDManager serverIds, c1Ids, c2Ids;
-	PlayerRM3 serverRm, c1Rm, c2Rm;
-	serverRm.isServer = true;
 
 	// NOTE: on POSIX, a peer's GUID is seeded from the microsecond clock at
 	// construction (RakPeerInterface::Get64BitUniqueRandomNumber). Creating
@@ -197,15 +195,16 @@ int main(void)
 	SocketDescriptor sd(0, 0);
 	server->Startup(8, &sd, 1);
 	server->SetMaximumIncomingConnections(8);
-	server->AttachPlugin(&serverRm);
+	auto &serverRm = *server->GetReplication().UseLegacyProtocol<PlayerRM3>();
+	serverRm.isServer = true;
 	serverRm.SetNetworkIDManager(&serverIds);
 
 	SocketDescriptor sdC(0, 0);
 	c1->Startup(1, &sdC, 1);
-	c1->AttachPlugin(&c1Rm);
+	auto &c1Rm = *c1->GetReplication().UseLegacyProtocol<PlayerRM3>();
 	c1Rm.SetNetworkIDManager(&c1Ids);
 	c2->Startup(1, &sdC, 1);
-	c2->AttachPlugin(&c2Rm);
+	auto &c2Rm = *c2->GetReplication().UseLegacyProtocol<PlayerRM3>();
 	c2Rm.SetNetworkIDManager(&c2Ids);
 
 	unsigned short serverPort = server->GetInternalID(UNASSIGNED_SYSTEM_ADDRESS).GetPort();

@@ -153,12 +153,10 @@ class VirtualWorldRegistry : public ::testing::Test
 protected:
 	void SetUp() override
 	{
-		peer = RakPeerInterface::GetInstance();
 		SocketDescriptor sd(0, 0);
 		ASSERT_EQ(peer->Startup(8, &sd, 1), RAKNET_STARTED) << "Peer failed to start";
 
 		rm3.SetAutoManageConnections(false, false);
-		peer->AttachPlugin(&rm3);
 
 		// Three observers: vworlds {5, 5, 7}, plus one global observer.
 		c5a = new VWTestConnection(UNASSIGNED_SYSTEM_ADDRESS, RakNetGUID(101));
@@ -190,13 +188,12 @@ protected:
 		delete c7;
 		delete cg;
 
-		peer->DetachPlugin(&rm3);
 		peer->Shutdown(100);
 		RakPeerInterface::DestroyInstance(peer);
 	}
 
-	RakPeerInterface *peer = nullptr;
-	VWTestRM3 rm3;
+	RakPeerInterface *peer = RakPeerInterface::GetInstance();
+	VWTestRM3 &rm3 = *peer->GetReplication().UseLegacyProtocol<VWTestRM3>();
 	VWTestConnection *c5a = nullptr;
 	VWTestConnection *c5b = nullptr;
 	VWTestConnection *c7 = nullptr;

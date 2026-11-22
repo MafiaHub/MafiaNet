@@ -119,11 +119,13 @@ public:
 	explicit Endpoint(RakPeer *peer)
 	    : peer(peer)
 	{
-		peer->AttachPlugin(this);
 		SetNetworkIDManager(&ids);
 		SetAutoSerializeInterval(0);
 	}
-	~Endpoint() override { peer->DetachPlugin(this); }
+	static Endpoint &Create(RakPeer *peer)
+	{
+		return *peer->GetReplication().UseLegacyProtocol<Endpoint>(peer);
+	}
 	void Update() override
 	{
 		candidates.serving.swap(candidates.pending);
@@ -155,7 +157,9 @@ class DirtyListDelivery : public ::testing::TestWithParam<bool>
 TEST_P(DirtyListDelivery, ReliableStateSurvivesLossAndScopeChanges)
 {
 	SimulatedNetwork net(827);
-	Endpoint server(net.AddPeer(2, 2)), first(net.AddPeer(1)), late(net.AddPeer(1));
+	auto &server = Endpoint::Create(net.AddPeer(2, 2));
+	auto &first = Endpoint::Create(net.AddPeer(1));
+	auto &late = Endpoint::Create(net.AddPeer(1));
 	server.candidates.enabled = GetParam();
 	Field position, personal;
 	personal.shared = false;
@@ -234,7 +238,8 @@ TEST_P(DirtyListDelivery, ReliableStateSurvivesLossAndScopeChanges)
 TEST_P(DirtyListDelivery, ScheduledRefreshRestoresALostUnreliablePosition)
 {
 	SimulatedNetwork net(8123);
-	Endpoint server(net.AddPeer(1, 1)), observer(net.AddPeer(1));
+	auto &server = Endpoint::Create(net.AddPeer(1, 1));
+	auto &observer = Endpoint::Create(net.AddPeer(1));
 	server.candidates.enabled = GetParam();
 	Field position;
 	position.reliability = Reliability::Unreliable;

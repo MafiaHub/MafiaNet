@@ -480,7 +480,6 @@ int main(void)
 	// Each application has one instance of RakPeerInterface
 	MafiaNet::RakPeerInterface *rakPeer;
 	// The system that performs most of our functionality for this demo
-	ReplicaManager3Sample replicaManager;
 
 	printf("Demonstration of ReplicaManager3.\n");
 	printf("1. Demonstrates creating objects created by the server and client.\n");
@@ -511,7 +510,7 @@ int main(void)
 
 	// Start RakNet, up to 32 connections if the server
 	rakPeer->Startup(32, &sd, 1);
-	rakPeer->AttachPlugin(&replicaManager);
+	auto &replicaManager = *rakPeer->GetReplication().UseLegacyProtocol<ReplicaManager3Sample>();
 	replicaManager.SetNetworkIDManager(&networkIdManager);
 	rakPeer->SetMaximumIncomingConnections(32);
 	printf("\nMy GUID is %s\n", MafiaNet::to_string(rakPeer->GetMyGUID()).c_str());

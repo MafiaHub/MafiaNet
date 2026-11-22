@@ -852,7 +852,7 @@ int main(void)
 	natTypeDetectionClient = NatTypeDetectionClient::GetInstance();
 #endif
 	readyEvent = ReadyEvent::GetInstance();
-	gameReplicaManager3 = new SampleRM3;
+	gameReplicaManager3 = rakPeer->GetReplication().UseLegacyProtocol<SampleRM3>();
 	httpConnection2 = HTTPConnection2::GetInstance();
 
 	// ---------------------------------------------------------------------------------------------------------------------
@@ -864,7 +864,6 @@ int main(void)
 	rakPeer->AttachPlugin(natTypeDetectionClient);
 #endif
 	rakPeer->AttachPlugin(readyEvent);
-	rakPeer->AttachPlugin(gameReplicaManager3);
 	/// TCPInterface supports plugins too
 	tcp->AttachPlugin(httpConnection2);
 
@@ -1520,7 +1519,6 @@ int main(void)
 	NatPunchthroughClient::DestroyInstance(natPunchthroughClient);
 	NatTypeDetectionClient::DestroyInstance(natTypeDetectionClient);
 	ReadyEvent::DestroyInstance(readyEvent);
-	delete gameReplicaManager3;
 	NetworkIDManager::DestroyInstance(networkIDManager);
 	HTTPConnection2::DestroyInstance(httpConnection2);
 

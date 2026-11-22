@@ -228,12 +228,11 @@ int main(void)
 {
 	rakPeer = MafiaNet::RakPeerInterface::GetInstance();
 	networkIDManager = NetworkIDManager::GetInstance();
-	g_replicaManager3 = new SampleRM3;
+	g_replicaManager3 = rakPeer->GetReplication().UseLegacyProtocol<SampleRM3>();
 
 	// ---------------------------------------------------------------------------------------------------------------------
 	// Attach plugins
 	// ---------------------------------------------------------------------------------------------------------------------
-	rakPeer->AttachPlugin(g_replicaManager3);
 
 	// Tell ReplicaManager3 which networkIDManager to use for object lookup, used for automatic serialization
 	g_replicaManager3->SetNetworkIDManager(networkIDManager);

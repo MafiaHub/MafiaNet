@@ -40,7 +40,7 @@
 /// \defgroup REPLICA_MANAGER_GROUP3 ReplicaManager3
 /// \brief Third implementation of object replication
 /// \details
-/// \ingroup PLUGINS_GROUP
+
 
 namespace MafiaNet
 {
@@ -101,11 +101,12 @@ struct PRO
 /// <BR>
 /// At this point, all new connections will automatically download, get construction messages, get destruction messages, and update serialization automatically.
 /// \ingroup REPLICA_MANAGER_GROUP3
-class RAK_DLL_EXPORT ReplicaManager3 : public PluginInterface2
+class RAK_DLL_EXPORT ReplicaManager3
 {
 public:
 	ReplicaManager3();
 	virtual ~ReplicaManager3();
+	RakPeerInterface *GetRakPeerInterface() const { return rakPeerInterface; }
 
 	/// \brief Implement to return a game specific derivation of Connection_RM3
 	/// \details The connection object represents a remote system connected to you that is using the ReplicaManager3 system.<BR>
@@ -444,7 +445,7 @@ protected:
 	virtual void OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason);
 	virtual void OnNewConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, bool isIncoming);
 	virtual void OnRakPeerShutdown(void);
-	virtual void OnDetach(void);
+
 
 	PluginReceiveResult OnConstruction(Packet *packet, unsigned char *packetData, int packetDataLength, RakNetGUID senderGuid, unsigned char packetDataOffset, WorldId worldId);
 	PluginReceiveResult OnSerialize(Packet *packet, unsigned char *packetData, int packetDataLength, RakNetGUID senderGuid, MafiaNet::Time timestamp, unsigned char packetDataOffset, WorldId worldId);
@@ -471,6 +472,8 @@ protected:
 	std::vector<RM3World *> worldsList;
 
 private:
+	friend class ReplicationManager;
+	RakPeerInterface *rakPeerInterface = nullptr;
 	// #med - reconsider visibility here --- should be properly encapsulated so to not allow access to worldsList by derived classes (which could bypass the mutex)
 	// The list lock: around every edit of worldsList, worldsArray and a world's connectionList and userReplicaList,
 	// which also needs worldMutex, and around every read of them made without worldMutex. Never held across a callback.

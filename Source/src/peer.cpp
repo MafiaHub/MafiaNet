@@ -1518,6 +1518,11 @@ Packet *RakPeer::Receive(void)
 #endif
 	*/
 
+	const unsigned int tickGeneration = shutdownGeneration;
+	replication.ReceiveTick();
+	if (shutdownGeneration != tickGeneration)
+		return nullptr;
+
 	for (i = 0; i < pluginListTS.size(); i++)
 	{
 		pluginListTS[i]->Update();
@@ -1616,7 +1621,15 @@ Packet *RakPeer::Receive(void)
 
 		if (packet)
 		{
-			const bool consumed = rpc.ProcessPacket(packet);
+			const auto result = replication.ProcessPacket(packet);
+			if (result == RR_STOP_PROCESSING)
+			{
+				packet = nullptr;
+				if (shutdownGeneration != generation)
+					return nullptr;
+				continue;
+			}
+			const bool consumed = result == RR_STOP_PROCESSING_AND_DEALLOCATE || (shutdownGeneration == generation && rpc.ProcessPacket(packet));
 			if (consumed || shutdownGeneration != generation)
 			{
 				DeallocatePacket(packet);

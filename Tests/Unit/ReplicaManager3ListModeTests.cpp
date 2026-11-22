@@ -171,8 +171,6 @@ protected:
 	void SetUp() override
 	{
 		SetTimeSourceOverride(&FakeClock);
-		peer = RakPeerInterface::GetInstance();
-		peer->AttachPlugin(&manager);
 		manager.SetNetworkIDManager(&ids);
 		// Every Update() is a serialize pass.
 		manager.SetAutoSerializeInterval(0);
@@ -186,7 +184,6 @@ protected:
 			delete replica;
 		}
 		replicas.clear();
-		peer->DetachPlugin(&manager);
 		RakPeerInterface::DestroyInstance(peer);
 		SetTimeSourceOverride(nullptr);
 	}
@@ -214,8 +211,8 @@ protected:
 	}
 
 	NetworkIDManager ids;
-	ListManager manager;
-	RakPeerInterface *peer = nullptr;
+	RakPeerInterface *peer = RakPeerInterface::GetInstance();
+	ListManager &manager = *peer->GetReplication().UseLegacyProtocol<ListManager>();
 	std::vector<ListReplica *> replicas;
 };
 } // namespace

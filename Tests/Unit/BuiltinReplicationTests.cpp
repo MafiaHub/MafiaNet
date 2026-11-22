@@ -4,6 +4,9 @@
 
 #include "mafianet/peer_handle.h"
 #include "mafianet/replication_manager.h"
+#include "mafianet/replica_manager3.h"
+
+#include <type_traits>
 
 using namespace MafiaNet;
 
@@ -32,4 +35,10 @@ TEST(BuiltinReplication, ConfigurationSurvivesPeerRestart)
 		EXPECT_EQ(replication.GetRole(), ReplicationRole::Client);
 		EXPECT_EQ(replication.GetReplicaCount(), 0u);
 	}
+}
+
+TEST(BuiltinReplication, BothReplicationInterfacesAreIndependentOfPlugins)
+{
+	EXPECT_FALSE((std::is_base_of_v<PluginInterface2, ReplicationManager>) );
+	EXPECT_FALSE((std::is_base_of_v<PluginInterface2, ReplicaManager3>) );
 }

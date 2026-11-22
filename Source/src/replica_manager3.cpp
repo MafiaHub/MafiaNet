@@ -572,7 +572,6 @@ unsigned int ReplicaManager3::ReferenceInternal(MafiaNet::Replica3 *replica3, Wo
 			replica3->replicaManager = this;
 			++replica3->referencingWorlds;
 		}
-		// If it crashes on rakPeerInterface==0 then you didn't call RakPeerInterface::AttachPlugin()
 		if (replica3->creatingSystemGUID == UNASSIGNED_RAKNET_GUID)
 			replica3->creatingSystemGUID = rakPeerInterface->GetGuidFromSystemAddress(UNASSIGNED_SYSTEM_ADDRESS);
 		replica3->broadcastsIdentically = replica3->BroadcastsIdentically();
@@ -1067,7 +1066,7 @@ PluginReceiveResult ReplicaManager3::OnReceive(Packet *packet)
 	unsigned char packetIdentifier, packetDataOffset;
 	if ((unsigned char) packet->data[0] == ID_TIMESTAMP)
 	{
-		if (packet->length > sizeof(unsigned char) + sizeof(MafiaNet::Time))
+		if (packet->length >= 3 * sizeof(MessageID) + sizeof(MafiaNet::Time))
 		{
 			packetIdentifier = (unsigned char) packet->data[sizeof(unsigned char) + sizeof(MafiaNet::Time)];
 			// Required for proper endian swapping
@@ -1826,13 +1825,6 @@ void ReplicaManager3::OnRakPeerShutdown(void)
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-void ReplicaManager3::OnDetach(void)
-{
-	OnRakPeerShutdown();
-}
-
-// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
 PluginReceiveResult ReplicaManager3::OnConstruction(Packet *packet, unsigned char *packetData, int packetDataLength, RakNetGUID senderGuid, unsigned char packetDataOffset, WorldId worldId)
 {
 	// From nobody we know: not worth waiting for the world.
@@ -2033,7 +2025,7 @@ PluginReceiveResult ReplicaManager3::OnConstruction(Packet *packet, unsigned cha
 
 				// Forward deletion by remote system
 				if (replica->QueryRelayDestruction(connection))
-					{
+				{
 					std::vector<Replica3 *> replicas{replica};
 					BroadcastDestructionList(replicas, connection->GetSystemAddress(), worldId);
 				}
