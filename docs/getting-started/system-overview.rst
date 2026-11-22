@@ -13,14 +13,14 @@ Core Components
    ├─────────────────────────────────────────────────────────┤
    │                    Plugin Layer                         │
    │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐   │
-   │  │Replica   │ │NAT Punch │ │File      │ │ Ready    │   │
-   │  │Manager3  │ │through   │ │Transfer  │ │ Event    │   │
+   │  │Packet    │ │NAT Punch │ │File      │ │ Ready    │   │
+   │  │Logger    │ │through   │ │Transfer  │ │ Event    │   │
    │  └──────────┘ └──────────┘ └──────────┘ └──────────┘   │
    ├─────────────────────────────────────────────────────────┤
    │                  RakPeerInterface                       │
    │  ┌──────────────────────────────────────────────────┐  │
    │  │ Connection Management | Reliability Layer        │  │
-   │  │ BitStream and RPC    | Security                  │  │
+   │  │ Replication | BitStream | RPC | Security                  │  │
    │  └──────────────────────────────────────────────────┘  │
    ├─────────────────────────────────────────────────────────┤
    │                    Socket Layer                         │

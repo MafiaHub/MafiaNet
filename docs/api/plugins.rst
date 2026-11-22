@@ -52,20 +52,6 @@ FileListTransfer
 Game Plugins
 ------------
 
-ReplicaManager3
-~~~~~~~~~~~~~~~
-
-.. doxygenclass:: MafiaNet::ReplicaManager3
-   :members:
-   :undoc-members:
-
-Replica3
-~~~~~~~~
-
-.. doxygenclass:: MafiaNet::Replica3
-   :members:
-   :undoc-members:
-
 ReadyEvent
 ~~~~~~~~~~
 

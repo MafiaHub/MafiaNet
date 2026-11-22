@@ -412,7 +412,7 @@ suite covers the following workloads.
   application pacing credit, both, or neither.
 * **Construction bandwidth.** ``ReplicaManager3_Construct1000`` compares
   unconditional scalar serialization with a full construction snapshot and
-  subsequent dirty updates. See :doc:`../plugins/replica-manager-3`.
+  subsequent dirty updates. See :doc:`../guide/replication`.
 * **Real UDP loopback.** A threaded peer sends bursts of 128 reliable 900-byte
   messages at 10, 50 or 100 bursts per second. Compare offered bytes/s with
   delivered bytes/s over the send and drain interval. The CPU column covers the

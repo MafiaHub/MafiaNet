@@ -185,7 +185,7 @@ Every plugin sends on channel 0 unless told otherwise. An application that keeps
      - Where the channel is set
    * - :doc:`RPC <../guide/rpc>`
      - The ``orderingChannel`` argument of ``Signal()``, ``Call()`` and ``CallBlocking()``.
-   * - :doc:`ReplicaManager3 <../plugins/replica-manager-3>`
+   * - :doc:`ReplicaManager3 <../guide/replication>`
      - ``SetDefaultOrderingChannel()`` for construction, destruction and scope messages; ``SerializeParameters::pro[channel].orderingChannel`` inside ``Replica3::Serialize()`` for state.
    * - :doc:`FileListTransfer <../plugins/file-list-transfer>` / :doc:`DirectoryDeltaTransfer <../plugins/directory-delta-transfer>`
      - The ``orderingChannel`` argument of ``FileListTransfer::Send()`` and ``DownloadFromSubdirectory()``; ``DirectoryDeltaTransfer::SetUploadSendParameters()`` on the serving side.

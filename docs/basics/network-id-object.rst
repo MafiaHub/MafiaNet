@@ -171,7 +171,7 @@ When destroying networked objects:
 Integration with ReplicaManager3
 --------------------------------
 
-For more advanced object replication, consider using :doc:`../plugins/replica-manager-3`, which builds on NetworkIDObject and provides:
+For more advanced object replication, consider using :doc:`../guide/replication`, which builds on NetworkIDObject and provides:
 
 - Automatic object creation/destruction across network
 - Serialization management
@@ -181,5 +181,5 @@ For more advanced object replication, consider using :doc:`../plugins/replica-ma
 See Also
 --------
 
-* :doc:`../plugins/replica-manager-3` - Advanced object replication
+* :doc:`../guide/replication` - Advanced object replication
 * :doc:`creating-packets` - Sending object updates

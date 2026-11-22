@@ -168,7 +168,7 @@ MafiaNet::RakPeerInterface::DestroyInstance(peer);
 - Peer-to-peer and client-server architectures
 - NAT punchthrough and traversal
 - Host migration
-- Object replication (ReplicaManager3)
+- Built-in object replication through `peer->GetReplication()`, with cell streaming and client authority
 - Built-in remote procedure calls through `peer->GetRPC()`
 
 </td>
@@ -201,7 +201,6 @@ MafiaNet provides a modular plugin system for extending functionality:
 
 | Plugin | Description |
 |--------|-------------|
-| **ReplicaManager3** | Automatic object replication and state synchronization |
 | **FullyConnectedMesh2** | P2P mesh networking with host migration |
 | **NatPunchthrough** | NAT traversal for peer-to-peer connections |
 | **FileListTransfer** | Reliable file transfer with progress callbacks |
@@ -249,7 +248,7 @@ MafiaNet/
 ├── Samples/                # 80 example applications
 │   ├── ChatExample/        # Simple chat application
 │   ├── Ping/               # Basic UDP communication
-│   ├── ReplicaManager3/    # Object replication demo
+│   ├── Replication/        # Streaming and driver handoff
 │   ├── NATCompleteClient/  # NAT traversal client
 │   ├── NATCompleteServer/  # NAT traversal server
 │   ├── RakVoice/           # Voice chat examples

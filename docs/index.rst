@@ -45,7 +45,7 @@ MafiaNet Documentation
    guide/admission-queue
    guide/peer-to-peer
    guide/rpc
-   plugins/replica-manager-3
+   guide/replication
    plugins/virtual-worlds
    guide/plugins
 

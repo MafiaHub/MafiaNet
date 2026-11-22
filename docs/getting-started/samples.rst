@@ -54,16 +54,16 @@ Simple chat client and server. Shows:
 Intermediate Samples
 --------------------
 
-ReplicaManager3
-~~~~~~~~~~~~~~~
+Replication
+~~~~~~~~~~~
 
-``Samples/ReplicaManager3/``
+``Samples/Replication/``
 
-Object replication system. Shows:
+A server and two clients share a vehicle. The sample demonstrates:
 
 - Automatic object synchronization
-- Serialization/deserialization
-- Object creation and destruction
+- Radius and cell subscriptions
+- Driver handoff and revocation on a room change
 
 FileListTransfer
 ~~~~~~~~~~~~~~~~
