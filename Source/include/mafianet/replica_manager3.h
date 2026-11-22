@@ -32,6 +32,7 @@
 #include "mafianet/simple_mutex.h"
 #include "mafianet/virtual_world.h"
 
+#include <atomic>
 #include <deque>
 #include <mutex>
 #include <map>
@@ -97,7 +98,6 @@ struct PRO
 class RAK_DLL_EXPORT ReplicaManager3
 {
 public:
-	ReplicaManager3();
 	explicit ReplicaManager3(RakPeerInterface &peer);
 	virtual ~ReplicaManager3();
 	RakPeerInterface *GetRakPeerInterface() const { return rakPeerInterface; }
@@ -431,6 +431,7 @@ protected:
 		NetworkIDManager *networkIDManager;
 	};
 
+	bool HoldsConnectionLock() const;
 	virtual void OnFinalDereference(Replica3 &) {}
 
 
@@ -744,6 +745,8 @@ protected:
 	virtual void TransmitState(Replica3 &object, BitStream &out, PRO pro, RakPeerInterface &peer);
 	uint64_t nextVisit = 0, nextState = 0;
 	std::map<NetworkID, uint64_t> outgoingVisits;
+	// Existing-object arrivals for this construction pass; true requests a baseline.
+	std::map<NetworkID, bool> existingArrivals;
 	struct Removal
 	{
 		NetworkID id;
@@ -1140,8 +1143,9 @@ public:
 	/// Defaults to false: Serialize() is called per connection, as the pass reaches each.
 	virtual bool BroadcastsIdentically(void) const { return false; }
 
-	/// \brief Called when the class is actually transmitted via Serialize()
-	/// \details Use to track how much bandwidth this class it taking
+	/// Number of local serialization attempts exceeding the per-channel wire limit.
+	uint64_t GetRejectedStateCount() const { return rejectedStateCount.load(std::memory_order_relaxed); }
+	/// Called when the class is transmitted via Serialize(), with the per-channel bit counts.
 	virtual void OnSerializeTransmission(MafiaNet::BitStream *bitStream, MafiaNet::Connection_RM3 *destinationConnection, BitSize_t bitsPerChannel[RM3_NUM_OUTPUT_BITSTREAM_CHANNELS], MafiaNet::Time curTime)
 	{
 		(void) bitStream;
@@ -1278,6 +1282,8 @@ public:
 	friend class ReplicationManager;
 	uint32_t registeredType = 0;
 	bool replaceableSnapshot = false;
+	bool CheckStateSize(const SerializeParameters &parameters);
+	std::atomic<uint64_t> rejectedStateCount{0};
 	bool staticBinding = false;
 	RakNetGUID creatingSystemGUID;
 	/// GUID of the system that caused the item to send a deletion command over the network

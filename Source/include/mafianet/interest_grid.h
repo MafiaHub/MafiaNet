@@ -52,6 +52,7 @@ public:
 	void SetObserverDimension(PeerGuid guid, VirtualWorldId dimension);
 	void SetObserverWorld(PeerGuid guid, uint8_t world, VirtualWorldId dimension);
 	void SetObserverLimits(PeerGuid guid, unsigned visibleLimit, unsigned constructionBudget);
+	/// A read-only predicate. Mutating or reevaluating this grid inside it throws std::logic_error.
 	void SetAudience(std::function<bool(PeerGuid, NetworkID)> eligible);
 	void InvalidateObserver(PeerGuid guid);
 	void RemoveObserver(PeerGuid guid);

@@ -201,7 +201,7 @@ private:
 struct ConstructionTraffic : CountingPeer
 {
 	using CountingPeer::Send;
-	uint32_t Send(const BitStream *data, Priority, Reliability, char, const AddressOrGUID, bool, uint32_t) override
+	uint32_t Send(const BitStream *data, Priority, Reliability, char, const AddressOrGUID destination, bool, uint32_t) override
 	{
 		const auto size = data->GetNumberOfBytesUsed();
 		if (size >= 3 && data->GetData()[0] == ID_REPLICATION)
@@ -215,6 +215,8 @@ struct ConstructionTraffic : CountingPeer
 			else if (kind == ReplicationWire::Kind::State)
 			{
 				++regularMessages;
+				if (destination.rakNetGuid == RakNetGUID(100))
+					++originalObserverUpdates;
 				regularBytes += size;
 			}
 			else
@@ -225,7 +227,7 @@ struct ConstructionTraffic : CountingPeer
 	}
 
 	uint64_t controlBytes = 0, constructionBytes = 0, regularBytes = 0;
-	unsigned records = 0, regularMessages = 0;
+	unsigned records = 0, regularMessages = 0, originalObserverUpdates = 0;
 };
 
 // Exercise the application dirty flag outside the sample. A mutation during a
@@ -240,7 +242,7 @@ bool SnapshotUpdatesReachExistingObservers()
 	world.replicas.front().SetValue(7);
 	world.manager.PushConnection(new Connection(RakNetGUID(101)));
 	world.Tick();
-	if (traffic.records != 2 || traffic.regularMessages != 2)
+	if (traffic.records != 2 || traffic.regularMessages != 2 || traffic.originalObserverUpdates != 1)
 		return false;
 	world.Tick();
 	return traffic.regularMessages == 2;

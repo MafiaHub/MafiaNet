@@ -176,7 +176,6 @@ For more advanced object replication, consider using :doc:`../guide/replication`
 - Automatic object creation/destruction across network
 - Serialization management
 - Scoping (which clients see which objects)
-- Reference pointer serialization
 
 See Also
 --------

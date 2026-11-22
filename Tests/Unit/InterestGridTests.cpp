@@ -4,6 +4,7 @@
 #include <limits>
 #include <map>
 #include <set>
+#include <stdexcept>
 using namespace MafiaNet;
 
 TEST(InterestGrid, RadiusHysteresisAndExplicitCellsUseIndependentObservers)
@@ -99,7 +100,7 @@ TEST(InterestGrid, SeededMovesAndRemovalMatchDistanceOracle)
 		for (const auto &entry : objects)
 		{
 			const auto dx = observer.x - entry.second.x, dy = observer.y - entry.second.y;
-			const float radius = previous.count(entry.first) ? 14 : 12;
+			const float radius = previous.count(entry.first) ? 14.0f : 12.0f;
 			if (dx * dx + dy * dy <= radius * radius)
 				expected.insert(entry.first);
 		}
@@ -125,4 +126,37 @@ TEST(InterestGrid, ReconfigurationReindexesLivePositionsAndPreservesExplicitCell
 	EXPECT_FALSE(grid.Configure({{0, 0}, {10, 10}, 20}));
 	grid.GetVisible(guid, visible);
 	EXPECT_EQ(visible, std::vector<NetworkID>{2});
+}
+
+TEST(InterestGrid, ReusedIdMustMeetTheEnterRadius)
+{
+	InterestGrid grid;
+	const PeerGuid camera{1};
+	ASSERT_TRUE(grid.Configure({{0, 0}, {64, 64}, 16}));
+	ASSERT_TRUE(grid.SetObserverRadius(camera, {0, 0}, 10, 15));
+	ASSERT_TRUE(grid.Track(7, {{9, 0}}));
+	std::vector<NetworkID> visible;
+	grid.GetVisible(camera, visible);
+	ASSERT_EQ(visible, std::vector<NetworkID>{7});
+	grid.Remove(7);
+	ASSERT_TRUE(grid.Track(7, {{14, 0}}));
+	grid.GetVisible(camera, visible);
+	EXPECT_TRUE(visible.empty());
+}
+
+TEST(InterestGrid, RejectsMutationInsideAudienceBeforeChangingMembership)
+{
+	InterestGrid grid;
+	const PeerGuid camera{1};
+	ASSERT_TRUE(grid.Configure({{0, 0}, {64, 64}, 16}));
+	ASSERT_TRUE(grid.SetObserverCells(camera, {{0, 0}}));
+	ASSERT_TRUE(grid.Track(7, {{9, 0}}));
+	grid.SetAudience([&](PeerGuid, NetworkID id)
+	                 {grid.Remove(id);return true; });
+	std::vector<NetworkID> visible;
+	EXPECT_THROW(grid.GetVisible(camera, visible), std::logic_error);
+	EXPECT_TRUE(grid.Contains(7));
+	grid.SetAudience({});
+	grid.GetVisible(camera, visible);
+	EXPECT_EQ(visible, std::vector<NetworkID>{7});
 }

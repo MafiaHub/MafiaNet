@@ -8,6 +8,7 @@
 #include <gtest/gtest.h>
 
 #include "mafianet/replica_manager3.h"
+#include "mafianet/peer_handle.h"
 
 using namespace MafiaNet;
 
@@ -23,6 +24,7 @@ public:
 class WorldTestManager : public ReplicaManager3
 {
 public:
+	using ReplicaManager3::ReplicaManager3;
 	Connection_RM3 *AllocConnection(const SystemAddress &sa, RakNetGUID g) const { return new WorldTestConnection(sa, g); }
 	void DeallocConnection(Connection_RM3 *connection) const { delete connection; }
 };
@@ -30,7 +32,8 @@ public:
 
 TEST(ReplicaManager3Worlds, DefaultWorldIsCounted)
 {
-	WorldTestManager manager;
+	Peer peer;
+	WorldTestManager manager{*peer.get()};
 	ASSERT_EQ(manager.GetWorldCount(), 1u);
 	EXPECT_EQ(manager.GetWorldIdAtIndex(0), static_cast<WorldId>(0));
 }
@@ -38,7 +41,8 @@ TEST(ReplicaManager3Worlds, DefaultWorldIsCounted)
 // WorldId is a byte; every value it can take, 255 included, has a slot in the world table.
 TEST(ReplicaManager3Worlds, HighestWorldIdIsUsable)
 {
-	WorldTestManager manager;
+	Peer peer;
+	WorldTestManager manager{*peer.get()};
 	manager.AddWorld(255);
 	ASSERT_EQ(manager.GetWorldCount(), 2u) << "World 0 plus world 255";
 	EXPECT_EQ(manager.GetWorldIdAtIndex(1), static_cast<WorldId>(255));

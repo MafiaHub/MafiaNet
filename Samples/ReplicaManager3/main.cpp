@@ -422,7 +422,7 @@ int main(void)
 	// The system that performs most of our functionality for this demo
 
 	printf("Demonstration of ReplicaManager3.\n");
-	printf("1. Demonstrates creating objects created by the server and client.\n");
+	printf("1. Servers and peers create objects and stream them to other participants.\n");
 	printf("2. Demonstrates automatic serialization data members\n");
 	printf("Difficulty: Intermediate\n\n");
 
@@ -472,7 +472,9 @@ int main(void)
 		printf("Connecting...\n");
 	}
 
-	printf("Commands:\n(Q)uit\n'C'reate objects\n'R'andomly change variables in my objects\n'D'estroy my objects\n");
+	printf("Commands:\n(Q)uit\n");
+	if (topology != CLIENT)
+		printf("'C'reate objects\n'R'andomly change variables in my objects\n'D'estroy my objects\n");
 
 	// Enter infinite loop to run the system
 	MafiaNet::Packet *packet;
@@ -539,7 +541,7 @@ int main(void)
 				printf("Quitting.\n");
 				quit = true;
 			}
-			if (ch == 'c' || ch == 'C')
+			if ((ch == 'c' || ch == 'C') && topology != CLIENT)
 			{
 				printf("Objects created.\n");
 				if (topology == SERVER)

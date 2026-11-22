@@ -497,7 +497,7 @@ Constants
    * - Constant
      - Value
    * - Protocol version
-     - 10
+     - 12
    * - Crypt info size
      - 41 bytes (1 mode + 32 public key + 8 nonce)
    * - Key size, shared secret size

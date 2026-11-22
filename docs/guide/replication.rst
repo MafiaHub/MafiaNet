@@ -41,7 +41,11 @@ release callback owns cleanup on a failed decode, scope exit, destruction,
 disconnect and shutdown. Store a network ID across ticks and resolve it when
 needed. A new visit to the same cell can allocate a different local copy.
 For objects already present in both levels, use ``ReferenceStatic(&room, id)``
-and implement the construction-existing callbacks on the object.
+on the receiver. The sender may also use an ordinary reference whose construction
+query returns ``RM3CS_ALREADY_EXISTS_REMOTELY``. Implement the existing-object
+callbacks for a binding baseline, or return
+``RM3CS_ALREADY_EXISTS_REMOTELY_DO_NOT_CONSTRUCT`` to start streaming state
+to the pre-existing object without a baseline.
 
 Spatial streaming
 -----------------
@@ -134,7 +138,12 @@ Delivery and scheduling
 -----------------------
 
 Construction, removal, grants and default snapshots use reliable ordered
-delivery. Each visit starts with a current baseline. State messages identify
+delivery. Lifecycle records use ordering channel 0. A custom serializer can
+set ``SerializeParameters::pro[channel].orderingChannel`` for state.
+A state channel accepts up to 1 MiB. A larger write increments
+``Replica3::GetRejectedStateCount()`` and leaves the previous send cache
+intact. Correct the payload and mark the object again when using explicit tracking.
+Each dynamic visit starts with a current baseline. State messages identify
 the visit and carry a sequence, tracked separately per channel. Full snapshots
 decode into a temporary before replacing the previous state.
 
@@ -155,9 +164,14 @@ login checks. Check ``GetPeerStatus(guid)`` for activation or schema rejection.
 Use ``SetTickMode(ReplicationTickMode::Manual)`` and call ``Tick()`` after
 simulation when the game owns the update schedule. Keep draining ``Receive()``
 for connections, inputs and inbound state. For multi-threaded games, guard
-shared game state and grid edits with ``ReplicationManager::WorldGuard`` on the
-simulation thread. Incoming state callbacks run on the receiving thread under
-the source connection's lock. Queue world mutations from those callbacks.
+replica membership and grid edits with ``ReplicationManager::WorldGuard``.
+Incoming state callbacks run on the receiving thread under the source
+connection's lock and can overlap the simulation thread. Read and apply
+``SnapshotReplica::state`` on one thread, or use a custom serializer that
+hands decoded state to the simulation through a synchronized queue. Queue
+world mutations from state callbacks. Grid audience predicates are read-only.
+An attempt to mutate or reevaluate the same grid from its predicate throws
+``std::logic_error``.
 
 Moving an RM3 game to the built-in service
 ------------------------------------------

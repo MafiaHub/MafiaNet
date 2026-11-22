@@ -301,12 +301,7 @@ private:
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 ReplicaManager3::ReplicaManager3(RakPeerInterface &peer)
-    : ReplicaManager3()
-{
-	rakPeerInterface = &peer;
-}
-
-ReplicaManager3::ReplicaManager3()
+    : rakPeerInterface(&peer)
 {
 	defaultSendParameters.orderingChannel = 0;
 	defaultSendParameters.priority = MafiaNet::Priority::High;
@@ -1058,6 +1053,7 @@ void Connection_RM3::AutoConstructByQuery(ReplicaManager3 *replicaManager3, Worl
 	LastSerializationResult *lsr;
 	index = 0;
 
+	existingArrivals.clear();
 	constructedReplicasCulled.clear();
 	destroyedReplicasCulled.clear();
 
@@ -1070,8 +1066,8 @@ void Connection_RM3::AutoConstructByQuery(ReplicaManager3 *replicaManager3, Worl
 			if (constructionState == RM3CS_ALREADY_EXISTS_REMOTELY || constructionState == RM3CS_ALREADY_EXISTS_REMOTELY_DO_NOT_CONSTRUCT)
 			{
 				OnReplicaAlreadyExists(index, replicaManager3);
-				if (constructionState == RM3CS_ALREADY_EXISTS_REMOTELY)
-					constructedReplicasCulled.push_back(lsr->replica);
+				existingArrivals.emplace(lsr->replica->GetNetworkID(), constructionState == RM3CS_ALREADY_EXISTS_REMOTELY);
+				constructedReplicasCulled.push_back(lsr->replica);
 			}
 			else if (constructionState == RM3CS_SEND_CONSTRUCTION)
 			{
@@ -1154,6 +1150,10 @@ void Connection_RM3::AutoConstructByQuery(ReplicaManager3 *replicaManager3, Worl
 
 	SendConstruction(constructedReplicasCulled, destroyedReplicasCulled, replicaManager3->defaultSendParameters, replicaManager3->rakPeerInterface, worldId, replicaManager3);
 }
+bool ReplicaManager3::HoldsConnectionLock() const
+{
+	return connectionLocksHeld > 0 && connectionLocksOwner == this;
+}
 void ReplicaManager3::Update(void)
 {
 	unsigned int index, index3;
@@ -1167,7 +1167,7 @@ void ReplicaManager3::Update(void)
 	// this pass's state. The pass already under way covers it.
 	// So would one made while this thread handles a connection's message. Another thread's Update(), or the
 	// receive thread changing the world, is waited for instead.
-	if (connectionLocksHeld > 0 && connectionLocksOwner == this)
+	if (HoldsConnectionLock())
 		return;
 	std::lock_guard<std::recursive_mutex> worldLock(worldMutex);
 	if (inUpdate)
@@ -1578,6 +1578,16 @@ void ReplicaManager3::ServePreparedBroadcasts(void *context, unsigned int index)
 	ServeSerializeList(connection, connection->queryToSerializeReplicaList, sp, pass.rakPeer, pass.worldId, pass.replicaManager, pass.time, pass.pass, ServeShare::Workers);
 }
 
+bool Replica3::CheckStateSize(const SerializeParameters &parameters)
+{
+	for (const auto &channel : parameters.outputBitstream)
+		if (channel.GetNumberOfBitsUsed() > ReplicationWire::MaxPayloadBits)
+		{
+			rejectedStateCount.fetch_add(1, std::memory_order_relaxed);
+			return false;
+		}
+	return true;
+}
 void ReplicaManager3::PrepareBroadcast(Replica3 *replica, MafiaNet::Time time)
 {
 	replica->preparedPass = serializePass;
@@ -1596,7 +1606,7 @@ void ReplicaManager3::PrepareBroadcast(Replica3 *replica, MafiaNet::Time time)
 	}
 
 	const RM3SerializationResult result = replica->Serialize(&sp);
-	if (result == RM3SR_DO_NOT_SERIALIZE)
+	if (result == RM3SR_DO_NOT_SERIALIZE || !replica->CheckStateSize(sp))
 	{
 		replica->prepared = Replica3::PB_NOTHING_TO_SEND;
 		return;
@@ -1721,7 +1731,7 @@ bool Connection_RM3::HasReplicaConstructed(MafiaNet::Replica3 *replica)
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void Connection_RM3::TransmitState(Replica3 &, BitStream &out, PRO pro, RakPeerInterface &peer)
 {
-	peer.Send(&out, pro.priority, pro.reliability, pro.orderingChannel, systemAddress, false, pro.sendReceipt);
+	peer.Send(&out, pro.priority, pro.reliability, pro.orderingChannel, guid, false, pro.sendReceipt);
 }
 void Connection_RM3::SendSerializeHeader(MafiaNet::Replica3 *replica, MafiaNet::Time timestamp, MafiaNet::BitStream *bs)
 {
@@ -1876,7 +1886,7 @@ SendSerializeIfChangedResult Connection_RM3::SendSerializeIfChanged(LastSerializ
 		return SSICR_NEVER_SERIALIZE;
 	}
 
-	if (serializationResult == RM3SR_DO_NOT_SERIALIZE)
+	if (serializationResult == RM3SR_DO_NOT_SERIALIZE || !replica->CheckStateSize(*sp))
 	{
 		// Don't serialize this tick only
 		return SSICR_DID_NOT_SEND_DATA;
@@ -2364,13 +2374,20 @@ void Connection_RM3::SendConstruction(std::vector<Replica3 *> &enter, std::vecto
 		if (!replica || !HasReplicaConstructed(replica))
 			continue;
 		BitStream out, snapshot;
-		ReplicationWire::WriteHeader(out, replica->staticBinding ? ReplicationWire::Kind::Bind : ReplicationWire::Kind::Spawn, clientToken, serverToken);
+		const auto existing = existingArrivals.find(id);
+		const bool bind = replica->staticBinding || existing != existingArrivals.end();
+		ReplicationWire::WriteHeader(out, bind ? ReplicationWire::Kind::Bind : ReplicationWire::Kind::Spawn, clientToken, serverToken);
 		out.Write(replica->GetNetworkID());
 		outgoingVisits[replica->GetNetworkID()] = ++nextVisit;
 		out.Write(nextVisit);
 		out.Write(replica->registeredType);
-		if (replica->staticBinding)
-			replica->SerializeConstructionExisting(&snapshot, this);
+		if (bind)
+		{
+			const bool baseline = existing == existingArrivals.end() || existing->second;
+			out.Write(baseline);
+			if (baseline)
+				replica->SerializeConstructionExisting(&snapshot, this);
+		}
 		else
 			replica->SerializeConstruction(&snapshot, this);
 		if (static_cast<Replica3 *>(ids->GET_BASE_OBJECT_FROM_ID(id)) != replica || !HasReplicaConstructed(replica))

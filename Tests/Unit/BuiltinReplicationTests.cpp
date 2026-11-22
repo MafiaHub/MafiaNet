@@ -132,7 +132,15 @@ TEST(BuiltinReplication, StaticBindingsUpdateExistingObjects)
 		auto &service = peer->GetReplication();
 		ASSERT_TRUE(service.SetRole(ReplicationRole::Peer));
 		ASSERT_TRUE(service.RegisterReplica<Room>(doorType, 1));
-		ASSERT_TRUE(service.ReferenceStatic(peer == one ? &source : &sink, 0));
+		if (peer == one)
+		{
+			source.SetNetworkID(0);
+			ASSERT_TRUE(service.Reference(&source));
+		}
+		else
+		{
+			ASSERT_TRUE(service.ReferenceStatic(&sink, 0));
+		}
 	}
 	two->GetReplication().SetReplicaCallback([&](const ReplicaEvent &e)
 	                                         { events.push_back(e.kind); });
@@ -269,12 +277,29 @@ public:
 	using RakPeer::Send;
 	std::set<ReplicationWire::Kind> refuseOnce;
 	bool refuseState = false;
+	bool delayGrant = false, otherVersion = false;
+	BitStream delayedGrant;
 	uint32_t Send(const BitStream *data, Priority priority, Reliability reliability, char channel, const AddressOrGUID destination, bool broadcast, uint32_t receipt) override
 	{
 		BitStream input(data->GetData(), data->GetNumberOfBytesUsed(), false);
 		ReplicationWire::Header header;
-		if (ReplicationWire::ReadHeader(input, header) && (refuseOnce.erase(header.kind) || (refuseState && header.kind == ReplicationWire::Kind::State)))
-			return 0;
+		if (ReplicationWire::ReadHeader(input, header))
+		{
+			if (refuseOnce.erase(header.kind) || (refuseState && header.kind == ReplicationWire::Kind::State))
+				return 0;
+			if (delayGrant && header.kind == ReplicationWire::Kind::Grant)
+			{
+				delayedGrant.WriteBits(data->GetData(), data->GetNumberOfBitsUsed(), false);
+				return 1;
+			}
+			if (otherVersion && (header.kind == ReplicationWire::Kind::Hello || header.kind == ReplicationWire::Kind::Reject))
+			{
+				BitStream translated(data->GetData(), data->GetNumberOfBytesUsed(), true);
+				translated.SetWriteOffset(data->GetNumberOfBitsUsed());
+				translated.GetData()[1] = ReplicationWire::Version + 1;
+				return RakPeer::Send(&translated, priority, reliability, channel, destination, broadcast, receipt);
+			}
+		}
 		return RakPeer::Send(data, priority, reliability, channel, destination, broadcast, receipt);
 	}
 };
@@ -498,17 +523,23 @@ TEST(BuiltinReplication, ShutdownInsideTickReleasesBorrowedObjectsAndAllowsResta
 	EXPECT_FALSE(door.WasReferenced());
 	EXPECT_EQ(service.GetConnectionCount(), 0u);
 	EXPECT_FALSE(after);
+	service.SetTickCallbacks({}, {});
+	SocketDescriptor socket(0, "10.0.0.1");
+	ASSERT_EQ(server->Startup(1, &socket, 1), RAKNET_STARTED);
+	ASSERT_TRUE(service.Reference(&door));
+	service.Tick();
+	EXPECT_TRUE(door.WasReferenced());
 }
 
 TEST(BuiltinReplication, AdmissionAndRemotePoolOwnThePeerCreatedCopy)
 {
+	unsigned allocated = 0, released = 0;
 	SimulatedNetwork net(104);
 	auto *publisher = net.AddPeer(1, 1), *subscriber = net.AddPeer(1);
 	auto &source = publisher->GetReplication(), &sink = subscriber->GetReplication();
 	source.SetRole(ReplicationRole::Peer);
 	sink.SetRole(ReplicationRole::Peer);
 	source.SetAutomaticAdmission(false);
-	unsigned allocated = 0, released = 0;
 	ASSERT_TRUE(source.RegisterReplica<Door>(doorType, 1));
 	ASSERT_TRUE(sink.RegisterReplica<Door>(doorType, 1, [&]
 	                                       {++allocated;return new Door; }, [&](Door *door)
@@ -675,10 +706,14 @@ TEST(BuiltinReplication, LifecycleEventsDescribeCommittedStateAcrossReentryTrans
 		{
 			EXPECT_NE(remote.FindReplica(id), nullptr);
 			if (releaseOnEnter)
+			{
 				EXPECT_TRUE(remote.ReleaseRemote(id));
+			}
 		}
 		else if (event.kind == E::Released || event.kind == E::LeftScope)
-			EXPECT_EQ(remote.FindReplica(id), nullptr); });
+		{
+			EXPECT_EQ(remote.FindReplica(id), nullptr);
+		} });
 	ASSERT_TRUE(net.Connect(client, server));
 	ASSERT_TRUE(net.RunUntil([&]
 	                         { return !seen.empty(); }, 5000));
@@ -797,4 +832,161 @@ TEST(BuiltinReplication, BlockedConnectionResumesWithLatestExplicitState)
 	host.Tick();
 	ASSERT_TRUE(net.RunUntil([&]
 	                         { return copy()->state.open; }, 5000));
+}
+
+TEST(BuiltinReplication, AGrantOvertakenByANewerSnapshotPreservesTheNewState)
+{
+	SimulatedNetwork net;
+	auto *server = static_cast<RefusingPeer *>(net.AddCustomPeer(std::make_unique<RefusingPeer>(), 1, 1));
+	auto *client = net.AddPeer(1);
+	auto &host = server->GetReplication(), &view = client->GetReplication();
+	host.SetRole(ReplicationRole::Server);
+	view.SetRole(ReplicationRole::Client);
+	for (auto *r : {&host, &view})
+	{
+		ASSERT_TRUE(r->RegisterReplica<ControlledDoor>(doorType, 1));
+		ASSERT_TRUE((r->RegisterOwnerUpdate<ControlledDoor, SwitchReport>(1, &ControlledDoor::ApplyReport)));
+		ASSERT_TRUE(r->SetSnapshotPolicy(doorType, ChangeDetection::Explicit, SnapshotDelivery::Replaceable));
+	}
+	host.SetSerializeInterval(0);
+	ControlledDoor door;
+	ASSERT_TRUE(host.Reference(&door));
+	ASSERT_TRUE(net.Connect(client, server));
+	auto copy = [&]
+	{ return static_cast<ControlledDoor *>(view.FindReplica(door.GetNetworkID())); };
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return copy(); }, 5000));
+	server->delayGrant = true;
+	ASSERT_TRUE(host.SetAuthority(door, ToPeerGuid(client->GetMyGUID())));
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return server->delayedGrant.GetNumberOfBitsUsed() != 0; }, 5000));
+	door.state.open = true;
+	ASSERT_TRUE(host.MarkDirty(door));
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return copy()->state.open; }, 5000));
+	server->delayGrant = false;
+	ASSERT_TRUE(server->RakPeer::Send(&server->delayedGrant, Priority::High, Reliability::ReliableOrdered, 0, client->GetMyGUID(), false));
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return view.HasLocalAuthority(*copy()); }, 5000));
+	EXPECT_TRUE(copy()->state.open);
+}
+
+TEST(BuiltinReplication, DifferentEnvelopeVersionReportsMismatchOnBothPeers)
+{
+	SimulatedNetwork net;
+	auto *server = static_cast<RefusingPeer *>(net.AddCustomPeer(std::make_unique<RefusingPeer>(), 1, 1));
+	auto *client = static_cast<RefusingPeer *>(net.AddCustomPeer(std::make_unique<RefusingPeer>(), 1));
+	auto &host = server->GetReplication(), &view = client->GetReplication();
+	host.SetRole(ReplicationRole::Server);
+	view.SetRole(ReplicationRole::Client);
+	server->otherVersion = client->otherVersion = true;
+	ASSERT_TRUE(net.Connect(client, server));
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return view.GetPeerStatus(ToPeerGuid(server->GetMyGUID())) == ReplicationPeerStatus::ProtocolMismatch; }, 5000));
+	EXPECT_EQ(host.GetPeerStatus(ToPeerGuid(client->GetMyGUID())), ReplicationPeerStatus::ProtocolMismatch);
+}
+
+TEST(BuiltinReplication, PreexistingObjectCanSkipItsBaselineAndStillReceiveState)
+{
+	struct Existing : Door
+	{
+		unsigned baselines = 0;
+		RM3ConstructionState QueryConstruction(Connection_RM3 *, ReplicaManager3 *) override { return RM3CS_ALREADY_EXISTS_REMOTELY_DO_NOT_CONSTRUCT; }
+		void DeserializeConstructionExisting(BitStream *, Connection_RM3 *) override { ++baselines; }
+	};
+	SimulatedNetwork net;
+	auto *server = net.AddPeer(1, 1), *client = net.AddPeer(1);
+	auto &host = server->GetReplication(), &view = client->GetReplication();
+	host.SetRole(ReplicationRole::Server);
+	view.SetRole(ReplicationRole::Client);
+	ASSERT_TRUE(host.RegisterReplica<Existing>(doorType, 1));
+	ASSERT_TRUE(view.RegisterReplica<Existing>(doorType, 1));
+	Existing source, sink;
+	ASSERT_TRUE(host.Reference(&source));
+	ASSERT_TRUE(view.ReferenceStatic(&sink, source.GetNetworkID()));
+	ASSERT_TRUE(net.Connect(client, server));
+	source.state.open = true;
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return sink.state.open; }, 5000));
+	EXPECT_EQ(sink.baselines, 0u);
+}
+
+TEST(BuiltinReplication, OversizedStateIsReportedBeforeUpdatingTheSendCache)
+{
+	struct LargeState : Door
+	{
+		bool oversize = false;
+		RM3SerializationResult Serialize(SerializeParameters *params) override
+		{
+			if (oversize)
+			{
+				std::vector<unsigned char> bytes(1024 * 1024 + 1);
+				params->outputBitstream[0].WriteAlignedBytes(bytes.data(), static_cast<unsigned>(bytes.size()));
+				return RM3SR_BROADCAST_IDENTICALLY;
+			}
+			return Door::Serialize(params);
+		}
+	};
+	SimulatedNetwork net;
+	auto *server = net.AddPeer(1, 1), *client = net.AddPeer(1);
+	auto &host = server->GetReplication(), &view = client->GetReplication();
+	host.SetRole(ReplicationRole::Server);
+	view.SetRole(ReplicationRole::Client);
+	ASSERT_TRUE(host.RegisterReplica<LargeState>(doorType, 1));
+	ASSERT_TRUE(view.RegisterReplica<LargeState>(doorType, 1));
+	LargeState source;
+	ASSERT_TRUE(host.Reference(&source));
+	ASSERT_TRUE(net.Connect(client, server));
+	auto copy = [&]
+	{ return static_cast<Door *>(view.FindReplica(source.GetNetworkID())); };
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return copy(); }, 5000));
+	source.state.open = source.oversize = true;
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return source.GetRejectedStateCount() > 0; }, 5000));
+	EXPECT_FALSE(copy()->state.open);
+	source.oversize = false;
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return copy()->state.open; }, 5000));
+}
+
+TEST(BuiltinReplication, StateCallbackCannotStartANestedWorldTick)
+{
+	struct TickDoor : Door
+	{
+		std::function<void()> attempt;
+		void Deserialize(DeserializeParameters *state) override
+		{
+			Door::Deserialize(state);
+			if (attempt)
+				attempt();
+		}
+	};
+	unsigned callbacks = 0, ticks = 0;
+	SimulatedNetwork net;
+	auto *server = net.AddPeer(1, 1), *client = net.AddPeer(1);
+	auto &host = server->GetReplication(), &view = client->GetReplication();
+	host.SetRole(ReplicationRole::Server);
+	view.SetRole(ReplicationRole::Client);
+	view.SetTickMode(ReplicationTickMode::Manual);
+	view.SetTickCallbacks([&]
+	                      { ++ticks; }, {});
+	ASSERT_TRUE(host.RegisterReplica<TickDoor>(doorType, 1));
+	ASSERT_TRUE(view.RegisterReplica<TickDoor>(doorType, 1, [&]
+	                                           {
+		auto *door=new TickDoor;
+		door->attempt=[&]{++callbacks;view.Tick();};
+		return door; }, [](TickDoor *door)
+	                                           { delete door; }));
+	TickDoor door;
+	ASSERT_TRUE(host.Reference(&door));
+	ASSERT_TRUE(net.Connect(client, server));
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return view.FindReplica(door.GetNetworkID()); }, 5000));
+	door.state.open = true;
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return callbacks > 0; }, 5000));
+	EXPECT_EQ(ticks, 0u);
+	view.Tick();
+	EXPECT_EQ(ticks, 1u);
 }

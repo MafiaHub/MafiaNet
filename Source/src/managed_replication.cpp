@@ -87,8 +87,10 @@ public:
 			if (!object || object->creatingSystemGUID != runtime.GetRakPeerInterface()->GetMyGUID() || HasReplicaConstructed(object))
 				continue;
 			const auto construction = object->QueryConstruction(this, &runtime);
-			if (construction == RM3CS_SEND_CONSTRUCTION || construction == RM3CS_ALREADY_EXISTS_REMOTELY)
+			if (construction == RM3CS_SEND_CONSTRUCTION || construction == RM3CS_ALREADY_EXISTS_REMOTELY || construction == RM3CS_ALREADY_EXISTS_REMOTELY_DO_NOT_CONSTRUCT)
 			{
+				if (construction != RM3CS_SEND_CONSTRUCTION)
+					existingArrivals.emplace(id, construction == RM3CS_ALREADY_EXISTS_REMOTELY);
 				pending.try_emplace(id, tick);
 				enter.push_back(object);
 			}
@@ -492,6 +494,8 @@ bool ManagedReplication::Release(NetworkID id, ReplicaEventKind reason)
 }
 void ManagedReplication::Tick()
 {
+	if (HoldsConnectionLock())
+		return;
 	WorldGuard lock(*this);
 	if (ticking)
 		return;
@@ -674,7 +678,8 @@ void ManagedReplication::Receive(Packet &packet)
 			Handshake(guid, session, Kind::Accept);
 		return;
 	}
-	if (version != Version || clientToken != session.clientToken || !session.admitted)
+	const bool waitingForReject = !server && session.status == ReplicationPeerStatus::Waiting && kind == Kind::Reject && !serverToken;
+	if ((version != Version && !waitingForReject) || clientToken != session.clientToken || !session.admitted)
 		return;
 	if (!server && session.status == ReplicationPeerStatus::Waiting)
 	{
@@ -692,7 +697,7 @@ void ManagedReplication::Receive(Packet &packet)
 		{
 			uint8_t reason;
 			if (in.Read(reason) && !in.GetNumberOfUnreadBits() &&
-			    (reason == static_cast<uint8_t>(ReplicationPeerStatus::SchemaMismatch) || reason == static_cast<uint8_t>(ReplicationPeerStatus::ProtocolMismatch)))
+			    ((version == Version && reason == static_cast<uint8_t>(ReplicationPeerStatus::SchemaMismatch)) || reason == static_cast<uint8_t>(ReplicationPeerStatus::ProtocolMismatch)))
 				session.status = static_cast<ReplicationPeerStatus>(reason);
 		}
 		return;
@@ -866,7 +871,13 @@ void ManagedReplication::OwnerPacket(Connection &connection, Kind kind, BitStrea
 	if (!in.Read(watermark) || !ReadBlock(in, snapshot) || in.GetNumberOfUnreadBits() || !reports.count(static_cast<ReplicaTypeId>(object->registeredType)))
 		return;
 	const auto before = generation;
-	if (object->DeserializeConstruction(&snapshot, &connection) && generation == before && owner.FindReplica(id) == object)
+	const auto currentVisit = connection.incoming.find(id);
+	if (currentVisit == connection.incoming.end())
+		return;
+	// A complete snapshot on the unreliable channel can overtake this reliable grant.
+	const bool newerSnapshot = types.at(static_cast<ReplicaTypeId>(object->registeredType)).delivery == SnapshotDelivery::Replaceable &&
+	                           currentVisit->second.lastState[0] > watermark;
+	if ((newerSnapshot || object->DeserializeConstruction(&snapshot, &connection)) && generation == before && owner.FindReplica(id) == object)
 	{
 		auto visit = connection.incoming.find(id);
 		if (visit == connection.incoming.end())
@@ -900,7 +911,8 @@ void ManagedReplication::Apply(Connection &connection, Kind kind, BitStream &in)
 	{
 		ReplicaTypeId type;
 		BitStream snapshot;
-		if (!in.Read(type) || !ReadBlock(in, snapshot) || in.GetNumberOfUnreadBits())
+		bool baseline = true;
+		if (!in.Read(type) || (kind == Kind::Bind && !in.Read(baseline)) || !ReadBlock(in, snapshot) || in.GetNumberOfUnreadBits() || (!baseline && snapshot.GetNumberOfBitsUsed()))
 			return;
 		auto entry = types.find(type);
 		if (entry == types.end())
@@ -913,7 +925,8 @@ void ManagedReplication::Apply(Connection &connection, Kind kind, BitStream &in)
 			    before == generation && owner.FindReplica(id) == replica)
 			{
 				connection.incoming.insert_or_assign(id, Connection::Visit{visit, replica->referenceIndex});
-				replica->DeserializeConstructionExisting(&snapshot, &connection);
+				if (baseline)
+					replica->DeserializeConstructionExisting(&snapshot, &connection);
 				if (before == generation && owner.FindReplica(id) == replica && connection.incoming.count(id))
 					Notify(ReplicaEventKind::EnteredScope, id, source);
 			}

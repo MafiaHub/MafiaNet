@@ -7,6 +7,7 @@
 #include <map>
 #include <set>
 #include <tuple>
+#include <stdexcept>
 
 namespace MafiaNet
 {
@@ -41,6 +42,25 @@ public:
 	std::map<int, std::set<PeerGuid>> subscriptions;
 	std::function<bool(PeerGuid, NetworkID)> audience;
 	InterestStatistics stats;
+	mutable bool queryingAudience = false;
+	void CheckWritable() const
+	{
+		if (queryingAudience)
+			throw std::logic_error("InterestGrid audience predicates must not modify or reevaluate the grid");
+	}
+	bool AudienceAllows(PeerGuid guid, NetworkID id) const
+	{
+		if (!audience)
+			return true;
+		CheckWritable();
+		queryingAudience = true;
+		struct Scope
+		{
+			bool &active;
+			~Scope() { active = false; }
+		} scope{queryingAudience};
+		return audience(guid, id);
+	}
 	bool Valid(SpatialPoint p) const
 	{
 		return width && p.x >= config.minimum.x && p.x <= config.maximum.x && p.y >= config.minimum.y && p.y <= config.maximum.y;
@@ -78,13 +98,12 @@ public:
 	}
 	bool Eligible(PeerGuid guid, const Observer &observer, const Record &record) const
 	{
-		return observer.world == record.scope.world && VirtualWorldsCanSee(observer.dimension, record.scope.dimension) && (!audience || audience(guid, record.id));
+		return observer.world == record.scope.world && VirtualWorldsCanSee(observer.dimension, record.scope.dimension) && AudienceAllows(guid, record.id);
 	}
 	void Evaluate(PeerGuid guid, Observer &observer)
 	{
 		if (!observer.dirty)
 			return;
-		observer.dirty = false;
 		++stats.observersRebuilt;
 		std::vector<std::tuple<bool, int64_t, double, NetworkID>> ranked;
 		std::vector<void *> hits;
@@ -127,6 +146,7 @@ public:
 			observer.visible.insert(std::get<3>(item));
 			observer.ordered.push_back(std::get<3>(item));
 		}
+		observer.dirty = false;
 	}
 };
 
@@ -135,6 +155,7 @@ InterestGrid::InterestGrid()
 InterestGrid::~InterestGrid() = default;
 bool InterestGrid::Configure(InterestGridConfig config)
 {
+	impl->CheckWritable();
 	const double w = std::ceil((static_cast<double>(config.maximum.x) - config.minimum.x) / config.cellSize);
 	const double h = std::ceil((static_cast<double>(config.maximum.y) - config.minimum.y) / config.cellSize);
 	if (!(std::isfinite(config.cellSize) && config.cellSize > 0 && w >= 1 && h >= 1 && w * h <= 1048576))
@@ -181,6 +202,7 @@ bool InterestGrid::Configure(InterestGridConfig config)
 }
 bool InterestGrid::Track(NetworkID id, SpatialScope scope)
 {
+	impl->CheckWritable();
 	if (!impl->Valid(scope.position) || id == UNASSIGNED_NETWORK_ID)
 		return false;
 	const int cell = impl->Cell(scope.position);
@@ -193,6 +215,7 @@ bool InterestGrid::Track(NetworkID id, SpatialScope scope)
 }
 bool InterestGrid::SetScope(NetworkID id, SpatialScope scope)
 {
+	impl->CheckWritable();
 	auto it = impl->objects.find(id);
 	if (it == impl->objects.end() || !impl->Valid(scope.position))
 		return false;
@@ -217,9 +240,13 @@ bool InterestGrid::SetPosition(NetworkID id, SpatialPoint p)
 }
 void InterestGrid::Remove(NetworkID id)
 {
+	impl->CheckWritable();
 	auto it = impl->objects.find(id);
 	if (it == impl->objects.end())
 		return;
+	for (auto &[guid, observer] : impl->observers)
+		if (observer.visible.erase(id))
+			observer.dirty = true;
 	Require(id, UNASSIGNED_PEER_GUID);
 	impl->Dirty(it->second.cell);
 	impl->index.RemoveEntry(&it->second);
@@ -231,6 +258,7 @@ bool InterestGrid::Contains(NetworkID id) const
 }
 bool InterestGrid::SetObserverRadius(PeerGuid guid, SpatialPoint p, float enter, float leave)
 {
+	impl->CheckWritable();
 	if (guid == UNASSIGNED_PEER_GUID || !impl->Valid(p) || !(enter >= 0 && leave >= enter && std::isfinite(leave)))
 		return false;
 	auto &o = impl->observers[guid];
@@ -257,6 +285,7 @@ bool InterestGrid::SetObserverPosition(PeerGuid guid, SpatialPoint p)
 }
 bool InterestGrid::SetObserverCells(PeerGuid guid, const std::vector<GridCell> &cells)
 {
+	impl->CheckWritable();
 	if (!impl->width || guid == UNASSIGNED_PEER_GUID)
 		return false;
 	std::set<int> next;
@@ -273,12 +302,14 @@ bool InterestGrid::SetObserverCells(PeerGuid guid, const std::vector<GridCell> &
 }
 void InterestGrid::SetObserverDimension(PeerGuid guid, VirtualWorldId dimension)
 {
+	impl->CheckWritable();
 	auto &observer = impl->observers[guid];
 	observer.dimension = dimension;
 	observer.dirty = true;
 }
 void InterestGrid::SetObserverWorld(PeerGuid guid, uint8_t world, VirtualWorldId dimension)
 {
+	impl->CheckWritable();
 	auto &o = impl->observers[guid];
 	o.world = world;
 	o.dimension = dimension;
@@ -286,6 +317,7 @@ void InterestGrid::SetObserverWorld(PeerGuid guid, uint8_t world, VirtualWorldId
 }
 void InterestGrid::SetObserverLimits(PeerGuid guid, unsigned limit, unsigned budget)
 {
+	impl->CheckWritable();
 	auto &o = impl->observers[guid];
 	o.limit = limit;
 	o.budget = budget;
@@ -293,18 +325,21 @@ void InterestGrid::SetObserverLimits(PeerGuid guid, unsigned limit, unsigned bud
 }
 void InterestGrid::SetAudience(std::function<bool(PeerGuid, NetworkID)> audience)
 {
+	impl->CheckWritable();
 	impl->audience = std::move(audience);
 	for (auto &entry : impl->observers)
 		entry.second.dirty = true;
 }
 void InterestGrid::InvalidateObserver(PeerGuid guid)
 {
+	impl->CheckWritable();
 	auto it = impl->observers.find(guid);
 	if (it != impl->observers.end())
 		it->second.dirty = true;
 }
 void InterestGrid::RemoveObserver(PeerGuid guid)
 {
+	impl->CheckWritable();
 	auto it = impl->observers.find(guid);
 	if (it == impl->observers.end())
 		return;
@@ -315,6 +350,7 @@ void InterestGrid::RemoveObserver(PeerGuid guid)
 }
 void InterestGrid::Clear()
 {
+	impl->CheckWritable();
 	impl->index.Clear();
 	impl->subscriptions.clear();
 	impl->observers.clear();
@@ -323,6 +359,7 @@ void InterestGrid::Clear()
 }
 void InterestGrid::GetVisible(PeerGuid guid, std::vector<NetworkID> &out)
 {
+	impl->CheckWritable();
 	out.clear();
 	auto it = impl->observers.find(guid);
 	if (it == impl->observers.end())
@@ -338,13 +375,14 @@ bool InterestGrid::Eligible(PeerGuid guid, NetworkID id) const
 {
 	auto it = impl->objects.find(id);
 	if (it == impl->objects.end())
-		return !impl->audience || impl->audience(guid, id);
+		return impl->AudienceAllows(guid, id);
 	static const Impl::Observer empty{};
 	auto obs = impl->observers.find(guid);
 	return impl->Eligible(guid, obs == impl->observers.end() ? empty : obs->second, it->second);
 }
 void InterestGrid::Require(NetworkID id, PeerGuid guid)
 {
+	impl->CheckWritable();
 	auto it = impl->objects.find(id);
 	if (it == impl->objects.end())
 		return;
