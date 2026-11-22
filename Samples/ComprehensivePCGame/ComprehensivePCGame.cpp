@@ -30,7 +30,6 @@
 #include "mafianet/bit_stream.h"
 #include "mafianet/socket_layer.h"
 #include "mafianet/replica_manager3.h"
-#include "mafianet/network_id_manager.h"
 #include "mafianet/gets.h"
 #include "mafianet/itoa.h"
 #include "mafianet/nat_punchthrough_client.h"
@@ -80,7 +79,6 @@ ReplicationManager *gameReplicaManager3;
 
 // Purpose: Lookup game objects given ID. Used by ReplicaManager3
 // Required?: Required to use ReplicaManager3, and some form of this is required for almost every game
-NetworkIDManager *networkIDManager;
 
 // Purpose: Connect to RakNet's hosted master server
 // Required?: Steam and consoles provide server solutions, so usually not if you are releasing only on those platforms.
@@ -122,7 +120,7 @@ void PostRoomToMaster(void);
 
 // Game contains the list of objects, and serializes if the game is locked, the name of the game, and if it is in gameplay or in the lobby
 // Game is created on startup, rather than over the network, so is replicated as a static object.
-// See "Static objects" in docs/plugins/replica-manager-3.rst.
+// See "Object replication" in docs/guide/replication.rst.
 class Game : public Replica3
 {
 public:
@@ -781,7 +779,6 @@ int main(void)
 	// ---------------------------------------------------------------------------------------------------------------------
 	rakPeer = MafiaNet::RakPeerInterface::GetInstance();
 	fullyConnectedMesh2 = FullyConnectedMesh2::GetInstance();
-	networkIDManager = NetworkIDManager::GetInstance();
 	tcp = TCPInterface::GetInstance();
 	natPunchthroughClient = NatPunchthroughClient::GetInstance();
 #ifdef NAT_TYPE_DETECTION_SERVER
@@ -812,7 +809,6 @@ int main(void)
 	// New connections do not count until after login.
 	fullyConnectedMesh2->SetAutoparticipateConnections(false);
 
-	// Tell ReplicaManager3 which networkIDManager to use for object lookup, used for automatic serialization
 	// Do not automatically count new connections, but do drop lost connections automatically
 	gameReplicaManager3->SetAutomaticAdmission(false);
 
@@ -1440,7 +1436,6 @@ int main(void)
 	NatPunchthroughClient::DestroyInstance(natPunchthroughClient);
 	NatTypeDetectionClient::DestroyInstance(natTypeDetectionClient);
 	ReadyEvent::DestroyInstance(readyEvent);
-	NetworkIDManager::DestroyInstance(networkIDManager);
 	HTTPConnection2::DestroyInstance(httpConnection2);
 
 	return 1;
