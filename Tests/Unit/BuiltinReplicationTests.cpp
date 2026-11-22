@@ -1172,7 +1172,9 @@ TEST(BuiltinReplication, BatchesAdjacentCompatibleRecordsAndPreservesIndividualS
 		kinds.push_back(header.kind);
 		options.push_back(pro);
 		if (header.kind == Kind::StateBatch)
+		{
 			EXPECT_LE(data.GetNumberOfBytesUsed(), MaxBatchBytes);
+		}
 	};
 	host.Tick();
 	const std::vector<Kind> expected{Kind::StateBatch, Kind::StateBatch, Kind::StateBatch, Kind::State, Kind::State, Kind::State, Kind::State, Kind::State, Kind::State, Kind::State};
