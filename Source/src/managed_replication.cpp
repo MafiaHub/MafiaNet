@@ -113,6 +113,14 @@ public:
 	}
 
 	ReplicationStatistics stats;
+	void ConstructionFailed(NetworkID id) override
+	{
+		if (auto *replica = runtime.owner.FindReplica(id))
+			OnDereference(replica, &runtime);
+		Forget(id);
+		--stats.constructed;
+		++stats.deferred;
+	}
 	void RecordScopeMessage(unsigned int bytes, bool entering, bool destroyed) override
 	{
 		stats.lifecycleBytes += bytes;

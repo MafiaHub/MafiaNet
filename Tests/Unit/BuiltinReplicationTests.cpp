@@ -487,3 +487,41 @@ TEST(BuiltinReplication, GrantedBaselinePrecedesTheOrdinaryConstructionBacklog)
 	ASSERT_TRUE(net.RunUntil([&]
 	                         { return !copy(); }, 5000));
 }
+
+TEST(BuiltinReplication, OversizedConstructionRetriesWithTheCurrentSnapshot)
+{
+	struct LargeDoor : Door
+	{
+		bool oversize = true;
+		void SerializeConstruction(BitStream *out, Connection_RM3 *connection) override
+		{
+			if (oversize)
+			{
+				const std::vector<unsigned char> data(1024 * 1024 + 1, 0);
+				out->WriteAlignedBytes(data.data(), static_cast<unsigned int>(data.size()));
+			}
+			else
+				Door::SerializeConstruction(out, connection);
+		}
+	};
+	SimulatedNetwork net(117);
+	auto *server = net.AddPeer(1, 1), *client = net.AddPeer(1);
+	auto &host = server->GetReplication(), &view = client->GetReplication();
+	host.SetRole(ReplicationRole::Server);
+	view.SetRole(ReplicationRole::Client);
+	host.SetTickMode(ReplicationTickMode::Manual);
+	ASSERT_TRUE(host.RegisterReplica<LargeDoor>(doorType, 1));
+	ASSERT_TRUE(view.RegisterReplica<LargeDoor>(doorType, 1));
+	LargeDoor door;
+	ASSERT_TRUE(host.Reference(&door));
+	ASSERT_TRUE(net.Connect(client, server));
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return host.GetConnectionCount() == 1 && view.GetConnectionCount() == 1; }, 5000));
+	host.Tick();
+	door.oversize = false;
+	door.state.open = true;
+	host.Tick();
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return view.FindReplica(door.GetNetworkID()) != nullptr; }, 5000));
+	EXPECT_TRUE(static_cast<LargeDoor *>(view.FindReplica(door.GetNetworkID()))->state.open);
+}

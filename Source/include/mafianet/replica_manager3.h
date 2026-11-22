@@ -739,6 +739,7 @@ public:
 
 protected:
 	uint64_t clientToken = 0, serverToken = 0;
+	virtual void ConstructionFailed(NetworkID) {}
 	virtual void RecordScopeMessage(unsigned int, bool, bool) {}
 	virtual void TransmitState(Replica3 &object, BitStream &out, PRO pro, RakPeerInterface &peer);
 	uint64_t nextVisit = 0, nextState = 0;

@@ -2341,10 +2341,20 @@ void Connection_RM3::ValidateLists(ReplicaManager3 *replicaManager) const
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-void Connection_RM3::SendConstruction(std::vector<Replica3 *> &enter, std::vector<Replica3 *> &leave, PRO, RakPeerInterface *peer, unsigned char world, ReplicaManager3 *)
+void Connection_RM3::SendConstruction(std::vector<Replica3 *> &enter, std::vector<Replica3 *> &leave, PRO, RakPeerInterface *peer, unsigned char world, ReplicaManager3 *manager)
 {
+	// Serialization callbacks may dereference other entries in the same batch.
+	std::vector<NetworkID> arrivals, departures;
 	for (auto *replica : enter)
+		arrivals.push_back(replica->GetNetworkID());
+	for (auto *replica : leave)
+		departures.push_back(replica->GetNetworkID());
+	auto *ids = manager->GetNetworkIDManager(world);
+	for (auto id : arrivals)
 	{
+		auto *replica = ids->GET_OBJECT_FROM_ID<Replica3 *>(id);
+		if (!replica || !HasReplicaConstructed(replica))
+			continue;
 		BitStream out, snapshot;
 		ReplicationWire::WriteHeader(out, replica->staticBinding ? ReplicationWire::Kind::Bind : ReplicationWire::Kind::Spawn, clientToken, serverToken, world);
 		out.Write(replica->GetNetworkID());
@@ -2355,11 +2365,16 @@ void Connection_RM3::SendConstruction(std::vector<Replica3 *> &enter, std::vecto
 			replica->SerializeConstructionExisting(&snapshot, this);
 		else
 			replica->SerializeConstruction(&snapshot, this);
+		if (ids->GET_OBJECT_FROM_ID<Replica3 *>(id) != replica || !HasReplicaConstructed(replica))
+			continue;
 		if (ReplicationWire::WriteBlock(out, snapshot) && peer->Send(&out, Priority::High, Reliability::ReliableOrdered, 0, guid, false))
 			RecordScopeMessage(out.GetNumberOfBytesUsed(), true, false);
+		else
+			ConstructionFailed(id);
 	}
-	for (auto *replica : leave)
-		SendRemoval(*replica, false, *peer, world);
+	for (auto id : departures)
+		if (auto *replica = ids->GET_OBJECT_FROM_ID<Replica3 *>(id))
+			SendRemoval(*replica, false, *peer, world);
 }
 void Connection_RM3::SendRemoval(Replica3 &replica, bool destroyed, RakPeerInterface &peer, WorldId world)
 {

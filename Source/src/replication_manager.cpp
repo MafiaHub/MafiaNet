@@ -265,17 +265,22 @@ bool ReplicationManager::ProcessPacket(Packet *packet)
 	}
 	if (!managed || role == ReplicationRole::Unconfigured)
 		return false;
-	WorldGuard guard(*this);
 	switch (packet->data[0])
 	{
 	case ID_CONNECTION_REQUEST_ACCEPTED:
 	case ID_NEW_INCOMING_CONNECTION:
+	{
+		WorldGuard guard(*this);
 		managed->Connected(ToPeerGuid(packet->guid), packet->data[0] == ID_NEW_INCOMING_CONNECTION);
 		break;
+	}
 	case ID_CONNECTION_LOST:
 	case ID_DISCONNECTION_NOTIFICATION:
+	{
+		WorldGuard guard(*this);
 		managed->Disconnected(ToPeerGuid(packet->guid));
 		break;
+	}
 	}
 	return false;
 }
