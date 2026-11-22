@@ -121,6 +121,7 @@ TEST(BuiltinReplication, StaticBindingsUpdateExistingObjects)
 		void DeserializeConstructionExisting(BitStream *in, Connection_RM3 *connection) override { EXPECT_TRUE(DeserializeConstruction(in, connection)); }
 		bool QueryRemoteConstruction(Connection_RM3 *) override { return !publishes; }
 	};
+	std::vector<ReplicaEventKind> events;
 	SimulatedNetwork net(21);
 	auto *one = net.AddPeer(1, 1);
 	auto *two = net.AddPeer(1);
@@ -133,9 +134,16 @@ TEST(BuiltinReplication, StaticBindingsUpdateExistingObjects)
 		ASSERT_TRUE(service.RegisterReplica<Room>(doorType, 1));
 		ASSERT_TRUE(service.ReferenceStatic(peer == one ? &source : &sink, 0));
 	}
+	two->GetReplication().SetReplicaCallback([&](const ReplicaEvent &e)
+	                                         { events.push_back(e.kind); });
 	ASSERT_TRUE(net.Connect(two, one));
 	EXPECT_TRUE(net.RunUntil([&]
 	                         { return sink.state.open; }, 5000));
+	EXPECT_EQ(two->GetReplication().FindReplica(0), &sink);
+	ASSERT_TRUE(one->GetReplication().Destroy(&source));
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return events.size() == 2; }, 5000));
+	EXPECT_EQ(events, (std::vector<ReplicaEventKind>{ReplicaEventKind::EnteredScope, ReplicaEventKind::Destroyed}));
 	EXPECT_EQ(two->GetReplication().FindReplica(0), &sink);
 }
 
@@ -303,6 +311,14 @@ TEST(BuiltinReplication, ControlAndRemovalSurviveLocalEnqueueRefusal)
 	EXPECT_TRUE(remote.SendOwnerUpdate(*copy(), SwitchReport{1}));
 	ASSERT_TRUE(net.RunUntil([&]
 	                         { return door.accepted == 1; }, 5000));
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return copy()->state.open; }, 5000));
+	server->refuseOnce.insert(Kind::State);
+	door.state.open = false;
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return !copy()->state.open; }, 5000));
+	// A correction can be revoked before its replacement grant was published.
+	ASSERT_TRUE(host.CorrectAuthority(door));
 	ASSERT_TRUE(host.RevokeAuthority(door));
 	ASSERT_TRUE(net.RunUntil([&]
 	                         { return !remote.HasLocalAuthority(*copy()); }, 5000));
@@ -624,4 +640,60 @@ TEST(BuiltinReplication, ApplicationFilterSeesNativeEnvelopesBeforeTheService)
 	EXPECT_EQ(server->GetReplication().GetConnectionCount(), 0u);
 	EXPECT_FALSE(net.Received(server, ID_REPLICATION));
 	server->DetachPlugin(&gate);
+}
+
+TEST(BuiltinReplication, LifecycleEventsDescribeCommittedStateAcrossReentryTransferAndRelease)
+{
+	using E = ReplicaEventKind;
+	std::vector<E> seen;
+	SimulatedNetwork net;
+	auto *server = net.AddPeer(1, 1), *client = net.AddPeer(1);
+	auto &host = server->GetReplication(), &remote = client->GetReplication();
+	for (auto *p : {server, client})
+	{
+		auto &r = p->GetReplication();
+		ASSERT_TRUE(r.SetRole(p == server ? ReplicationRole::Server : ReplicationRole::Client));
+		ASSERT_TRUE(r.RegisterReplica<ControlledDoor>(doorType, 1));
+		ASSERT_TRUE((r.RegisterOwnerUpdate<ControlledDoor, SwitchReport>(1, &ControlledDoor::ApplyReport)));
+	}
+	ControlledDoor door;
+	auto &grid = host.GetInterestGrid();
+	const auto guid = ToPeerGuid(client->GetMyGUID());
+	ASSERT_TRUE(grid.Configure({{0, 0}, {20, 10}, 10}));
+	ASSERT_TRUE(grid.SetObserverCells(guid, {{0, 0}}));
+	ASSERT_TRUE(host.Reference(&door, SpatialScope{{2, 2}}));
+	const auto id = door.GetNetworkID();
+	bool releaseOnEnter = false;
+	remote.SetReplicaCallback([&](const ReplicaEvent &event)
+	                          {
+		seen.push_back(event.kind);
+		EXPECT_EQ(event.id, id);
+		EXPECT_EQ(event.source, ToPeerGuid(server->GetMyGUID()));
+		if (event.kind == E::EnteredScope)
+		{
+			EXPECT_NE(remote.FindReplica(id), nullptr);
+			if (releaseOnEnter)
+				EXPECT_TRUE(remote.ReleaseRemote(id));
+		}
+		else if (event.kind == E::Released || event.kind == E::LeftScope)
+			EXPECT_EQ(remote.FindReplica(id), nullptr); });
+	ASSERT_TRUE(net.Connect(client, server));
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return !seen.empty(); }, 5000));
+	ASSERT_TRUE(host.SetAuthority(door, guid));
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return seen.back() == E::AuthorityGranted; }, 5000));
+	ASSERT_TRUE(host.CorrectAuthority(door));
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return seen.back() == E::AuthorityCorrected; }, 5000));
+	ASSERT_TRUE(host.RevokeAuthority(door));
+	ASSERT_TRUE(grid.SetPosition(id, {12, 2}));
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return seen.back() == E::LeftScope; }, 5000));
+	releaseOnEnter = true;
+	ASSERT_TRUE(grid.SetPosition(id, {2, 2}));
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return seen.back() == E::Released; }, 5000));
+	EXPECT_EQ(seen, (std::vector<E>{E::EnteredScope, E::AuthorityGranted, E::AuthorityCorrected, E::AuthorityLost, E::LeftScope, E::EnteredScope, E::Released}));
+	remote.SetReplicaCallback({});
 }

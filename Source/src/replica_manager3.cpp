@@ -1728,7 +1728,8 @@ void Connection_RM3::SendSerializeHeader(MafiaNet::Replica3 *replica, MafiaNet::
 	bs->Reset();
 	ReplicationWire::WriteHeader(*bs, replica->replaceableSnapshot ? ReplicationWire::Kind::Snapshot : ReplicationWire::Kind::State, clientToken, serverToken);
 	bs->Write(replica->GetNetworkID());
-	bs->Write(outgoingVisits[replica->GetNetworkID()]);
+	const auto visit = outgoingVisits.find(replica->GetNetworkID());
+	bs->Write(visit == outgoingVisits.end() ? uint64_t{0} : visit->second);
 	bs->Write(++nextState);
 	bs->Write(timestamp);
 }
@@ -2377,7 +2378,11 @@ void Connection_RM3::SendConstruction(std::vector<Replica3 *> &enter, std::vecto
 		if (ReplicationWire::WriteBlock(out, snapshot) && peer->Send(&out, Priority::High, Reliability::ReliableOrdered, 0, guid, false))
 			RecordScopeMessage(out.GetNumberOfBytesUsed(), true, false);
 		else
+		{
+			// A peer that never queued the baseline has no visit to remove.
+			outgoingVisits.erase(id);
 			ConstructionFailed(id);
+		}
 	}
 	for (auto id : departures)
 		if (auto *replica = static_cast<Replica3 *>(ids->GET_BASE_OBJECT_FROM_ID(id)))

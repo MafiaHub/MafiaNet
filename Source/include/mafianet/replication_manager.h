@@ -47,6 +47,24 @@ enum class ReplicationPeerStatus
 	SchemaMismatch,
 	ProtocolMismatch
 };
+/// Transitions observed on the receiving peer. An event holds no replica pointer.
+enum class ReplicaEventKind
+{
+	EnteredScope,
+	LeftScope,
+	Destroyed,
+	Released,
+	Disconnected,
+	AuthorityGranted,
+	AuthorityCorrected,
+	AuthorityLost
+};
+struct ReplicaEvent
+{
+	ReplicaEventKind kind;
+	NetworkID id;
+	PeerGuid source;
+};
 struct Packet;
 struct ReplicationStatistics
 {
@@ -154,6 +172,7 @@ public:
 	void SetSerializeExecutor(RM3SerializeExecutor *executor);
 	void SetSerializationList(std::function<bool(PeerGuid, std::vector<Replica3 *> &)> query);
 	void SetTickCallbacks(std::function<void()> before, std::function<void()> after);
+	void SetReplicaCallback(std::function<void(const ReplicaEvent &)> callback);
 	void SetConnectionCallback(std::function<void(PeerGuid, bool)> callback);
 
 private:

@@ -47,6 +47,7 @@ bool Setup(Peer &peer, ReplicationRole role)
 
 int main()
 {
+	bool submitted = false;
 	Peer server, driver, spectator;
 	if (!Setup(server, ReplicationRole::Server) || !Setup(driver, ReplicationRole::Client) || !Setup(spectator, ReplicationRole::Client))
 		return 1;
@@ -62,6 +63,15 @@ int main()
 	    !grid.SetObserverCells(second, {{1, 0}}) || !host.Reference(&vehicle, SpatialScope{{72, 20}}))
 		return 1;
 	const auto id = vehicle.GetNetworkID();
+	// The baseline is installed before AuthorityGranted is delivered.
+	driver->GetReplication().SetReplicaCallback([&](const ReplicaEvent &event)
+	                                            {
+		if (event.kind == ReplicaEventKind::AuthorityGranted && event.id == id)
+		{
+			auto &remote = driver->GetReplication();
+			if (auto *car = remote.FindReplica(event.id))
+				submitted = remote.SendOwnerUpdate(*car, DriverInput{45});
+		} });
 	auto copy = [&](Peer &peer)
 	{ return static_cast<Vehicle *>(peer->GetReplication().FindReplica(id)); };
 	auto wait = [&](auto ready)
@@ -84,12 +94,9 @@ int main()
 	    !host.SetAuthority(vehicle, first))
 		return 1;
 	if (!wait([&]
-	          { return driver->GetReplication().HasLocalAuthority(*copy(driver)); }) ||
-	    !driver->GetReplication().SendOwnerUpdate(*copy(driver), DriverInput{45}))
+	          { return submitted && copy(spectator) && copy(spectator)->state.speed == 45; }))
 		return 1;
-	if (!wait([&]
-	          { return copy(spectator)->state.speed == 45; }))
-		return 1;
+	driver->GetReplication().SetReplicaCallback({});
 	std::puts("The spectator sees the driver's accepted speed of 45.");
 	if (!grid.SetPosition(id, {100, 20}) || !host.SetAuthority(vehicle, second))
 		return 1;

@@ -18,10 +18,12 @@ public:
 	bool Mark(Replica3 &object);
 	void MarkAll();
 	bool SetRegisteredType(Replica3 &replica) const;
-	void Connected(PeerGuid guid, bool incoming);
+	void Connected(PeerGuid guid, const SystemAddress &address, bool incoming);
 	void Disconnected(PeerGuid guid);
 	void Reset();
-	bool Release(NetworkID id);
+	bool Release(NetworkID id, ReplicaEventKind reason = ReplicaEventKind::Released);
+	void DispatchEvents();
+	std::function<void(const ReplicaEvent &)> replicaChanged;
 	bool Admit(PeerGuid guid);
 	ReplicationPeerStatus Status(PeerGuid guid) const;
 	void Receive(Packet &packet);
@@ -52,6 +54,9 @@ public:
 
 private:
 	class Connection;
+	void Notify(ReplicaEventKind kind, NetworkID id, PeerGuid source);
+	std::deque<ReplicaEvent> events;
+	bool dispatching = false;
 	using Kind = ReplicationWire::Kind;
 	struct Type
 	{
@@ -65,6 +70,7 @@ private:
 	};
 	struct Session
 	{
+		SystemAddress address;
 		ReplicationPeerStatus status = ReplicationPeerStatus::Waiting;
 		uint64_t clientToken = 0, serverToken = 0;
 		bool initiator = false;
@@ -106,7 +112,8 @@ private:
 		PeerGuid holder;
 		uint64_t epoch;
 		uint64_t sequence = 0;
-		bool ready = false;
+		uint64_t publishedEpoch = 0;
+		bool Ready() const { return publishedEpoch == epoch; }
 	};
 	std::map<ReplicaTypeId, Report> reports;
 	std::map<NetworkID, Grant> grants;

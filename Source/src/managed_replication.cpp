@@ -16,7 +16,7 @@ class ManagedReplication::Connection final : public Connection_RM3
 {
 public:
 	Connection(ManagedReplication &runtime, PeerGuid guid, const Session &session)
-	    : Connection_RM3(runtime.GetRakPeerInterface()->GetSystemAddressFromGuid(ToGuid(guid)), ToGuid(guid)), runtime(runtime)
+	    : Connection_RM3(session.address, ToGuid(guid)), runtime(runtime)
 	{
 		clientToken = session.clientToken;
 		serverToken = session.serverToken;
@@ -67,6 +67,7 @@ public:
 
 		for (auto *object : leave)
 			Forget(object->GetNetworkID());
+		FlushRefusedStates();
 		FlushUnconfirmed();
 		++tick;
 		for (auto it = pending.begin(); it != pending.end();)
@@ -143,6 +144,10 @@ public:
 	std::map<NetworkID, Unconfirmed> unconfirmed;
 	void Forget(NetworkID id)
 	{
+		if (!refusedStates.empty())
+			refusedStates.erase(std::remove_if(refusedStates.begin(), refusedStates.end(), [id](const PendingState &state)
+			                                   { return state.id == id; }),
+			                    refusedStates.end());
 		dirty.erase(id);
 		polled.erase(id);
 		unconfirmed.erase(id);
@@ -150,10 +155,12 @@ public:
 	}
 	void TransmitState(Replica3 &object, BitStream &out, PRO pro, RakPeerInterface &peer) override
 	{
-		stats.stateBytes += out.GetNumberOfBytesUsed();
 		if (!object.replaceableSnapshot)
 		{
-			Connection_RM3::TransmitState(object, out, pro, peer);
+			if (refusedStates.empty() && peer.Send(&out, pro.priority, pro.reliability, pro.orderingChannel, guid, false, pro.sendReceipt))
+				stats.stateBytes += out.GetNumberOfBytesUsed();
+			else
+				refusedStates.push_back({object.GetNetworkID(), pro, out.GetNumberOfBitsUsed(), {out.GetData(), out.GetData() + out.GetNumberOfBytesUsed()}});
 			return;
 		}
 		auto &item = unconfirmed[object.GetNetworkID()];
@@ -161,7 +168,8 @@ public:
 		item.sent = GetTimeMS();
 		item.bits = out.GetNumberOfBitsUsed();
 		item.bytes.assign(out.GetData(), out.GetData() + out.GetNumberOfBytesUsed());
-		peer.Send(&out, pro.priority, Reliability::Unreliable, 0, guid, false);
+		if (peer.Send(&out, pro.priority, Reliability::Unreliable, 0, guid, false))
+			stats.stateBytes += out.GetNumberOfBytesUsed();
 	}
 	void FlushUnconfirmed()
 	{
@@ -195,6 +203,28 @@ public:
 	}
 
 private:
+	struct PendingState
+	{
+		NetworkID id;
+		PRO pro;
+		BitSize_t bits;
+		std::vector<unsigned char> bytes;
+	};
+	std::deque<PendingState> refusedStates;
+	void FlushRefusedStates()
+	{
+		while (!refusedStates.empty())
+		{
+			auto &state = refusedStates.front();
+			BitStream retry(state.bytes.data(), static_cast<unsigned>(state.bytes.size()), false);
+			retry.SetWriteOffset(state.bits);
+			const auto &pro = state.pro;
+			if (!runtime.GetRakPeerInterface()->Send(&retry, pro.priority, pro.reliability, pro.orderingChannel, guid, false, pro.sendReceipt))
+				break;
+			stats.stateBytes += state.bytes.size();
+			refusedStates.pop_front();
+		}
+	}
 	uint64_t tick = 0;
 	std::map<NetworkID, uint64_t> pending;
 	ManagedReplication &runtime;
@@ -315,13 +345,14 @@ bool ManagedReplication::Send(PeerGuid guid, BitStream &packet)
 {
 	return GetRakPeerInterface()->Send(&packet, Priority::High, Reliability::ReliableOrdered, 0, ToGuid(guid), false);
 }
-void ManagedReplication::Connected(PeerGuid guid, bool incoming)
+void ManagedReplication::Connected(PeerGuid guid, const SystemAddress &address, bool incoming)
 {
 	if (owner.GetRole() != ReplicationRole::Peer && ((owner.GetRole() == ReplicationRole::Client) == incoming || (owner.GetRole() == ReplicationRole::Client && !sessions.empty())))
 		return;
 	auto inserted = sessions.try_emplace(guid);
 	if (inserted.second)
 	{
+		inserted.first->second.address = address;
 		inserted.first->second.initiator = !incoming;
 		if (automaticAdmission)
 			Admit(guid);
@@ -406,12 +437,40 @@ void ManagedReplication::RetryControl()
 	                         pendingRevocations.end());
 }
 
-bool ManagedReplication::Release(NetworkID id)
+void ManagedReplication::Notify(ReplicaEventKind kind, NetworkID id, PeerGuid source)
+{
+	if (replicaChanged)
+		events.push_back({kind, id, source});
+}
+void ManagedReplication::DispatchEvents()
+{
+	if (dispatching || events.empty())
+		return;
+	dispatching = true;
+	struct DispatchScope
+	{
+		bool &active;
+		~DispatchScope() { active = false; }
+	} scope{dispatching};
+	while (!events.empty())
+	{
+		auto event = events.front();
+		events.pop_front();
+		auto callback = replicaChanged;
+		if (callback)
+			callback(event);
+	}
+}
+bool ManagedReplication::Release(NetworkID id, ReplicaEventKind reason)
 {
 	auto it = downloads.find(id);
 	if (it == downloads.end())
 		return false;
 	const auto type = it->second.type;
+	const auto source = it->second.source;
+	if (grants.erase(id))
+		Notify(ReplicaEventKind::AuthorityLost, id, source);
+	Notify(reason, id, source);
 	{
 		StateDelivery guard(*this, ToGuid(it->second.source));
 		if (auto *conn = static_cast<Connection *>(guard.GetConnection()))
@@ -484,7 +543,7 @@ void ManagedReplication::Disconnected(PeerGuid guid)
 	interest.RemoveObserver(guid);
 	for (auto grant = grants.begin(); grant != grants.end();)
 	{
-		if (grant->second.holder == guid)
+		if (grant->second.holder == guid && !IsDownload(grant->first))
 			grant = grants.erase(grant);
 		else
 			++grant;
@@ -495,8 +554,15 @@ void ManagedReplication::Disconnected(PeerGuid guid)
 		if (entry.second.source == guid)
 			remove.push_back(entry.first);
 	for (auto id : remove)
-		Release(id);
+		Release(id, ReplicaEventKind::Disconnected);
+	{
+		StateDelivery delivery(*this, ToGuid(guid));
+		if (auto *conn = static_cast<Connection *>(delivery.GetConnection()))
+			for (const auto &visit : conn->incoming)
+				Notify(ReplicaEventKind::Disconnected, visit.first, guid);
+	}
 	delete PopConnection(ToGuid(guid));
+	DispatchEvents();
 	if (active && connectionChanged)
 		connectionChanged(guid, false);
 }
@@ -508,7 +574,10 @@ void ManagedReplication::OnFinalDereference(Replica3 &replica)
 		auto guid = GetConnectionAtIndex(i)->GetRakNetGUID();
 		StateDelivery lock(*this, guid);
 		if (auto *connection = static_cast<Connection *>(lock.GetConnection()))
+		{
 			connection->Forget(id);
+			connection->incoming.erase(id);
+		}
 	}
 	downloads.erase(id);
 	ordinary.erase(id);
@@ -626,14 +695,17 @@ void ManagedReplication::Receive(Packet &packet)
 	}
 	if (session.status != ReplicationPeerStatus::Active || session.serverToken != serverToken)
 		return;
-	StateDelivery delivery(*this, packet.guid);
-	auto *conn = static_cast<Connection *>(delivery.GetConnection());
-	if (!conn)
-		return;
-	if (kind == Kind::OwnerUpdate || kind == Kind::Grant || kind == Kind::Revoke)
-		OwnerPacket(*conn, kind, in);
-	else if (owner.GetRole() == ReplicationRole::Peer || !server)
-		Apply(*conn, kind, in);
+	{
+		StateDelivery delivery(*this, packet.guid);
+		auto *conn = static_cast<Connection *>(delivery.GetConnection());
+		if (!conn)
+			return;
+		if (kind == Kind::OwnerUpdate || kind == Kind::Grant || kind == Kind::Revoke)
+			OwnerPacket(*conn, kind, in);
+		else if (owner.GetRole() == ReplicationRole::Peer || !server)
+			Apply(*conn, kind, in);
+	}
+	DispatchEvents();
 }
 
 bool ManagedReplication::RegisterReport(std::type_index object, Report report)
@@ -649,14 +721,17 @@ bool ManagedReplication::Assign(Replica3 &object, PeerGuid guid, bool force)
 		return false;
 	if (guid != UNASSIGNED_PEER_GUID && (nextEpoch == UINT64_MAX || object.staticBinding || Status(guid) != ReplicationPeerStatus::Active || !interest.Eligible(guid, id)))
 		return false;
+	uint64_t publishedEpoch = 0;
 	auto current = grants.find(id);
 	if (current != grants.end())
 	{
 		if (current->second.holder == guid && !force)
 			return true;
-		if (current->second.ready && current->second.holder != guid)
+		if (current->second.holder == guid)
+			publishedEpoch = current->second.publishedEpoch;
+		else if (current->second.publishedEpoch)
 		{
-			const Revocation revoke{current->second.holder, id, current->second.epoch};
+			const Revocation revoke{current->second.holder, id, current->second.publishedEpoch};
 			if (!SendRevoke(revoke))
 				pendingRevocations.push_back(revoke);
 		}
@@ -666,7 +741,7 @@ bool ManagedReplication::Assign(Replica3 &object, PeerGuid guid, bool force)
 		return false;
 	interest.Require(id, guid);
 	if (guid != UNASSIGNED_PEER_GUID)
-		grants.emplace(id, Grant{guid, ++nextEpoch});
+		grants.emplace(id, Grant{guid, ++nextEpoch, 0, publishedEpoch});
 	return true;
 }
 
@@ -721,12 +796,12 @@ void ManagedReplication::UpdateGrants(bool publish)
 		auto *connection = static_cast<Connection *>(GetConnectionByGUID(ToGuid(grant.holder)));
 		if (!object || !connection)
 			continue;
-		if (!interest.Eligible(grant.holder, id) || (grant.ready && !connection->HasReplicaConstructed(object)))
+		if (!interest.Eligible(grant.holder, id) || (grant.publishedEpoch && !connection->HasReplicaConstructed(object)))
 		{
 			Assign(*object, UNASSIGNED_PEER_GUID);
 			continue;
 		}
-		if (!publish || grant.ready || !connection->HasReplicaConstructed(object))
+		if (!publish || grant.Ready() || !connection->HasReplicaConstructed(object))
 			continue;
 		BitStream snapshot, out;
 		object->SerializeConstruction(&snapshot, connection);
@@ -739,7 +814,8 @@ void ManagedReplication::UpdateGrants(bool publish)
 		out.Write(connection->Watermark());
 		if (!WriteBlock(out, snapshot))
 			continue;
-		it->second.ready = Send(grant.holder, out);
+		if (Send(grant.holder, out))
+			it->second.publishedEpoch = grant.epoch;
 	}
 }
 
@@ -756,7 +832,7 @@ void ManagedReplication::OwnerPacket(Connection &connection, Kind kind, BitStrea
 	auto it = grants.find(id);
 	if (kind == Kind::OwnerUpdate)
 	{
-		if (owner.GetRole() != ReplicationRole::Server || it == grants.end() || it->second.holder != sender || it->second.epoch != epoch || !it->second.ready || !interest.Eligible(sender, id) || !connection.HasReplicaConstructed(object))
+		if (owner.GetRole() != ReplicationRole::Server || it == grants.end() || it->second.holder != sender || it->second.epoch != epoch || !it->second.Ready() || !interest.Eligible(sender, id) || !connection.HasReplicaConstructed(object))
 			return;
 		uint64_t seq;
 		BitStream payload;
@@ -772,9 +848,15 @@ void ManagedReplication::OwnerPacket(Connection &connection, Kind kind, BitStrea
 	if (kind == Kind::Revoke)
 	{
 		if (!in.GetNumberOfUnreadBits() && it != grants.end() && it->second.epoch == epoch)
+		{
 			grants.erase(it);
+			Notify(ReplicaEventKind::AuthorityLost, id, sender);
+		}
 		return;
 	}
+	const bool correction = it != grants.end();
+	if (correction && epoch <= it->second.epoch)
+		return;
 	uint64_t watermark;
 	BitStream snapshot;
 	if (!in.Read(watermark) || !ReadBlock(in, snapshot) || in.GetNumberOfUnreadBits() || !reports.count(static_cast<ReplicaTypeId>(object->registeredType)))
@@ -787,7 +869,8 @@ void ManagedReplication::OwnerPacket(Connection &connection, Kind kind, BitStrea
 			return;
 		for (auto &seq : visit->second.lastState)
 			seq = std::max(seq, watermark);
-		grants.insert_or_assign(id, Grant{sender, epoch, 0, true});
+		grants.insert_or_assign(id, Grant{sender, epoch, 0, epoch});
+		Notify(correction ? ReplicaEventKind::AuthorityCorrected : ReplicaEventKind::AuthorityGranted, id, sender);
 	}
 }
 
@@ -803,7 +886,9 @@ void ManagedReplication::Apply(Connection &connection, Kind kind, BitStream &in)
 		if (in.GetNumberOfUnreadBits() || it == connection.incoming.end() || it->second.incarnation != visit)
 			return;
 		connection.incoming.erase(it);
-		Release(id);
+		const auto reason = kind == Kind::Destroy ? ReplicaEventKind::Destroyed : ReplicaEventKind::LeftScope;
+		if (!Release(id, reason))
+			Notify(reason, id, ToPeerGuid(connection.GetRakNetGUID()));
 		return;
 	}
 	auto *replica = static_cast<Replica3 *>(GetNetworkIDManager()->GET_BASE_OBJECT_FROM_ID(id));
@@ -818,10 +903,15 @@ void ManagedReplication::Apply(Connection &connection, Kind kind, BitStream &in)
 			return;
 		if (kind == Kind::Bind)
 		{
-			if (entry->second.cppType == typeid(*replica) && replica->QueryRemoteConstruction(&connection))
+			const auto source = ToPeerGuid(connection.GetRakNetGUID());
+			const auto before = generation;
+			if (!connection.incoming.count(id) && entry->second.cppType == typeid(*replica) && replica->QueryRemoteConstruction(&connection) &&
+			    before == generation && owner.FindReplica(id) == replica)
 			{
 				connection.incoming.insert_or_assign(id, Connection::Visit{visit, replica->referenceIndex});
 				replica->DeserializeConstructionExisting(&snapshot, &connection);
+				if (before == generation && owner.FindReplica(id) == replica && connection.incoming.count(id))
+					Notify(ReplicaEventKind::EnteredScope, id, source);
 			}
 			return;
 		}
@@ -840,7 +930,9 @@ void ManagedReplication::Apply(Connection &connection, Kind kind, BitStream &in)
 		copy->SetNetworkID(id);
 		Reference(copy);
 		connection.incoming.insert_or_assign(id, Connection::Visit{visit, copy->referenceIndex});
-		downloads.emplace(id, Download{type, ToPeerGuid(connection.GetRakNetGUID())});
+		const auto source = ToPeerGuid(connection.GetRakNetGUID());
+		downloads.emplace(id, Download{type, source});
+		Notify(ReplicaEventKind::EnteredScope, id, source);
 	}
 }
 

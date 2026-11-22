@@ -109,7 +109,9 @@ bool ReplicationManager::ReleaseRemote(NetworkID id)
 	if (!managed)
 		return false;
 	WorldGuard guard(*this);
-	return managed->Release(id);
+	const bool released = managed->Release(id);
+	managed->DispatchEvents();
+	return released;
 }
 ReplicationStatistics ReplicationManager::GetStatistics(PeerGuid guid) const
 {
@@ -235,6 +237,11 @@ void ReplicationManager::SetTickCallbacks(std::function<void()> before, std::fun
 	Managed().beforeTick = std::move(before);
 	Managed().afterTick = std::move(after);
 }
+void ReplicationManager::SetReplicaCallback(std::function<void(const ReplicaEvent &)> callback)
+{
+	WorldGuard guard(*this);
+	managed->replicaChanged = std::move(callback);
+}
 void ReplicationManager::SetConnectionCallback(std::function<void(PeerGuid, bool)> callback)
 {
 	Managed().connectionChanged = std::move(callback);
@@ -271,7 +278,7 @@ bool ReplicationManager::ProcessPacket(Packet *packet)
 	case ID_NEW_INCOMING_CONNECTION:
 	{
 		WorldGuard guard(*this);
-		managed->Connected(ToPeerGuid(packet->guid), packet->data[0] == ID_NEW_INCOMING_CONNECTION);
+		managed->Connected(ToPeerGuid(packet->guid), packet->systemAddress, packet->data[0] == ID_NEW_INCOMING_CONNECTION);
 		break;
 	}
 	case ID_CONNECTION_LOST:
