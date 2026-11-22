@@ -441,3 +441,49 @@ TEST(BuiltinReplication, AdmissionAndRemotePoolOwnThePeerCreatedCopy)
 	                         { return released == 1; }, 5000));
 	EXPECT_EQ(copy(), nullptr);
 }
+
+TEST(BuiltinReplication, GrantedBaselinePrecedesTheOrdinaryConstructionBacklog)
+{
+	SimulatedNetwork net(114);
+	auto *server = net.AddPeer(1, 1), *client = net.AddPeer(1);
+	auto &host = server->GetReplication(), &view = client->GetReplication();
+	for (auto *peer : {server, client})
+	{
+		auto &r = peer->GetReplication();
+		r.SetRole(peer == server ? ReplicationRole::Server : ReplicationRole::Client);
+		ASSERT_TRUE(r.RegisterReplica<ControlledDoor>(doorType, 1));
+		ASSERT_TRUE((r.RegisterOwnerUpdate<ControlledDoor, SwitchReport>(1, &ControlledDoor::ApplyReport)));
+	}
+	const auto guid = ToPeerGuid(client->GetMyGUID());
+	host.SetTickMode(ReplicationTickMode::Manual);
+	auto &grid = host.GetInterestGrid();
+	ASSERT_TRUE(grid.Configure({{0, 0}, {100, 100}, 10}));
+	ASSERT_TRUE(grid.SetObserverCells(guid, {{0, 0}}));
+	grid.SetObserverLimits(guid, 0, 1);
+	ControlledDoor nearby[3], controlled;
+	for (auto &door : nearby)
+		ASSERT_TRUE(host.Reference(&door, SpatialScope{{5, 5}}));
+	ASSERT_TRUE(host.Reference(&controlled, SpatialScope{{95, 95}}));
+	ASSERT_TRUE(net.Connect(client, server));
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return view.GetPeerStatus(ToPeerGuid(server->GetMyGUID())) == ReplicationPeerStatus::Active; }, 5000));
+	host.Tick();
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return view.GetReplicaCount() == 1; }, 5000));
+	ASSERT_TRUE(host.SetAuthority(controlled, guid));
+	host.Tick();
+	auto copy = [&]
+	{ return static_cast<ControlledDoor *>(view.FindReplica(controlled.GetNetworkID())); };
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return copy() && view.HasLocalAuthority(*copy()); }, 5000));
+	ASSERT_TRUE(view.SendOwnerUpdate(*copy(), SwitchReport{1}));
+	ASSERT_TRUE(host.CorrectAuthority(controlled));
+	host.Tick();
+	net.Step(300);
+	EXPECT_EQ(controlled.accepted, 0u);
+	EXPECT_FALSE(copy()->state.open);
+	EXPECT_TRUE(host.RevokeAuthority(controlled));
+	host.Tick();
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return !copy(); }, 5000));
+}

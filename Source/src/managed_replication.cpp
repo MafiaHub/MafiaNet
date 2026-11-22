@@ -27,6 +27,7 @@ public:
 		std::array<uint64_t, RM3_NUM_OUTPUT_BITSTREAM_CHANNELS> lastState{};
 	};
 	std::map<NetworkID, Visit> incoming;
+	uint64_t Watermark() const { return nextState; }
 	bool Matches(uint64_t client, uint64_t server) const { return clientToken == client && serverToken == server; }
 	ConstructionMode QueryConstructionMode() const override { return QUERY_CONNECTION_FOR_REPLICA_LIST; }
 	bool QuerySerializationList(std::vector<Replica3 *> &out) override
@@ -89,8 +90,15 @@ public:
 		const auto budget = runtime.interest.GetBudget(observer);
 		if (budget && enter.size() > budget)
 		{
+			auto rank = [&](Replica3 *object)
+			{
+				const auto id = object->GetNetworkID();
+				auto grant = runtime.grants.find(id);
+				const bool required = grant != runtime.grants.end() && grant->second.holder == observer;
+				return std::make_pair(!required, pending.at(id));
+			};
 			std::stable_sort(enter.begin(), enter.end(), [&](Replica3 *a, Replica3 *b)
-			                 { return pending.at(a->GetNetworkID()) < pending.at(b->GetNetworkID()); });
+			                 { return rank(a) < rank(b); });
 			enter.resize(budget);
 		}
 		stats.constructed = constructed.size() - leave.size() + enter.size();
@@ -594,7 +602,7 @@ bool ManagedReplication::Assign(Replica3 &object, PeerGuid guid, bool force)
 	const auto id = object.GetNetworkID();
 	if (owner.GetRole() != ReplicationRole::Server || owner.FindReplica(id) != &object || !reports.count(static_cast<ReplicaTypeId>(object.registeredType)))
 		return false;
-	if (guid != UNASSIGNED_PEER_GUID && (Status(guid) != ReplicationPeerStatus::Active || !interest.Eligible(guid, id)))
+	if (guid != UNASSIGNED_PEER_GUID && (nextEpoch == UINT64_MAX || object.staticBinding || Status(guid) != ReplicationPeerStatus::Active || !interest.Eligible(guid, id)))
 		return false;
 	auto current = grants.find(id);
 	if (current != grants.end())
@@ -644,6 +652,8 @@ bool ManagedReplication::Submit(Replica3 &object, std::type_index type, const Bi
 	WriteHeader(out, Kind::OwnerUpdate, sessions.at(grant.holder));
 	out.Write(id);
 	out.Write(grant.epoch);
+	if (grant.sequence == UINT64_MAX)
+		return false;
 	out.Write(++grant.sequence);
 	if (!WriteBlock(out, payload))
 		return false;
@@ -665,7 +675,7 @@ void ManagedReplication::UpdateGrants(bool publish)
 			continue;
 		const auto grant = it->second;
 		auto *object = owner.FindReplica(id);
-		auto *connection = GetConnectionByGUID(ToGuid(grant.holder));
+		auto *connection = static_cast<Connection *>(GetConnectionByGUID(ToGuid(grant.holder)));
 		if (!object || !connection)
 			continue;
 		if (!interest.Eligible(grant.holder, id) || (grant.ready && !connection->HasReplicaConstructed(object)))
@@ -683,6 +693,7 @@ void ManagedReplication::UpdateGrants(bool publish)
 		WriteHeader(out, Kind::Grant, sessions.at(grant.holder));
 		out.Write(id);
 		out.Write(grant.epoch);
+		out.Write(connection->Watermark());
 		if (!WriteBlock(out, snapshot))
 			continue;
 		Send(grant.holder, out);
@@ -710,7 +721,8 @@ void ManagedReplication::OwnerPacket(Connection &connection, Kind kind, BitStrea
 		if (!in.Read(seq) || !seq || seq <= it->second.sequence || !ReadBlock(in, payload) || in.GetNumberOfUnreadBits())
 			return;
 		it->second.sequence = seq;
-		reports.at(static_cast<ReplicaTypeId>(object->registeredType)).accept(*object, sender, payload);
+		if (reports.at(static_cast<ReplicaTypeId>(object->registeredType)).accept(*object, sender, payload) && owner.FindReplica(id) == object)
+			Mark(*object);
 		return;
 	}
 	if (owner.GetRole() != ReplicationRole::Client || !downloads.count(id) || downloads.at(id).source != sender)
@@ -721,12 +733,20 @@ void ManagedReplication::OwnerPacket(Connection &connection, Kind kind, BitStrea
 			grants.erase(it);
 		return;
 	}
+	uint64_t watermark;
 	BitStream snapshot;
-	if (!ReadBlock(in, snapshot) || in.GetNumberOfUnreadBits() || !reports.count(static_cast<ReplicaTypeId>(object->registeredType)))
+	if (!in.Read(watermark) || !ReadBlock(in, snapshot) || in.GetNumberOfUnreadBits() || !reports.count(static_cast<ReplicaTypeId>(object->registeredType)))
 		return;
 	const auto before = generation;
 	if (object->DeserializeConstruction(&snapshot, &connection) && generation == before && owner.FindReplica(id) == object)
+	{
+		auto visit = connection.incoming.find(id);
+		if (visit == connection.incoming.end())
+			return;
+		for (auto &seq : visit->second.lastState)
+			seq = std::max(seq, watermark);
 		grants.insert_or_assign(id, Grant{sender, epoch, 0, true});
+	}
 }
 
 void ManagedReplication::Apply(Connection &connection, Kind kind, BitStream &in)
