@@ -1271,3 +1271,71 @@ TEST(BuiltinReplication, EachObserversCellUsesItsOwnPathMtu)
 	EXPECT_LE(largestBatch[narrowPeer], static_cast<unsigned>(mtu - 96));
 	EXPECT_GT(largestBatch[widePeer], static_cast<unsigned>(mtu));
 }
+
+TEST(BuiltinReplication, ClosingTheClientInAStateCallbackEndsBatchDelivery)
+{
+	struct ClosingDoor : Door
+	{
+		RakPeer *client = nullptr;
+		unsigned *delivered = nullptr;
+		void Deserialize(DeserializeParameters *params) override
+		{
+			Door::Deserialize(params);
+			if (state.open)
+			{
+				++*delivered;
+				client->Shutdown(0);
+			}
+		}
+	};
+	unsigned callbacks = 0, acknowledgments = 0, batches = 0;
+	std::array<ClosingDoor, 2> doors;
+	SimulatedNetwork net;
+	auto *server = static_cast<RefusingPeer *>(net.AddCustomPeer(std::make_unique<RefusingPeer>(), 1, 1));
+	auto *client = static_cast<RefusingPeer *>(net.AddCustomPeer(std::make_unique<RefusingPeer>(), 1));
+	auto &host = server->GetReplication(), &view = client->GetReplication();
+	ASSERT_TRUE(host.SetRole(ReplicationRole::Server));
+	ASSERT_TRUE(view.SetRole(ReplicationRole::Client));
+	ASSERT_TRUE(host.RegisterReplica<ClosingDoor>(doorType, 1));
+	auto create = [&]
+	{
+		auto *door = new ClosingDoor;
+		door->client = client;
+		door->delivered = &callbacks;
+		return door;
+	};
+	ASSERT_TRUE(view.RegisterReplica<ClosingDoor>(doorType, 1, create, [](ClosingDoor *door)
+	                                              { delete door; }));
+	for (auto *service : {&host, &view})
+		ASSERT_TRUE(service->SetSnapshotPolicy(doorType, ChangeDetection::Explicit, SnapshotDelivery::Replaceable));
+	for (auto &door : doors)
+		ASSERT_TRUE(host.Reference(&door));
+	ASSERT_TRUE(net.Connect(client, server));
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return view.GetReplicaCount() == doors.size(); }, 5000));
+	net.Step(300);
+	host.SetTickMode(ReplicationTickMode::Manual);
+	host.SetSerializeInterval(0);
+	server->inspect = [&](const ReplicationWire::Header &header, const BitStream &, PRO, PeerGuid)
+	{
+		if (header.kind == ReplicationWire::Kind::SnapshotBatch)
+			++batches;
+	};
+	client->inspect = [&](const ReplicationWire::Header &header, const BitStream &, PRO, PeerGuid)
+	{
+		if (header.kind == ReplicationWire::Kind::SnapshotAck)
+			++acknowledgments;
+	};
+	for (auto &door : doors)
+	{
+		door.state.open = true;
+		ASSERT_TRUE(host.MarkDirty(door));
+	}
+	host.Tick();
+	ASSERT_EQ(batches, 1u);
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return callbacks > 0; }, 5000));
+	EXPECT_EQ(callbacks, 1u);
+	EXPECT_EQ(acknowledgments, 0u);
+	EXPECT_EQ(view.GetReplicaCount(), 0u);
+}

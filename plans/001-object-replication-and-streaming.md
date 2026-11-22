@@ -169,7 +169,7 @@ cargo bench --bench replication -- mutations_visibility_send/20_clients --sample
 
 ### Per-recipient state batching
 
-Three Release runs per build on the same Apple M5 Pro compare the merged implementation at `2cb98450` with replication wire version 2. Run the MafiaNet command above with `--benchmark_repetitions=3`. The table gives the mean of the three runs. The p95 column averages each run's 95th-percentile server tick. An enqueue is one accepted replication message at the peer API, before transport packetization.
+Three Release runs per build on the same Apple M5 Pro compare the merged implementation at `2cb98450` with replication wire version 2 at `023114a7`. Run the MafiaNet command above with `--benchmark_repetitions=3`. The table gives the mean of the three runs. The p95 column averages each run's 95th-percentile server tick. An enqueue is one accepted replication message at the peer API, before transport packetization.
 
 | Workload | Mean server time before → after | p95 tick before → after | Replication bytes/tick before → after |
 |---|---:|---:|---:|

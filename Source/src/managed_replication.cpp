@@ -761,7 +761,7 @@ void ManagedReplication::Receive(Packet &packet)
 			StateBatchView view;
 			if (!view.Read(in))
 				return;
-			for (unsigned i = 0; i < view.count; ++i)
+			for (unsigned i = 0; i < view.count && delivery.GetConnection(); ++i)
 			{
 				const auto record = view.records[i];
 				BitStream body(record.data, BITS_TO_BYTES(record.bits), false);
@@ -1098,7 +1098,7 @@ void ManagedReplication::ReadState(Connection &connection, StateDelivery &delive
 		it->second.lastState[i] = seq;
 		changed = true;
 	}
-	if (changed && delivery.Deserialize(id, &params, it->second.referenceIndex) && acknowledge)
+	if (changed && delivery.Deserialize(id, &params, it->second.referenceIndex) && acknowledge && delivery.GetConnection())
 		connection.Acknowledge(id, seq);
 }
 }
