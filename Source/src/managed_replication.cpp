@@ -1,5 +1,6 @@
 // Copyright (c) 2026, MafiaHub. MIT license.
 #include "managed_replication.h"
+#include "replication_receive_scope.h"
 #include "mafianet/message_identifiers.h"
 #include "mafianet/network_id_manager.h"
 #include "mafianet/peer_interface.h"
@@ -742,6 +743,7 @@ void ManagedReplication::Receive(Packet &packet)
 	{
 		if (version != Version || (kind != Kind::SnapshotAck && owner.GetRole() == ReplicationRole::Server))
 			return;
+		ReplicationReceiveScope receive(*GetRakPeerInterface());
 		StateDelivery delivery(*this, packet.guid);
 		auto *connection = static_cast<Connection *>(delivery.GetConnection());
 		if (!connection || !connection->Matches(clientToken, serverToken))
@@ -761,7 +763,7 @@ void ManagedReplication::Receive(Packet &packet)
 			StateBatchView view;
 			if (!view.Read(in))
 				return;
-			for (unsigned i = 0; i < view.count && delivery.GetConnection(); ++i)
+			for (unsigned i = 0; i < view.count && !receive.IsClosing() && delivery.GetConnection(); ++i)
 			{
 				const auto record = view.records[i];
 				BitStream body(record.data, BITS_TO_BYTES(record.bits), false);
@@ -1098,7 +1100,7 @@ void ManagedReplication::ReadState(Connection &connection, StateDelivery &delive
 		it->second.lastState[i] = seq;
 		changed = true;
 	}
-	if (changed && delivery.Deserialize(id, &params, it->second.referenceIndex) && acknowledge && delivery.GetConnection())
+	if (changed && delivery.Deserialize(id, &params, it->second.referenceIndex) && acknowledge && delivery.GetConnection() && !ReplicationReceiveScope::IsClosing(*GetRakPeerInterface()))
 		connection.Acknowledge(id, seq);
 }
 }

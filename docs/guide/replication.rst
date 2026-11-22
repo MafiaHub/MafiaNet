@@ -167,6 +167,10 @@ removal is retried on a subsequent tick. ``SendOwnerUpdate`` returns false
 when the report could not be queued, allowing the client to retry.
 Both modes progress while the application drives replication.
 
+A state callback can request peer shutdown. Delivery stops at that record,
+and the peer shuts down after the callback releases its locks and before
+the enclosing receive call returns.
+
 ``SetAutomaticAdmission(false)`` lets the game call ``Admit(guid)`` after its
 login checks. Check ``GetPeerStatus(guid)`` for activation or schema rejection.
 Use ``SetTickMode(ReplicationTickMode::Manual)`` and call ``Tick()`` after

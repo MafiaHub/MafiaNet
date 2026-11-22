@@ -22,6 +22,7 @@
 #include "mafianet/defines.h"
 #include <cstdlib>
 #include "mafianet/peer.h"
+#include "replication_receive_scope.h"
 #include "mafianet/connect_candidates.h"
 #include "mafianet/session_admission.h"
 #include "mafianet/types.h"
@@ -987,6 +988,9 @@ ConnectionAttemptResult RakPeer::ConnectWithSocket(const char *host, unsigned sh
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void RakPeer::Shutdown(unsigned int blockDuration, unsigned char orderingChannel, MafiaNet::Priority disconnectionNotificationPriority)
 {
+	if (ReplicationReceiveScope::DeferShutdown(*this, blockDuration, orderingChannel, disconnectionNotificationPriority))
+		return;
+
 	unsigned i, j;
 	bool anyActive;
 	MafiaNet::TimeMS startWaitingTime;
@@ -1471,6 +1475,9 @@ uint32_t RakPeer::SendList(const char **data, const int *lengths, const int numP
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 Packet *RakPeer::Receive(void)
 {
+	if (ReplicationReceiveScope::IsClosing(*this))
+		return nullptr;
+
 	if (!(IsActive()))
 		return 0;
 

@@ -1285,6 +1285,8 @@ TEST(BuiltinReplication, ClosingTheClientInAStateCallbackEndsBatchDelivery)
 			{
 				++*delivered;
 				client->Shutdown(0);
+				EXPECT_EQ(client->Receive(), nullptr);
+				EXPECT_TRUE(state.open);
 			}
 		}
 	};
