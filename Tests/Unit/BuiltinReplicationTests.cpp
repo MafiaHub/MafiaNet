@@ -218,6 +218,11 @@ TEST(BuiltinReplication, ManualTickBudgetsConstructionAndCancelsPendingEntries)
 	ASSERT_TRUE(net.RunUntil([&]
 	                         { return remote.FindReplica(first.GetNetworkID()) != nullptr; }, 5000));
 	EXPECT_EQ(remote.GetReplicaCount(), 1u);
+	const auto stats = service.GetStatistics(observer);
+	EXPECT_EQ(stats.constructed, 1u);
+	EXPECT_EQ(stats.deferred, 1u);
+	EXPECT_EQ(stats.enters, 1u);
+	EXPECT_GT(stats.lifecycleBytes, 0u);
 	ASSERT_TRUE(grid.SetPosition(second.GetNetworkID(), {50, 50}));
 	ASSERT_TRUE(grid.SetPosition(first.GetNetworkID(), {50, 50}));
 	service.Tick();

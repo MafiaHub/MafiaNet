@@ -2355,8 +2355,8 @@ void Connection_RM3::SendConstruction(std::vector<Replica3 *> &enter, std::vecto
 			replica->SerializeConstructionExisting(&snapshot, this);
 		else
 			replica->SerializeConstruction(&snapshot, this);
-		if (ReplicationWire::WriteBlock(out, snapshot))
-			peer->Send(&out, Priority::High, Reliability::ReliableOrdered, 0, guid, false);
+		if (ReplicationWire::WriteBlock(out, snapshot) && peer->Send(&out, Priority::High, Reliability::ReliableOrdered, 0, guid, false))
+			RecordScopeMessage(out.GetNumberOfBytesUsed(), true, false);
 	}
 	for (auto *replica : leave)
 		SendRemoval(*replica, false, *peer, world);
@@ -2368,7 +2368,8 @@ void Connection_RM3::SendRemoval(Replica3 &replica, bool destroyed, RakPeerInter
 	out.Write(replica.GetNetworkID());
 	out.Write(outgoingVisits[replica.GetNetworkID()]);
 	outgoingVisits.erase(replica.GetNetworkID());
-	peer.Send(&out, Priority::High, Reliability::ReliableOrdered, 0, guid, false);
+	if (peer.Send(&out, Priority::High, Reliability::ReliableOrdered, 0, guid, false))
+		RecordScopeMessage(out.GetNumberOfBytesUsed(), false, destroyed);
 }
 
 Replica3::Replica3()

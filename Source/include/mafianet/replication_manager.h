@@ -48,6 +48,12 @@ enum class ReplicationPeerStatus
 	ProtocolMismatch
 };
 struct Packet;
+struct ReplicationStatistics
+{
+	uint64_t desired = 0, constructed = 0, deferred = 0;
+	uint64_t enters = 0, leaves = 0, destroys = 0;
+	uint64_t lifecycleBytes = 0, stateBytes = 0;
+};
 
 enum class ReplicationTickMode
 {
@@ -126,6 +132,8 @@ public:
 	private:
 		std::unique_lock<std::recursive_mutex> lock;
 	};
+	/// Current membership and cumulative traffic for active sessions. The default sums all sessions.
+	ReplicationStatistics GetStatistics(PeerGuid guid = UNASSIGNED_PEER_GUID) const;
 	ReplicationPeerStatus GetPeerStatus(PeerGuid guid) const;
 	void SetAutomaticAdmission(bool enabled);
 	bool Admit(PeerGuid guid);

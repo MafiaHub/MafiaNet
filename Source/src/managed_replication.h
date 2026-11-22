@@ -41,6 +41,7 @@ public:
 		uint16_t version;
 		std::function<bool(Replica3 &, PeerGuid, BitStream &)> accept;
 	};
+	ReplicationStatistics Statistics(PeerGuid guid);
 	bool RegisterReport(std::type_index object, Report report);
 	bool Assign(Replica3 &object, PeerGuid guid, bool force = false);
 	bool Correct(Replica3 &object);

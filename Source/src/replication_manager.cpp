@@ -111,6 +111,13 @@ bool ReplicationManager::ReleaseRemote(NetworkID id)
 	WorldGuard guard(*this);
 	return managed->Release(id);
 }
+ReplicationStatistics ReplicationManager::GetStatistics(PeerGuid guid) const
+{
+	if (!managed)
+		return {};
+	ReplicaManager3::WorldGuard guard(*managed);
+	return managed->Statistics(guid);
+}
 ReplicationPeerStatus ReplicationManager::GetPeerStatus(PeerGuid guid) const
 {
 	return managed ? managed->Status(guid) : ReplicationPeerStatus::Waiting;

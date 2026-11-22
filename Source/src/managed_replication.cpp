@@ -55,6 +55,7 @@ public:
 			if (!runtime.interest.Contains(id) && runtime.interest.Eligible(observer, id))
 				desired.push_back(id);
 
+		stats.desired = desired.size();
 		std::set<NetworkID> wanted(desired.begin(), desired.end());
 		std::vector<Replica3 *> constructed;
 		GetConstructedReplicas(constructed);
@@ -92,6 +93,8 @@ public:
 			                 { return pending.at(a->GetNetworkID()) < pending.at(b->GetNetworkID()); });
 			enter.resize(budget);
 		}
+		stats.constructed = constructed.size() - leave.size() + enter.size();
+		stats.deferred = pending.size() - enter.size();
 		for (auto *object : enter)
 		{
 			const auto id = object->GetNetworkID();
@@ -101,6 +104,17 @@ public:
 		}
 	}
 
+	ReplicationStatistics stats;
+	void RecordScopeMessage(unsigned int bytes, bool entering, bool destroyed) override
+	{
+		stats.lifecycleBytes += bytes;
+		if (entering)
+			++stats.enters;
+		else if (destroyed)
+			++stats.destroys;
+		else
+			++stats.leaves;
+	}
 	std::set<NetworkID> dirty, polled;
 	struct Unconfirmed
 	{
@@ -119,6 +133,7 @@ public:
 	}
 	void TransmitState(Replica3 &object, BitStream &out, PRO pro, RakPeerInterface &peer) override
 	{
+		stats.stateBytes += out.GetNumberOfBytesUsed();
 		if (!object.replaceableSnapshot)
 		{
 			Connection_RM3::TransmitState(object, out, pro, peer);
@@ -145,7 +160,10 @@ public:
 			BitStream retry(item.bytes.data(), static_cast<unsigned>(item.bytes.size()), false);
 			retry.SetWriteOffset(item.bits);
 			if (runtime.GetRakPeerInterface()->Send(&retry, Priority::High, Reliability::ReliableOrdered, 0, guid, false))
+			{
+				stats.stateBytes += retry.GetNumberOfBytesUsed();
 				it = unconfirmed.erase(it);
+			}
 			else
 				++it;
 		}
@@ -174,6 +192,30 @@ bool ManagedReplication::Register(ReplicaTypeId id, uint16_t version, std::type_
 	return true;
 }
 
+ReplicationStatistics ManagedReplication::Statistics(PeerGuid guid)
+{
+	ReplicationStatistics sum;
+	for (unsigned i = 0; i < GetConnectionCount(); ++i)
+	{
+		const auto target = GetConnectionAtIndex(i)->GetRakNetGUID();
+		if (guid != UNASSIGNED_PEER_GUID && ToPeerGuid(target) != guid)
+			continue;
+		StateDelivery lock(*this, target);
+		auto *c = static_cast<Connection *>(lock.GetConnection());
+		if (!c)
+			continue;
+		const auto &s = c->stats;
+		sum.desired += s.desired;
+		sum.constructed += s.constructed;
+		sum.deferred += s.deferred;
+		sum.enters += s.enters;
+		sum.leaves += s.leaves;
+		sum.destroys += s.destroys;
+		sum.lifecycleBytes += s.lifecycleBytes;
+		sum.stateBytes += s.stateBytes;
+	}
+	return sum;
+}
 bool ManagedReplication::Policy(ReplicaTypeId id, ChangeDetection detection, SnapshotDelivery delivery)
 {
 	auto it = types.find(id);
