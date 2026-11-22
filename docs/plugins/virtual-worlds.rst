@@ -8,7 +8,7 @@ FiveM routing-bucket model — ideal for instanced interiors such as apartments,
 minigame arenas, or per-player cutscenes. Switching dimension is a single value
 change with no reconnect.
 
-The feature is layered on :doc:`replica-manager-3` and only scopes
+The feature is layered on :doc:`../guide/replication` and only scopes
 RM3-replicated entities.
 
 Virtual world vs. RM3 ``WorldId``
@@ -68,7 +68,7 @@ topology defaults. You do **not** override the ``Query*`` methods themselves.
 
    class Player : public MafiaNet::VirtualWorldReplica3 {
    public:
-       // ... your usual Replica3 overrides (WriteAllocationID, Serialize,
+       // ... your usual Replica3 overrides (Serialize,
        //     Deserialize, SerializeConstruction, DeserializeConstruction,
        //     SerializeDestruction, DeserializeDestruction, DeallocReplica,
        //     QueryRemoteConstruction, QueryActionOnPopConnection) ...
@@ -175,5 +175,5 @@ A complete, runnable demonstration (server + two clients) lives in
 See Also
 --------
 
-* :doc:`replica-manager-3` - The replication system this builds on
+* :doc:`../guide/replication` - The replication system this builds on
 * :doc:`../basics/network-id-object` - NetworkIDObject

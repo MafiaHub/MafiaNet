@@ -52,7 +52,6 @@ public:
 	// The opt-in; plain (not `override`) so the file also builds against a ReplicaManager3 without it.
 	bool BroadcastsIdentically() const { return broadcastsIdentically; }
 
-	void WriteAllocationID(Connection_RM3 *, MafiaNet::BitStream *) const {}
 	RM3ConstructionState QueryConstruction(Connection_RM3 *, ReplicaManager3 *) { return RM3CS_SEND_CONSTRUCTION; }
 	bool QueryRemoteConstruction(Connection_RM3 *) { return false; }
 	void SerializeConstruction(MafiaNet::BitStream *, Connection_RM3 *) {}
@@ -117,7 +116,6 @@ public:
 		isValidated = true;
 	}
 
-	Replica3 *AllocReplica(MafiaNet::BitStream *, ReplicaManager3 *) override { return 0; }
 	ConstructionMode QueryConstructionMode() const override { return QUERY_CONNECTION_FOR_REPLICA_LIST; }
 
 	void QueryReplicaList(std::vector<Replica3 *> &create, std::vector<Replica3 *> &) override
@@ -162,10 +160,16 @@ public:
 class PassManager : public ReplicaManager3
 {
 public:
+	using ReplicaManager3::ReplicaManager3;
 	Connection_RM3 *AllocConnection(const SystemAddress &, RakNetGUID guid) const { return new PassConnection(guid); }
 	void DeallocConnection(Connection_RM3 *connection) const { delete connection; }
 	// What RakPeer::Receive() calls with a connection's message, on whichever thread receives.
-	using ReplicaManager3::OnReceive;
+	void ReceiveState(NetworkID id, RakNetGUID sender)
+	{
+		StateDelivery delivery(*this, sender);
+		DeserializeParameters state{};
+		delivery.Deserialize(id, &state);
+	}
 	// How a subclass delivers state it received in a message of its own.
 	using ReplicaManager3::StateDelivery;
 };
@@ -176,8 +180,6 @@ protected:
 	void SetUp() override
 	{
 		SetTimeSourceOverride(&PassClock);
-		peer = RakPeerInterface::GetInstance();
-		peer->AttachPlugin(&manager);
 		manager.SetNetworkIDManager(&ids);
 		manager.SetAutoSerializeInterval(0);
 	}
@@ -189,7 +191,7 @@ protected:
 			manager.Dereference(replica);
 			delete replica;
 		}
-		peer->DetachPlugin(&manager);
+		manager.Clear(false);
 		RakPeerInterface::DestroyInstance(peer);
 		SetTimeSourceOverride(nullptr);
 	}
@@ -223,8 +225,8 @@ protected:
 
 	std::vector<Replica3 *> candidates;
 	NetworkIDManager ids;
-	PassManager manager;
-	RakPeerInterface *peer = nullptr;
+	RakPeerInterface *peer = RakPeerInterface::GetInstance();
+	PassManager manager{*peer};
 	std::vector<PassReplica *> replicas;
 };
 } // namespace
@@ -451,24 +453,6 @@ TEST_F(ReplicaManager3SerializePass, ConnectionDroppedMidPassIsNotServed)
 	manager.SetSerializeExecutor(0);
 }
 
-namespace
-{
-// A state message for \a replica as \a sender would send it, with no channel written.
-void FillStatePacket(MafiaNet::BitStream &state, Packet &packet, Replica3 *replica, Connection_RM3 *sender)
-{
-	state.Write((MessageID) ID_REPLICA_MANAGER_SERIALIZE);
-	state.Write((WorldId) 0);
-	state.Write(replica->GetNetworkID());
-	for (int channel = 0; channel < RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; channel++)
-		state.Write(false);
-	packet.data = state.GetData();
-	packet.length = state.GetNumberOfBytesUsed();
-	packet.bitSize = state.GetNumberOfBitsUsed();
-	packet.guid = sender->GetRakNetGUID();
-	packet.wasGeneratedLocally = false;
-}
-} // namespace
-
 // A replica can be taken away on one thread while another receives state for it: Dereference() waits for
 // the Deserialize() under way and no other starts, so the replica may be deleted once it returns.
 TEST_F(ReplicaManager3SerializePass, DereferenceWaitsForStateBeingDeliveredAndStopsTheRest)
@@ -477,9 +461,8 @@ TEST_F(ReplicaManager3SerializePass, DereferenceWaitsForStateBeingDeliveredAndSt
 	std::vector<PassConnection *> connections = AddConnections(1, {replica});
 	Tick();
 	Tick();
-	MafiaNet::BitStream state;
-	Packet packet;
-	FillStatePacket(state, packet, replica, connections[0]);
+	const auto id = replica->GetNetworkID();
+	const auto sender = connections[0]->GetRakNetGUID();
 
 	std::promise<void> inside, release;
 	std::atomic<bool> delivered{false};
@@ -490,7 +473,7 @@ TEST_F(ReplicaManager3SerializePass, DereferenceWaitsForStateBeingDeliveredAndSt
 		delivered = true;
 	};
 	std::thread receive([&]
-	                    { manager.OnReceive(&packet); });
+	                    { manager.ReceiveState(id, sender); });
 	inside.get_future().wait();
 
 	std::atomic<bool> started{false};
@@ -511,7 +494,7 @@ TEST_F(ReplicaManager3SerializePass, DereferenceWaitsForStateBeingDeliveredAndSt
 	EXPECT_TRUE(deliveredFirst) << "Dereference() returned while Deserialize() was still running";
 
 	replica->onDeserialize = nullptr;
-	manager.OnReceive(&packet);
+	manager.ReceiveState(id, sender);
 	EXPECT_EQ(replica->deserializeCalls, 1) << "state was delivered to a dereferenced replica";
 }
 
@@ -524,9 +507,8 @@ TEST_F(ReplicaManager3SerializePass, StateFromAnotherConnectionArrivesWhileThePa
 	Tick();
 	Tick();
 
-	MafiaNet::BitStream state;
-	Packet packet;
-	FillStatePacket(state, packet, replica, connections[1]);
+	const auto id = replica->GetNetworkID();
+	const auto sender = connections[1]->GetRakNetGUID();
 
 	std::promise<void> inside, release;
 	replica->value = 2;
@@ -539,7 +521,7 @@ TEST_F(ReplicaManager3SerializePass, StateFromAnotherConnectionArrivesWhileThePa
 	                 { Tick(); });
 	inside.get_future().wait();
 	std::future<void> delivery = std::async(std::launch::async, [&]
-	                                        { manager.OnReceive(&packet); });
+	                                        { manager.ReceiveState(id, sender); });
 	// With the pass still stopped. A delivery that waits for the whole pass never returns from this, and the
 	// runner's per-test timeout reports the hang: no deadline here could tell slow from stuck.
 	delivery.get();
@@ -557,9 +539,8 @@ TEST_F(ReplicaManager3SerializePass, DeserializeCanAskWhoHoldsAReplicaWhileThePa
 	std::vector<PassConnection *> connections = AddConnections(2, {replica});
 	Tick();
 	Tick();
-	MafiaNet::BitStream state;
-	Packet packet;
-	FillStatePacket(state, packet, replica, connections[1]);
+	const auto id = replica->GetNetworkID();
+	const auto sender = connections[1]->GetRakNetGUID();
 
 	std::vector<Connection_RM3 *> holders;
 	bool firstHoldsIt = false;
@@ -580,7 +561,7 @@ TEST_F(ReplicaManager3SerializePass, DeserializeCanAskWhoHoldsAReplicaWhileThePa
 	inside.get_future().wait();
 	// With the pass still stopped, as above: a query that waits for the world never returns.
 	std::thread([&]
-	            { manager.OnReceive(&packet); })
+	            { manager.ReceiveState(id, sender); })
 	    .join();
 	release.set_value();
 	pass.join();
@@ -602,9 +583,8 @@ TEST_F(ReplicaManager3SerializePass, StateForAWorldItsConnectionLeftMeanwhileIsD
 	manager.PushConnection(connection, 1);
 	Tick();
 	Tick();
-	MafiaNet::BitStream state;
-	Packet packet;
-	FillStatePacket(state, packet, replica, connection);
+	const auto id = replica->GetNetworkID();
+	const auto sender = connection->GetRakNetGUID();
 
 	// The pass stops serving the connection, so holding its lock, and pops it from world 0 once the state is
 	// on its way to that lock.
@@ -627,7 +607,7 @@ TEST_F(ReplicaManager3SerializePass, StateForAWorldItsConnectionLeftMeanwhileIsD
 	std::thread receive([&]
 	                    {
 		sending = true;
-		manager.OnReceive(&packet); });
+		manager.ReceiveState(id, sender); });
 	pass.join();
 	receive.join();
 	EXPECT_EQ(replica->deserializeCalls, 0) << "state was delivered for a world its connection had left";

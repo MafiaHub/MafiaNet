@@ -74,6 +74,11 @@ public:
 
 	// A started peer bound to 10.0.0.<n>:<port> (port 0 picks one).
 	RakPeer *AddPeer(unsigned int maxConnections, unsigned short maxIncoming = 0, unsigned short port = 0);
+	// Takes ownership of a peer with a custom transport enqueue implementation.
+	RakPeer *AddCustomPeer(std::unique_ptr<RakPeer> peer, unsigned int maxConnections, unsigned short maxIncoming = 0)
+	{
+		return StartPeer(peer.release(), maxConnections, maxIncoming, 0);
+	}
 	// A started peer bound to 2001:db8::<n> (RFC 3849 documentation prefix), port 0 picks one.
 	// The host counter is shared with AddPeer, so addresses never collide.
 	RakPeer *AddPeerV6(unsigned int maxConnections, unsigned short maxIncoming = 0, unsigned short port = 0);

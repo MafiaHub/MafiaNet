@@ -28,7 +28,6 @@
 // #define _RAKNET_SUPPORT_NatTypeDetectionServer 0
 // #define _RAKNET_SUPPORT_PacketLogger 0
 // #define _RAKNET_SUPPORT_ReadyEvent 0
-// #define _RAKNET_SUPPORT_ReplicaManager3 0
 // #define _RAKNET_SUPPORT_Router2 0
 // #define _RAKNET_SUPPORT_UDPProxyClient 0
 // #define _RAKNET_SUPPORT_UDPProxyCoordinator 0
@@ -80,9 +79,6 @@
 #endif
 #ifndef _RAKNET_SUPPORT_ReadyEvent
 #define _RAKNET_SUPPORT_ReadyEvent 1
-#endif
-#ifndef _RAKNET_SUPPORT_ReplicaManager3
-#define _RAKNET_SUPPORT_ReplicaManager3 1
 #endif
 #ifndef _RAKNET_SUPPORT_Router2
 #define _RAKNET_SUPPORT_Router2 1

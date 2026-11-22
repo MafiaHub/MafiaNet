@@ -95,7 +95,7 @@ Essential Systems
 
 - Spawn/destroy across network
 - State synchronization
-- See :doc:`../plugins/replica-manager-3`
+- See :doc:`../guide/replication`
 
 **NAT Traversal**
 

@@ -115,7 +115,7 @@ Configuration Options
 Ordering Channel
 ----------------
 
-``Call()``, ``CallBlocking()`` and ``Signal()`` take the ordering channel as an argument and pass it to ``RakPeerInterface::Send()``. Give reliable RPCs a channel of their own rather than the one that carries a sequenced stream: a lost ``ReliableOrdered`` RPC holds back every later sequenced message on its channel until it is retransmitted. RPCs that name objects created through :doc:`../plugins/replica-manager-3` should share that manager's default channel, so an RPC cannot arrive before the object it refers to. See :ref:`ordering-channels`.
+``Call()``, ``CallBlocking()`` and ``Signal()`` take the ordering channel as an argument and pass it to ``RakPeerInterface::Send()``. Give reliable RPCs a channel of their own rather than the one that carries a sequenced stream: a lost ``ReliableOrdered`` RPC holds back every later sequenced message on its channel until it is retransmitted. RPCs that name objects created through :doc:`../guide/replication` should share that manager's default channel, so an RPC cannot arrive before the object it refers to. See :ref:`ordering-channels`.
 
 See Also
 --------

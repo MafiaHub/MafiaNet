@@ -207,12 +207,6 @@ static bool MayReachApplicationFromRemote(const unsigned char *data, unsigned in
 		return true;
 	switch (innerId)
 	{
-	// ReplicaManager3 accepts all of its messages behind a timestamp (Connection_RM3::SendSerializeHeader).
-	case ID_REPLICA_MANAGER_CONSTRUCTION:
-	case ID_REPLICA_MANAGER_SCOPE_CHANGE:
-	case ID_REPLICA_MANAGER_SERIALIZE:
-	case ID_REPLICA_MANAGER_DOWNLOAD_STARTED:
-	case ID_REPLICA_MANAGER_DOWNLOAD_COMPLETE:
 	// NatPunchthroughServer
 	case ID_NAT_CONNECT_AT_TIME:
 		return true;
@@ -1045,6 +1039,7 @@ void RakPeer::Shutdown(unsigned int blockDuration, unsigned char orderingChannel
 	// Plugins tear down in OnRakPeerShutdown while the update thread may still be running; stop
 	// offering them messages there first, so no hook is mid-call or starts after this point.
 	SetNetworkThreadReceiveStopped(true);
+	replication.Shutdown();
 
 	for (i = 0; i < pluginListTS.size(); i++)
 	{
@@ -1517,6 +1512,11 @@ Packet *RakPeer::Receive(void)
 #endif
 	*/
 
+	const unsigned int tickGeneration = shutdownGeneration;
+	replication.ReceiveTick();
+	if (shutdownGeneration != tickGeneration)
+		return nullptr;
+
 	for (i = 0; i < pluginListTS.size(); i++)
 	{
 		pluginListTS[i]->Update();
@@ -1615,7 +1615,7 @@ Packet *RakPeer::Receive(void)
 
 		if (packet)
 		{
-			const bool consumed = rpc.ProcessPacket(packet);
+			const bool consumed = replication.ProcessPacket(packet) || (shutdownGeneration == generation && rpc.ProcessPacket(packet));
 			if (consumed || shutdownGeneration != generation)
 			{
 				DeallocatePacket(packet);

@@ -7,7 +7,7 @@
 cmake_minimum_required(VERSION 3.21)
 
 project(MafiaNet
-    VERSION 0.26.0
+    VERSION 0.27.0
     DESCRIPTION "Cross-platform network engine for multiplayer games"
     HOMEPAGE_URL "https://github.com/mafiahub/MafiaNet"
     LANGUAGES C CXX
@@ -59,14 +59,14 @@ endif()
 # Plugin selection. Every optional plugin in the core library is guarded by a
 # _RAKNET_SUPPORT_<Name> flag from native_feature_includes.h. These two settings
 # are the supported way to compile plugins out without editing that header:
-#   -DMAFIANET_DISABLED_FEATURES="ReplicaManager3;ReadyEvent"   drop specific plugins
+#   -DMAFIANET_DISABLED_FEATURES="Router2;ReadyEvent"   drop specific plugins
 #   -DMAFIANET_MINIMAL=ON                                         drop every optional plugin
 # The resulting defines are PUBLIC on the library targets, so consumers see the
 # same header configuration the library was built with. See
 # docs/getting-started/building.rst ("Minimal builds") and Source/CMakeLists.txt.
 set(MAFIANET_DISABLED_FEATURES "" CACHE STRING
     "Semicolon-separated plugin names to compile out (see MAFIANET_OPTIONAL_FEATURES in Source/CMakeLists.txt)")
-option(MAFIANET_MINIMAL "Compile out every optional plugin (core transport and RPC)" OFF)
+option(MAFIANET_MINIMAL "Compile out every optional plugin (core transport, RPC and object replication)" OFF)
 
 # Sanitizers (Clang/GCC only): a "+"- or ","-separated list such as
 # "address+undefined" or "thread" ("thread" cannot be combined with "address").

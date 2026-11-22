@@ -1,3 +1,4 @@
+#include <map>
 /*
  *  Copyright (c) 2026, MafiaHub
  *
@@ -23,7 +24,6 @@ public:
 	explicit Field(bool sender = true)
 	    : sender(sender) {}
 	bool BroadcastsIdentically() const override { return shared; }
-	void WriteAllocationID(Connection_RM3 *, BitStream *) const override {}
 	RM3ConstructionState QueryConstruction(Connection_RM3 *to, ReplicaManager3 *) override
 	{
 		if (!sender)
@@ -88,63 +88,45 @@ struct Candidates
 	bool bulk = false;
 };
 
-class Connection : public Connection_RM3
+class Endpoint
 {
 public:
-	Connection(const SystemAddress &address, RakNetGUID guid, const Candidates &candidates)
-	    : Connection_RM3(address, guid), candidates(candidates) {}
-	ConstructionMode QueryConstructionMode() const override { return QUERY_REPLICA_FOR_CONSTRUCTION_AND_DESTRUCTION; }
-	Replica3 *AllocReplica(BitStream *, ReplicaManager3 *) override { return new Field(false); }
-	bool QuerySerializationList(std::vector<Replica3 *> &out) override
+	explicit Endpoint(RakPeer *peer, ReplicationRole role)
+	    : peer(peer), service(peer->GetReplication())
 	{
-		if (!candidates.enabled || candidates.bulk)
-		{
-			personal.clear();
-			return false;
-		}
-		out = candidates.serving;
-		out.insert(out.end(), personal.begin(), personal.end());
-		personal.clear();
-		return true;
+		service.SetRole(role);
+		service.RegisterReplica<Field>(ReplicaTypeId{1}, 1, []
+		                               { return new Field(false); }, [](Field *field)
+		                               { delete field; });
+		service.SetSerializeInterval(0);
+		service.SetTickCallbacks([this]
+		                         { candidates.serving.swap(candidates.pending); },
+		                         [this]
+		                         { candidates.serving.clear(); candidates.bulk = false; });
+		service.SetSerializationList([this](PeerGuid guid, std::vector<Replica3 *> &out)
+		                             {
+			auto &queue = personal[guid];
+			if (!candidates.enabled || candidates.bulk) { queue.clear(); return false; }
+			out = candidates.serving;
+			out.insert(out.end(), queue.begin(), queue.end());
+			queue.clear();
+			return true; });
 	}
-	std::vector<Replica3 *> personal;
-
-private:
-	const Candidates &candidates;
-};
-
-class Endpoint : public ReplicaManager3
-{
-public:
-	explicit Endpoint(RakPeer *peer)
-	    : peer(peer)
+	~Endpoint()
 	{
-		peer->AttachPlugin(this);
-		SetNetworkIDManager(&ids);
-		SetAutoSerializeInterval(0);
+		service.SetTickCallbacks({}, {});
+		service.SetSerializationList({});
 	}
-	~Endpoint() override { peer->DetachPlugin(this); }
-	void Update() override
+	bool Reference(Field *field) { return service.Reference(field); }
+	int Read(Field &field) const
 	{
-		candidates.serving.swap(candidates.pending);
-		ReplicaManager3::Update();
-		candidates.serving.clear();
-		candidates.bulk = false;
-	}
-	Connection_RM3 *AllocConnection(const SystemAddress &address, RakNetGUID guid) const override
-	{
-		return new Connection(address, guid, candidates);
-	}
-	void DeallocConnection(Connection_RM3 *connection) const override { delete connection; }
-	int Read(Field &field)
-	{
-		const auto *copy = ids.GET_OBJECT_FROM_ID<Field *>(field.GetNetworkID());
+		auto *copy = static_cast<Field *>(service.FindReplica(field.GetNetworkID()));
 		return copy ? copy->value : -1;
 	}
-
-	RakPeer *const peer;
+	RakPeer *peer;
+	ReplicationManager &service;
 	Candidates candidates;
-	NetworkIDManager ids;
+	std::map<PeerGuid, std::vector<Replica3 *>> personal;
 };
 
 class DirtyListDelivery : public ::testing::TestWithParam<bool>
@@ -155,7 +137,9 @@ class DirtyListDelivery : public ::testing::TestWithParam<bool>
 TEST_P(DirtyListDelivery, ReliableStateSurvivesLossAndScopeChanges)
 {
 	SimulatedNetwork net(827);
-	Endpoint server(net.AddPeer(2, 2)), first(net.AddPeer(1)), late(net.AddPeer(1));
+	Endpoint server(net.AddPeer(2, 2), ReplicationRole::Server);
+	Endpoint first(net.AddPeer(1), ReplicationRole::Client);
+	Endpoint late(net.AddPeer(1), ReplicationRole::Client);
 	server.candidates.enabled = GetParam();
 	Field position, personal;
 	personal.shared = false;
@@ -205,9 +189,8 @@ TEST_P(DirtyListDelivery, ReliableStateSurvivesLossAndScopeChanges)
 	// Only this recipient's representation changed; the global queue stays empty.
 	personal.bonus = 10;
 	personal.bonusFor = late.peer->GetMyGUID();
-	auto *connection = static_cast<Connection *>(server.GetConnectionByGUID(personal.bonusFor));
-	ASSERT_NE(connection, nullptr);
-	connection->personal.push_back(&personal);
+	auto &queue = server.personal[ToPeerGuid(personal.bonusFor)];
+	queue.push_back(&personal);
 	ASSERT_TRUE(net.RunUntil([&]
 	                         { return late.Read(personal) == 14; }, 5000));
 	EXPECT_EQ(first.Read(personal), 4);
@@ -220,7 +203,7 @@ TEST_P(DirtyListDelivery, ReliableStateSurvivesLossAndScopeChanges)
 	                         { return first.Read(personal) == 7; }, 5000));
 	EXPECT_EQ(late.Read(personal), 14);
 	personal.deferredFor = UNASSIGNED_RAKNET_GUID;
-	connection->personal.push_back(&personal);
+	queue.push_back(&personal);
 	ASSERT_TRUE(net.RunUntil([&]
 	                         { return late.Read(personal) == 17; }, 5000));
 
@@ -234,7 +217,8 @@ TEST_P(DirtyListDelivery, ReliableStateSurvivesLossAndScopeChanges)
 TEST_P(DirtyListDelivery, ScheduledRefreshRestoresALostUnreliablePosition)
 {
 	SimulatedNetwork net(8123);
-	Endpoint server(net.AddPeer(1, 1)), observer(net.AddPeer(1));
+	Endpoint server(net.AddPeer(1, 1), ReplicationRole::Server);
+	Endpoint observer(net.AddPeer(1), ReplicationRole::Client);
 	server.candidates.enabled = GetParam();
 	Field position;
 	position.reliability = Reliability::Unreliable;

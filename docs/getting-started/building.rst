@@ -58,10 +58,10 @@ Configure build options with CMake:
      - Build ``MafiaNetExtras`` (SMTP, HTTP client, telnet/console transports). Forced ON by ``MAFIANET_BUILD_SAMPLES``. See `The extras library`_.
    * - ``MAFIANET_DISABLED_FEATURES``
      - (empty)
-     - Semicolon-separated plugin names to compile out, e.g. ``"ReplicaManager3;ReadyEvent"``. See `Minimal builds`_.
+     - Semicolon-separated plugin names to compile out, e.g. ``"Router2;ReadyEvent"``. See `Minimal builds`_.
    * - ``MAFIANET_MINIMAL``
      - OFF
-     - Compile out every optional plugin, including the built-in RPC service in the core. See `Minimal builds`_.
+     - Compile out every optional plugin, keeping the built-in RPC and replication services. See `Minimal builds`_.
    * - ``MAFIANET_SANITIZER``
      - (empty)
      - Clang/GCC sanitizers, ``+``-separated: ``address+undefined`` or ``thread``. Applied to every target, dependencies included. See `Sanitizers`_.
@@ -93,11 +93,10 @@ Example with options:
 Minimal builds
 --------------
 
-Every optional plugin in the core library (``ReplicaManager3``,
-``FileListTransfer``, the NAT traversal plugins, ``TCPInterface`` and its
+Every optional plugin in the core library (``FileListTransfer``, the NAT traversal plugins, ``TCPInterface`` and its
 users, and so on) is guarded by a ``_RAKNET_SUPPORT_<Name>`` flag declared in
 ``mafianet/native_feature_includes.h``. The transport itself, ``BitStream``,
-``RakPeer``, the reliability layer, ``RPC`` and ``RakVoice`` are always built.
+``RakPeer``, the reliability layer, ``RPC``, object replication and ``RakVoice`` are always built.
 
 The supported way to compile plugins out is through CMake, not by editing the
 header:
@@ -105,9 +104,9 @@ header:
 .. code-block:: bash
 
    # Drop specific plugins
-   cmake -B build -DMAFIANET_DISABLED_FEATURES="ReplicaManager3;ReadyEvent"
+   cmake -B build -DMAFIANET_DISABLED_FEATURES="Router2;ReadyEvent"
 
-   # Core transport and RPC, with every optional plugin compiled out
+   # Core transport, RPC and replication, with every optional plugin compiled out
    cmake -B build -DMAFIANET_MINIMAL=ON
 
 The names accepted by ``MAFIANET_DISABLED_FEATURES`` are listed in
@@ -413,7 +412,7 @@ suite covers the following workloads.
   application pacing credit, both, or neither.
 * **Construction bandwidth.** ``ReplicaManager3_Construct1000`` compares
   unconditional scalar serialization with a full construction snapshot and
-  subsequent dirty updates. See :doc:`../plugins/replica-manager-3`.
+  subsequent dirty updates. See :doc:`../guide/replication`.
 * **Real UDP loopback.** A threaded peer sends bursts of 128 reliable 900-byte
   messages at 10, 50 or 100 bursts per second. Compare offered bytes/s with
   delivered bytes/s over the send and drain interval. The CPU column covers the

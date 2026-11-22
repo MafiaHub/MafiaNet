@@ -61,13 +61,6 @@ struct SampleReplica : public Replica3
 	{
 	}
 	virtual std::string GetName(void) const = 0;
-	virtual void WriteAllocationID(MafiaNet::Connection_RM3 *destinationConnection, MafiaNet::BitStream *allocationIdBitstream) const
-	{
-		// unused parameters
-		(void) destinationConnection;
-
-		allocationIdBitstream->Write(GetName());
-	}
 	void PrintStringInBitstream(MafiaNet::BitStream *bs)
 	{
 		if (bs->GetNumberOfBitsUsed() == 0)
@@ -414,58 +407,6 @@ struct P2PReplica : public SampleReplica
 	}
 };
 
-class SampleConnection : public Connection_RM3
-{
-public:
-	SampleConnection(const SystemAddress &_systemAddress, RakNetGUID _guid)
-	    : Connection_RM3(_systemAddress, _guid)
-	{
-	}
-	virtual ~SampleConnection()
-	{
-	}
-
-	// See documentation - Makes all messages between ID_REPLICA_MANAGER_DOWNLOAD_STARTED and ID_REPLICA_MANAGER_DOWNLOAD_COMPLETE arrive in one tick
-	bool QueryGroupDownloadMessages(void) const
-	{
-		return true;
-	}
-
-	virtual Replica3 *AllocReplica(MafiaNet::BitStream *allocationId, ReplicaManager3 *replicaManager3)
-	{
-		// unused parameters
-		(void) replicaManager3;
-
-		std::string typeName;
-		allocationId->Read(typeName);
-		if (typeName == "ClientCreatable_ClientSerialized")
-			return new ClientCreatable_ClientSerialized;
-		if (typeName == "ServerCreated_ClientSerialized")
-			return new ServerCreated_ClientSerialized;
-		if (typeName == "ClientCreatable_ServerSerialized")
-			return new ClientCreatable_ServerSerialized;
-		if (typeName == "ServerCreated_ServerSerialized")
-			return new ServerCreated_ServerSerialized;
-		if (typeName == "P2PReplica")
-			return new P2PReplica;
-		return 0;
-	}
-
-protected:
-};
-
-class ReplicaManager3Sample : public ReplicaManager3
-{
-	virtual Connection_RM3 *AllocConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID) const
-	{
-		return new SampleConnection(systemAddress, rakNetGUID);
-	}
-	virtual void DeallocConnection(Connection_RM3 *connection) const
-	{
-		delete connection;
-	}
-};
-
 int main(void)
 {
 	int ch;
@@ -476,14 +417,12 @@ int main(void)
 
 
 	// ReplicaManager3 requires NetworkIDManager to lookup pointers from numbers.
-	NetworkIDManager networkIdManager;
 	// Each application has one instance of RakPeerInterface
 	MafiaNet::RakPeerInterface *rakPeer;
 	// The system that performs most of our functionality for this demo
-	ReplicaManager3Sample replicaManager;
 
 	printf("Demonstration of ReplicaManager3.\n");
-	printf("1. Demonstrates creating objects created by the server and client.\n");
+	printf("1. Servers and peers create objects and stream them to other participants.\n");
 	printf("2. Demonstrates automatic serialization data members\n");
 	printf("Difficulty: Intermediate\n\n");
 
@@ -511,8 +450,14 @@ int main(void)
 
 	// Start RakNet, up to 32 connections if the server
 	rakPeer->Startup(32, &sd, 1);
-	rakPeer->AttachPlugin(&replicaManager);
-	replicaManager.SetNetworkIDManager(&networkIdManager);
+	auto &replicaManager = rakPeer->GetReplication();
+	replicaManager.SetRole(topology == SERVER ? ReplicationRole::Server : topology == CLIENT ? ReplicationRole::Client
+	                                                                                         : ReplicationRole::Peer);
+	replicaManager.RegisterReplica<ClientCreatable_ClientSerialized>(ReplicaTypeId{1}, 1);
+	replicaManager.RegisterReplica<ServerCreated_ClientSerialized>(ReplicaTypeId{2}, 1);
+	replicaManager.RegisterReplica<ClientCreatable_ServerSerialized>(ReplicaTypeId{3}, 1);
+	replicaManager.RegisterReplica<ServerCreated_ServerSerialized>(ReplicaTypeId{4}, 1);
+	replicaManager.RegisterReplica<P2PReplica>(ReplicaTypeId{5}, 1);
 	rakPeer->SetMaximumIncomingConnections(32);
 	printf("\nMy GUID is %s\n", MafiaNet::to_string(rakPeer->GetMyGUID()).c_str());
 
@@ -527,7 +472,9 @@ int main(void)
 		printf("Connecting...\n");
 	}
 
-	printf("Commands:\n(Q)uit\n'C'reate objects\n'R'andomly change variables in my objects\n'D'estroy my objects\n");
+	printf("Commands:\n(Q)uit\n");
+	if (topology != CLIENT)
+		printf("'C'reate objects\n'R'andomly change variables in my objects\n'D'estroy my objects\n");
 
 	// Enter infinite loop to run the system
 	MafiaNet::Packet *packet;
@@ -575,7 +522,7 @@ int main(void)
 				memcpy(&msgNumber, packet->data + 1, 4);
 
 				std::vector<Replica3 *> replicaListOut;
-				replicaManager.GetReplicasCreatedByMe(replicaListOut);
+				replicaManager.GetLocalReplicas(replicaListOut);
 				unsigned int idx;
 				for (idx = 0; idx < replicaListOut.size(); idx++)
 				{
@@ -594,17 +541,17 @@ int main(void)
 				printf("Quitting.\n");
 				quit = true;
 			}
-			if (ch == 'c' || ch == 'C')
+			if ((ch == 'c' || ch == 'C') && topology != CLIENT)
 			{
 				printf("Objects created.\n");
-				if (topology == SERVER || topology == CLIENT)
+				if (topology == SERVER)
 				{
 					replicaManager.Reference(new ClientCreatable_ClientSerialized);
 					replicaManager.Reference(new ServerCreated_ClientSerialized);
 					replicaManager.Reference(new ClientCreatable_ServerSerialized);
 					replicaManager.Reference(new ServerCreated_ServerSerialized);
 				}
-				else
+				else if (topology == P2P)
 				{
 					//	for (int i=0; i < 20; i++)
 					replicaManager.Reference(new P2PReplica);
@@ -613,7 +560,7 @@ int main(void)
 			if (ch == 'r' || ch == 'R')
 			{
 				std::vector<Replica3 *> replicaListOut;
-				replicaManager.GetReplicasCreatedByMe(replicaListOut);
+				replicaManager.GetLocalReplicas(replicaListOut);
 				unsigned int idx;
 				for (idx = 0; idx < replicaListOut.size(); idx++)
 				{
@@ -627,10 +574,12 @@ int main(void)
 				// The reason for ClearPointers is that in the sample, I don't track which objects have and have not been allocated at the application level. So ClearPointers will call delete on every object in the returned list, which is every object that the application has created. Another way to put it is
 				// 	A. Send a packet to tell other systems to delete these objects
 				// 	B. Delete these objects on my own system
-				replicaManager.GetReplicasCreatedByMe(replicaListOut);
-				replicaManager.BroadcastDestructionList(replicaListOut, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS);
-				for (unsigned int i = 0; i < replicaListOut.size(); i++)
-					delete replicaListOut[i];
+				replicaManager.GetLocalReplicas(replicaListOut);
+				for (auto *replica : replicaListOut)
+				{
+					replicaManager.Destroy(replica);
+					delete replica;
+				}
 			}
 		}
 

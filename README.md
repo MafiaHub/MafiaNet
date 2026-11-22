@@ -168,7 +168,7 @@ MafiaNet::RakPeerInterface::DestroyInstance(peer);
 - Peer-to-peer and client-server architectures
 - NAT punchthrough and traversal
 - Host migration
-- Object replication (ReplicaManager3)
+- Built-in object replication through `peer->GetReplication()`, with cell streaming and client authority
 - Built-in remote procedure calls through `peer->GetRPC()`
 
 </td>
@@ -201,7 +201,6 @@ MafiaNet provides a modular plugin system for extending functionality:
 
 | Plugin | Description |
 |--------|-------------|
-| **ReplicaManager3** | Automatic object replication and state synchronization |
 | **FullyConnectedMesh2** | P2P mesh networking with host migration |
 | **NatPunchthrough** | NAT traversal for peer-to-peer connections |
 | **FileListTransfer** | Reliable file transfer with progress callbacks |
@@ -249,7 +248,7 @@ MafiaNet/
 ├── Samples/                # 80 example applications
 │   ├── ChatExample/        # Simple chat application
 │   ├── Ping/               # Basic UDP communication
-│   ├── ReplicaManager3/    # Object replication demo
+│   ├── Replication/        # Streaming and driver handoff
 │   ├── NATCompleteClient/  # NAT traversal client
 │   ├── NATCompleteServer/  # NAT traversal server
 │   ├── RakVoice/           # Voice chat examples
@@ -302,7 +301,8 @@ ctest --test-dir build -C Debug --output-on-failure
 
 ## Changelog
 
-### Unreleased — breaking
+### Version 0.27.0 (Latest)
+- Every UDP peer includes object replication, spatial streaming, and revocable client authority. Register game classes through `peer->GetReplication()`. [Replication guide](docs/guide/replication.rst)
 - RPC is built into every peer, including minimal builds. Replace `AttachPlugin(&rpc4)` with `auto &rpc = peer->GetRPC()`. [RPC migration guide](docs/guide/rpc.rst)
 - Removed `TeamManager` and `TeamBalancer`. Games now own team assignment and balancing.
 - Removed the `TwoWayAuthentication` plugin. Applications using it must handle user authentication themselves.
@@ -313,9 +313,9 @@ ctest --test-dir build -C Debug --output-on-failure
 - **Fixes**: a Huffman decoder out-of-bounds write, bounds on peer input in UDPProxyCoordinator and DataCompressor, `TableSerializer`/`StringTable` asserting on peer input, an ordered-channel stall after an MTU step-down, StatisticsHistory NaN sorting, the StringCompressor unknown-language decode buffer, the Steam room merge's dangling iterator, and leaks in RakPeer, FullyConnectedMesh2, ConnectionGraph2, StatisticsHistory, Table and NatPunchthroughServer; the full list is in `docs/changelog.rst`
 - **Behaviour changes**: `SortTable` keeps tied rows, Router2 picks its forwarder deterministically, `PacketizedTCP` disconnects on a message above `SetMaxMessageLength()` (64 MiB default)
 - **Breaking (API and ABI)**: rebuild against the updated headers.
-- **Breaking (wire protocol 10)**: upgrade clients and servers together. Removing the Xbox, LibVoice, lobby, room, two-way authentication, and unused reserved IDs moves `ID_NAT_PING` from 10 to 7 and `ID_USER_PACKET_ENUM` from 135 to 119. Rebuild applications that derive message IDs from it.
+- **Wire protocol 12** assigns one native message ID to replication and removes retired packet slots. Application messages begin at 90. Rebuild and deploy clients and servers together.
 
-### Version 0.26.0 (Latest)
+### Version 0.26.0
 - **Receive on a thread of its own**: `RakPeerInterface::WaitForPackets()` blocks until a packet is waiting, and ReplicaManager3 can receive on one thread while `Update()` runs on another (per-connection locks, `WorldGuard`, `StateDelivery`)
 - **Breaking (ABI)**: `RakPeerInterface` gains a pure virtual; consumers must rebuild. Wire-compatible
 

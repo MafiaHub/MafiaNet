@@ -29,6 +29,7 @@ set(MAFIANET_SOURCES
     src/get_time.cpp
     src/get_time_of_day.cpp
     src/grid_sectorizer.cpp
+    src/interest_grid.cpp
     src/guid_util.cpp
     src/handshake_challenge.cpp
     src/incremental_read_interface.cpp
@@ -70,6 +71,8 @@ set(MAFIANET_SOURCES
     src/relay_plugin.cpp
     src/reliability_layer.cpp
     src/replica_manager3.cpp
+    src/replication_manager.cpp
+    src/managed_replication.cpp
     src/router2.cpp
     src/rpc.cpp
     src/send_to_thread.cpp
@@ -146,6 +149,7 @@ set(MAFIANET_HEADERS
     include/mafianet/get_time.h
     include/mafianet/get_time_of_day.h
     include/mafianet/grid_sectorizer.h
+    include/mafianet/interest_grid.h
     include/mafianet/guid_util.h
     include/mafianet/handshake_challenge.h
     include/mafianet/http_connection.h
@@ -199,6 +203,8 @@ set(MAFIANET_HEADERS
     include/mafianet/reliability_layer.h
     include/mafianet/replica_enums.h
     include/mafianet/replica_manager3.h
+    include/mafianet/replication_manager.h
+    include/mafianet/snapshot_replica.h
     include/mafianet/router2.h
     include/mafianet/remote_procedure_call.h
     include/mafianet/send_to_thread.h
@@ -279,7 +285,6 @@ set(MAFIANET_OPTIONAL_FEATURES
     RakNetTransport
     ReadyEvent
     RelayPlugin
-    ReplicaManager3
     Router2
     StatisticsHistory
     TCPInterface
