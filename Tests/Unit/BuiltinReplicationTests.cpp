@@ -306,6 +306,17 @@ TEST(BuiltinReplication, AuthorityTransferRejectsReportsFromAnEarlierGrant)
 	ASSERT_TRUE(net.RunUntil([&]
 	                         { return !copy(bob); }, 5000));
 	EXPECT_FALSE(host.SetAuthority(door, b));
+	grid.SetObserverWorld(b, 0, 0);
+	ASSERT_TRUE(host.SetAuthority(door, b));
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return owns(bob); }, 5000));
+	bob->CloseConnection(server->GetMyGUID(), true);
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return host.GetConnectionCount() == 1 && !copy(bob); }, 5000));
+	EXPECT_FALSE(host.SetAuthority(door, b));
+	ASSERT_TRUE(host.SetAuthority(door, a));
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return owns(alice); }, 5000));
 	EXPECT_TRUE(door.WasReferenced());
 }
 
@@ -524,4 +535,32 @@ TEST(BuiltinReplication, OversizedConstructionRetriesWithTheCurrentSnapshot)
 	ASSERT_TRUE(net.RunUntil([&]
 	                         { return view.FindReplica(door.GetNetworkID()) != nullptr; }, 5000));
 	EXPECT_TRUE(static_cast<LargeDoor *>(view.FindReplica(door.GetNetworkID()))->state.open);
+}
+
+TEST(BuiltinReplication, ApplicationFilterSeesNativeEnvelopesBeforeTheService)
+{
+	struct Gate : PluginInterface2
+	{
+		unsigned envelopes = 0;
+		PluginReceiveResult OnReceive(Packet *packet) override
+		{
+			if (packet->length && packet->data[0] == ID_REPLICATION)
+			{
+				++envelopes;
+				return RR_STOP_PROCESSING_AND_DEALLOCATE;
+			}
+			return RR_CONTINUE_PROCESSING;
+		}
+	} gate;
+	SimulatedNetwork net(118);
+	auto *server = net.AddPeer(1, 1), *client = net.AddPeer(1);
+	server->AttachPlugin(&gate);
+	server->GetReplication().SetRole(ReplicationRole::Server);
+	client->GetReplication().SetRole(ReplicationRole::Client);
+	ASSERT_TRUE(net.Connect(client, server));
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return gate.envelopes != 0; }, 5000));
+	EXPECT_EQ(server->GetReplication().GetConnectionCount(), 0u);
+	EXPECT_FALSE(net.Received(server, ID_REPLICATION));
+	server->DetachPlugin(&gate);
 }
