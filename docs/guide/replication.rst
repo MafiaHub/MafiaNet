@@ -135,7 +135,7 @@ simulation thread. Incoming state callbacks run on the receiving thread under
 the source connection's lock. Queue world mutations from those callbacks.
 
 Moving an RM3 game to the built-in service
------------------------------------------
+------------------------------------------
 
 ===============================  ============================================================
 Game requirement                 Built-in API
