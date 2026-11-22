@@ -410,3 +410,34 @@ TEST(BuiltinReplication, ShutdownInsideTickReleasesBorrowedObjectsAndAllowsResta
 	EXPECT_EQ(service.GetConnectionCount(), 0u);
 	EXPECT_FALSE(after);
 }
+
+TEST(BuiltinReplication, AdmissionAndRemotePoolOwnThePeerCreatedCopy)
+{
+	SimulatedNetwork net(104);
+	auto *publisher = net.AddPeer(1, 1), *subscriber = net.AddPeer(1);
+	auto &source = publisher->GetReplication(), &sink = subscriber->GetReplication();
+	source.SetRole(ReplicationRole::Peer);
+	sink.SetRole(ReplicationRole::Peer);
+	source.SetAutomaticAdmission(false);
+	unsigned allocated = 0, released = 0;
+	ASSERT_TRUE(source.RegisterReplica<Door>(doorType, 1));
+	ASSERT_TRUE(sink.RegisterReplica<Door>(doorType, 1, [&]
+	                                       {++allocated;return new Door; }, [&](Door *door)
+	                                       {++released;delete door; }));
+	Door door;
+	ASSERT_TRUE(source.Reference(&door));
+	ASSERT_TRUE(net.Connect(subscriber, publisher));
+	net.Step(100);
+	ASSERT_EQ(allocated, 0u);
+	ASSERT_TRUE(source.Admit(ToPeerGuid(subscriber->GetMyGUID())));
+	auto copy = [&]
+	{ return sink.FindReplica(door.GetNetworkID()); };
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return copy() != nullptr; }, 5000));
+	EXPECT_FALSE(sink.Destroy(copy()));
+	EXPECT_EQ(allocated, 1u);
+	ASSERT_TRUE(source.Destroy(&door));
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return released == 1; }, 5000));
+	EXPECT_EQ(copy(), nullptr);
+}

@@ -454,6 +454,7 @@ void ManagedReplication::OnFinalDereference(Replica3 &replica)
 		if (auto *connection = static_cast<Connection *>(lock.GetConnection()))
 			connection->Forget(id);
 	}
+	downloads.erase(id);
 	ordinary.erase(id);
 	grants.erase(id);
 	staticObjects.erase(id);

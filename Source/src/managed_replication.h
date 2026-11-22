@@ -47,6 +47,7 @@ public:
 	bool Correct(Replica3 &object);
 	bool Owns(Replica3 &object) const;
 	bool Submit(Replica3 &object, std::type_index type, const BitStream &payload);
+	bool IsDownload(NetworkID id) const { return downloads.count(id) != 0; }
 	bool HasSessions() const { return !sessions.empty(); }
 
 private:

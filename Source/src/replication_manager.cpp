@@ -32,7 +32,7 @@ bool ReplicationManager::Reference(Replica3 *replica)
 	WorldGuard guard(*this);
 	if ((role != ReplicationRole::Server && role != ReplicationRole::Peer) || !replica || replica->WasReferenced())
 		return false;
-	if (!managed || !managed->SetRegisteredType(*replica))
+	if (!managed || (replica->GetNetworkID() != UNASSIGNED_NETWORK_ID && FindReplica(replica->GetNetworkID())) || !managed->SetRegisteredType(*replica))
 		return false;
 	replica->staticBinding = false;
 	managed->Reference(replica);
@@ -96,7 +96,7 @@ Replica3 *ReplicationManager::FindReplica(NetworkID id) const
 bool ReplicationManager::Destroy(Replica3 *replica)
 {
 	WorldGuard guard(*this);
-	if (!managed || role == ReplicationRole::Client || !replica || replica->replicaManager != managed.get())
+	if (role == ReplicationRole::Client || !replica || replica->replicaManager != managed.get() || managed->IsDownload(replica->GetNetworkID()))
 		return false;
 	managed->Destroy(*replica);
 	return true;
@@ -183,7 +183,7 @@ void ReplicationManager::SetAutomaticAdmission(bool enabled)
 void ReplicationManager::Dereference(Replica3 *replica)
 {
 	WorldGuard guard(*this);
-	if (replica && replica->replicaManager == managed.get() && (managed->staticObjects.count(replica->GetNetworkID()) || managed->ordinary.count(replica->GetNetworkID()) || managed->interest.Contains(replica->GetNetworkID())))
+	if (replica && replica->replicaManager == managed.get() && !managed->IsDownload(replica->GetNetworkID()))
 	{
 		managed->staticObjects.erase(replica->GetNetworkID());
 		managed->Dereference(replica);
