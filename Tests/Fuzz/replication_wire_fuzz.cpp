@@ -11,6 +11,12 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *bytes, size_t size)
 	ReplicationWire::Header header{};
 	if (!ReplicationWire::ReadHeader(in, header) || header.version != ReplicationWire::Version)
 		return 0;
+	if (header.kind == ReplicationWire::Kind::StateBatch || header.kind == ReplicationWire::Kind::SnapshotBatch)
+	{
+		ReplicationWire::StateBatchView batch;
+		batch.Read(in);
+		return 0;
+	}
 	NetworkID id;
 	uint64_t visit;
 	uint32_t type;

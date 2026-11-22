@@ -167,6 +167,17 @@ build/bench/Benchmarks/MafiaNetBenchmarks --benchmark_filter=BM_Streaming
 cargo bench --bench replication -- mutations_visibility_send/20_clients --sample-size 20 --measurement-time 2 --warm-up-time 1
 ```
 
+### Per-recipient state batching
+
+Three Release runs per build on the same Apple M5 Pro compare the merged implementation at `2cb98450` with replication wire version 2. Run the MafiaNet command above with `--benchmark_repetitions=3`. The table gives the mean of the three runs. The p95 column averages each run's 95th-percentile server tick. An enqueue is one accepted replication message at the peer API, before transport packetization.
+
+| Workload | Mean server time before → after | p95 tick before → after | Replication bytes/tick before → after |
+|---|---:|---:|---:|
+| Dense updates | 1,395 → 1,193 µs/tick | 1,525 → 1,268 µs | 538,200 → 412,440 |
+| Room entry and crossing | 1,731 → 1,725 µs/crossing | 529 → 524 µs | 18,412 → 18,291 |
+
+The dense workload delivers the same 7,800 object updates in 360 enqueues per tick, down from one enqueue per object update. Room entry still reaches all 20 clients in ten ticks at the configured construction budget.
+
 ### Lifecycle coverage informed by the upstream suites
 
 - Replicon's despawn tests exercise loss of visibility, deferred removal and a visibility gain canceled before publication. MafiaNet covers budget-deferred entries canceled before construction, exits and re-entry with a fresh baseline, and destruction after a local enqueue refusal. [Replicon despawn tests](https://github.com/simgine/bevy_replicon/blob/839d838c7834bcb394f154b7ed51d0412e05a2d7/tests/despawn.rs)

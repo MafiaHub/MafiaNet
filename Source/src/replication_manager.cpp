@@ -2,18 +2,26 @@
 
 #include "mafianet/replication_manager.h"
 #include "managed_replication.h"
+#include "mafianet/peer.h"
 #include "mafianet/network_id_manager.h"
 #include "mafianet/message_identifiers.h"
 #include "mafianet/replica_manager3.h"
 
 namespace MafiaNet
 {
-ReplicationManager::ReplicationManager(RakPeerInterface &peer)
+ReplicationManager::ReplicationManager(RakPeer &peer)
     : peer(peer)
 {
 }
 
 ReplicationManager::~ReplicationManager() = default;
+
+int ReplicationManager::PathMTU(SystemIndex index) const
+{
+	// The connection event captured this slot. Its MTU is only a sizing hint;
+	// the GUID remains the destination even when the transport recycles a slot.
+	return index < peer.maximumNumberOfPeers && peer.remoteSystemList ? peer.remoteSystemList[index].MTUSize.load(std::memory_order_relaxed) : 0;
+}
 
 bool ReplicationManager::SetRole(ReplicationRole requested)
 {
