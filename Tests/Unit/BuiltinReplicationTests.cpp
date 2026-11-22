@@ -1264,9 +1264,10 @@ TEST(BuiltinReplication, EachObserversCellUsesItsOwnPathMtu)
 		door.state.open = true;
 	host.Tick();
 	EXPECT_EQ(expected, received);
-	const auto small = ToPeerGuid(clients[0]->GetMyGUID()), large = ToPeerGuid(clients[1]->GetMyGUID());
+	const auto narrowPeer = ToPeerGuid(clients[0]->GetMyGUID());
+	const auto widePeer = ToPeerGuid(clients[1]->GetMyGUID());
 	const int mtu = server->GetMTUSize(net.AddressOf(clients[0]));
-	EXPECT_GT(largestBatch[small], 0u);
-	EXPECT_LE(largestBatch[small], static_cast<unsigned>(mtu - 96));
-	EXPECT_GT(largestBatch[large], static_cast<unsigned>(mtu));
+	EXPECT_GT(largestBatch[narrowPeer], 0u);
+	EXPECT_LE(largestBatch[narrowPeer], static_cast<unsigned>(mtu - 96));
+	EXPECT_GT(largestBatch[widePeer], static_cast<unsigned>(mtu));
 }
