@@ -697,3 +697,50 @@ TEST(BuiltinReplication, LifecycleEventsDescribeCommittedStateAcrossReentryTrans
 	EXPECT_EQ(seen, (std::vector<E>{E::EnteredScope, E::AuthorityGranted, E::AuthorityCorrected, E::AuthorityLost, E::LeftScope, E::EnteredScope, E::Released}));
 	remote.SetReplicaCallback({});
 }
+
+TEST(BuiltinReplication, FailedDecodePublishesNoVisitAndDisconnectReleasesOnlyCommittedCopies)
+{
+	struct CheckedDoor : Door
+	{
+		bool valid = true;
+		void SerializeConstruction(BitStream *out, Connection_RM3 *connection) override
+		{
+			if (valid)
+				Door::SerializeConstruction(out, connection);
+		}
+	};
+	using E = ReplicaEventKind;
+	std::vector<ReplicaEvent> seen;
+	unsigned released = 0;
+	SimulatedNetwork net;
+	auto *server = net.AddPeer(1, 1), *client = net.AddPeer(1);
+	auto &host = server->GetReplication(), &remote = client->GetReplication();
+	ASSERT_TRUE(host.SetRole(ReplicationRole::Server));
+	ASSERT_TRUE(remote.SetRole(ReplicationRole::Client));
+	ASSERT_TRUE(host.RegisterReplica<CheckedDoor>(doorType, 1));
+	ASSERT_TRUE(remote.RegisterReplica<CheckedDoor>(doorType, 1, []
+	                                                { return new CheckedDoor; }, [&](CheckedDoor *door)
+	                                                {++released; delete door; }));
+	CheckedDoor good, bad;
+	bad.valid = false;
+	ASSERT_TRUE(host.Reference(&good));
+	ASSERT_TRUE(host.Reference(&bad));
+	remote.SetReplicaCallback([&](const ReplicaEvent &event)
+	                          {
+		seen.push_back(event);
+		if(event.kind==E::Disconnected)
+		{
+			EXPECT_EQ(released,2u);
+			EXPECT_EQ(remote.FindReplica(event.id),nullptr);
+		} });
+	ASSERT_TRUE(net.Connect(client, server));
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return released == 1 && seen.size() == 1; }, 5000));
+	ASSERT_EQ(seen[0].kind, E::EnteredScope);
+	EXPECT_EQ(seen[0].id, good.GetNetworkID());
+	client->CloseConnection(server->GetMyGUID(), true);
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return seen.size() == 2; }, 5000));
+	EXPECT_EQ(seen[1].kind, E::Disconnected);
+	EXPECT_EQ(seen[1].id, good.GetNetworkID());
+}

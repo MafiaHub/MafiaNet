@@ -143,3 +143,31 @@ ci/format.sh --check
 | `Tests/Unit/ReplicaManager3DirtyListTests.cpp`, `ReplicaManager3ListModeTests.cpp`, `PointGridSectorizerTests.cpp` | Reusable patterns for late join, scope re-entry, released serialization records and differential tests. |
 | `Tests/Integration/Rm3ReceiveThreadLiveTests.cpp`, `Benchmarks/replica_manager_bench.cpp` | Existing concurrency contract and performance comparisons. |
 | `Source/CMakeLists.txt`, `ci/consumer`, `docs/guide/replication.rst` | Installed/public feature surface and onboarding. |
+
+## Measured streaming workloads
+
+On an Apple M5 Pro, Apple Clang 21 Release and Rust 1.99.0 bench profile, the following measurements ran consecutively on the same machine. The MafiaNet timer surrounds the public server replication tick, including interest resolution, serialization and enqueue to a connected RakPeer. Simulated transport progress, client decoding and validation run outside the timer. Bytes count replication envelopes before UDP headers, encryption and retransmission.
+
+| Workload | Server time | p95 tick | Bytes per tick | Ticks to last client baseline |
+|---|---:|---:|---:|---:|
+| MafiaNet dense updates, 100 ticks | 1,347 µs/tick | 1,408 µs | 538,200 | Already in scope |
+| MafiaNet room entry and crossings, 500 ticks | 171 µs/tick | 521 µs | 18,412 | 10 maximum |
+| Bevy Replicon dense updates, 20 Criterion samples | 365 µs/update (364–367 µs estimate interval) | — | — | Already in scope |
+
+In the dense case, all 500 three-float positions change each tick. Each of 20 clients sees 390 objects, with the same client-specific exclusion window as upstream. MafiaNet checks the ID and decoded value of every visible replica after every tick. Replicon times its server app update through message production and exchanges messages with test clients afterward. Its lower time on this workload makes per-recipient batching worth measuring: MafiaNet enqueues 7,800 envelopes for 93,600 bytes of position data per tick. Neither benchmark measures Internet latency. [Replicon benchmark at the tested revision](https://github.com/simgine/bevy_replicon/blob/839d838c7834bcb394f154b7ed51d0412e05a2d7/benches/replication.rs)
+
+The room trace starts with one entry, followed by 49 crossings between disjoint rooms containing 100 objects each. All 20 clients cross together. Each client can enter ten objects per 16 ms simulation frame. The benchmark checks exact client membership after each frame and stops a crossing only once every client has its new room. The ten-tick result reaches the budget minimum. Replicon supplies visibility filters; its upstream suite has no equivalent timed room trace.
+
+Reproduce from the MafiaNet root and the pinned Replicon checkout, respectively.
+
+```sh
+cmake --preset bench
+cmake --build --preset bench
+build/bench/Benchmarks/MafiaNetBenchmarks --benchmark_filter=BM_Streaming
+cargo bench --bench replication -- mutations_visibility_send/20_clients --sample-size 20 --measurement-time 2 --warm-up-time 1
+```
+
+### Lifecycle coverage informed by the upstream suites
+
+- Replicon's despawn tests exercise loss of visibility, deferred removal and a visibility gain canceled before publication. MafiaNet covers budget-deferred entries canceled before construction, exits and re-entry with a fresh baseline, and destruction after a local enqueue refusal. [Replicon despawn tests](https://github.com/simgine/bevy_replicon/blob/839d838c7834bcb394f154b7ed51d0412e05a2d7/tests/despawn.rs)
+- Bevy's observer tests assert exact lifecycle order and mutate the world from inside observers. MafiaNet asserts the order of entry, grant, correction, loss, exit and re-entry, including a handler that releases its newly installed copy. A separate test checks that a rejected baseline produces no entry event and that disconnect returns committed copies to the pool. [Bevy 0.20.1 observer tests](https://github.com/bevyengine/bevy/blob/a0577b5c6a7b208719dd761c5c6a7a539e472a97/crates/bevy_ecs/src/observer/mod.rs)
