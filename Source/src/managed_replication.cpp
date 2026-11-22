@@ -33,6 +33,10 @@ public:
 	ConstructionMode QueryConstructionMode() const override { return QUERY_CONNECTION_FOR_REPLICA_LIST; }
 	bool QuerySerializationList(std::vector<Replica3 *> &out) override
 	{
+		// Retry this connection's previous pass before collecting more changes.
+		// Explicit dirty marks accumulate until the connection can send again.
+		if (!refusedStates.empty())
+			return true;
 		if (runtime.serializationList && runtime.serializationList(ToPeerGuid(guid), out))
 			return true;
 		if (!runtime.explicitScheduling)
@@ -458,7 +462,7 @@ void ManagedReplication::DispatchEvents()
 		events.pop_front();
 		auto callback = replicaChanged;
 		if (callback)
-			callback(event);
+			(*callback)(event);
 	}
 }
 bool ManagedReplication::Release(NetworkID id, ReplicaEventKind reason)

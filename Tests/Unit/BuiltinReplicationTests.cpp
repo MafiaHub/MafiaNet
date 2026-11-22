@@ -268,11 +268,12 @@ class RefusingPeer final : public RakPeer
 public:
 	using RakPeer::Send;
 	std::set<ReplicationWire::Kind> refuseOnce;
+	bool refuseState = false;
 	uint32_t Send(const BitStream *data, Priority priority, Reliability reliability, char channel, const AddressOrGUID destination, bool broadcast, uint32_t receipt) override
 	{
 		BitStream input(data->GetData(), data->GetNumberOfBytesUsed(), false);
 		ReplicationWire::Header header;
-		if (ReplicationWire::ReadHeader(input, header) && refuseOnce.erase(header.kind))
+		if (ReplicationWire::ReadHeader(input, header) && (refuseOnce.erase(header.kind) || (refuseState && header.kind == ReplicationWire::Kind::State)))
 			return 0;
 		return RakPeer::Send(data, priority, reliability, channel, destination, broadcast, receipt);
 	}
@@ -664,8 +665,9 @@ TEST(BuiltinReplication, LifecycleEventsDescribeCommittedStateAcrossReentryTrans
 	ASSERT_TRUE(host.Reference(&door, SpatialScope{{2, 2}}));
 	const auto id = door.GetNetworkID();
 	bool releaseOnEnter = false;
-	remote.SetReplicaCallback([&](const ReplicaEvent &event)
+	remote.SetReplicaCallback([&, count = size_t{0}](const ReplicaEvent &event) mutable
 	                          {
+		EXPECT_EQ(++count, seen.size() + 1);
 		seen.push_back(event.kind);
 		EXPECT_EQ(event.id, id);
 		EXPECT_EQ(event.source, ToPeerGuid(server->GetMyGUID()));
@@ -743,4 +745,56 @@ TEST(BuiltinReplication, FailedDecodePublishesNoVisitAndDisconnectReleasesOnlyCo
 	                         { return seen.size() == 2; }, 5000));
 	EXPECT_EQ(seen[1].kind, E::Disconnected);
 	EXPECT_EQ(seen[1].id, good.GetNetworkID());
+}
+
+TEST(BuiltinReplication, BlockedConnectionResumesWithLatestExplicitState)
+{
+	SimulatedNetwork net;
+	auto *server = static_cast<RefusingPeer *>(net.AddCustomPeer(std::make_unique<RefusingPeer>(), 1, 1));
+	auto *client = net.AddPeer(1);
+	auto &host = server->GetReplication(), &remote = client->GetReplication();
+	host.SetRole(ReplicationRole::Server);
+	remote.SetRole(ReplicationRole::Client);
+	for (auto *r : {&host, &remote})
+	{
+		ASSERT_TRUE(r->RegisterReplica<Door>(doorType, 1));
+		ASSERT_TRUE(r->SetSnapshotPolicy(doorType, ChangeDetection::Explicit, SnapshotDelivery::Reliable));
+	}
+	host.SetTickMode(ReplicationTickMode::Manual);
+	host.SetSerializeInterval(0);
+	Door door;
+	ASSERT_TRUE(host.Reference(&door));
+	ASSERT_TRUE(net.Connect(client, server));
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return host.GetConnectionCount() == 1; }, 5000));
+	host.Tick();
+	auto copy = [&]
+	{ return static_cast<Door *>(remote.FindReplica(door.GetNetworkID())); };
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return copy(); }, 5000));
+	unsigned passes = 0;
+	host.SetSerializationList([&](PeerGuid, std::vector<Replica3 *> &)
+	                          {++passes;return false; });
+	server->refuseState = true;
+	door.state.open = true;
+	ASSERT_TRUE(host.MarkDirty(door));
+	host.Tick();
+	const auto blockedAt = passes;
+	ASSERT_GT(blockedAt, 0u);
+	door.state.open = false;
+	ASSERT_TRUE(host.MarkDirty(door));
+	for (unsigned i = 0; i < 10; ++i)
+		host.Tick();
+	EXPECT_EQ(passes, blockedAt);
+	server->refuseState = false;
+	host.Tick();
+	EXPECT_GT(passes, blockedAt);
+	// An extra tick of network progress delivers both the queued and superseding state.
+	net.Step(100);
+	EXPECT_FALSE(copy()->state.open);
+	door.state.open = true;
+	ASSERT_TRUE(host.MarkDirty(door));
+	host.Tick();
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return copy()->state.open; }, 5000));
 }

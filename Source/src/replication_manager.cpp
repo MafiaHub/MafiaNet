@@ -240,7 +240,7 @@ void ReplicationManager::SetTickCallbacks(std::function<void()> before, std::fun
 void ReplicationManager::SetReplicaCallback(std::function<void(const ReplicaEvent &)> callback)
 {
 	WorldGuard guard(*this);
-	managed->replicaChanged = std::move(callback);
+	managed->replicaChanged = callback ? std::make_shared<ManagedReplication::ReplicaCallback>(std::move(callback)) : nullptr;
 }
 void ReplicationManager::SetConnectionCallback(std::function<void(PeerGuid, bool)> callback)
 {

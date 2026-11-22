@@ -23,7 +23,8 @@ public:
 	void Reset();
 	bool Release(NetworkID id, ReplicaEventKind reason = ReplicaEventKind::Released);
 	void DispatchEvents();
-	std::function<void(const ReplicaEvent &)> replicaChanged;
+	using ReplicaCallback = std::function<void(const ReplicaEvent &)>;
+	std::shared_ptr<ReplicaCallback> replicaChanged;
 	bool Admit(PeerGuid guid);
 	ReplicationPeerStatus Status(PeerGuid guid) const;
 	void Receive(Packet &packet);
