@@ -29,11 +29,11 @@ bool ReplicationManager::SetRole(ReplicationRole requested)
 
 bool ReplicationManager::Reference(Replica3 *replica)
 {
+	WorldGuard guard(*this);
 	if ((role != ReplicationRole::Server && role != ReplicationRole::Peer) || !replica || replica->WasReferenced())
 		return false;
 	if (!managed || !managed->SetRegisteredType(*replica))
 		return false;
-	WorldGuard guard(*this);
 	replica->staticBinding = false;
 	managed->Reference(replica);
 	managed->ordinary.emplace(replica->GetNetworkID(), replica);
@@ -62,6 +62,7 @@ bool ReplicationManager::Reference(Replica3 *replica, SpatialScope scope)
 
 bool ReplicationManager::ReferenceStatic(Replica3 *replica, NetworkID id)
 {
+	WorldGuard guard(*this);
 	if (!replica || id == UNASSIGNED_NETWORK_ID || FindReplica(id) || replica->WasReferenced() || !managed || !managed->SetRegisteredType(*replica))
 		return false;
 	replica->staticBinding = true;
@@ -94,9 +95,9 @@ Replica3 *ReplicationManager::FindReplica(NetworkID id) const
 
 bool ReplicationManager::Destroy(Replica3 *replica)
 {
+	WorldGuard guard(*this);
 	if (!managed || role == ReplicationRole::Client || !replica || replica->replicaManager != managed.get())
 		return false;
-	WorldGuard guard(*this);
 	managed->Destroy(*replica);
 	return true;
 }
@@ -174,7 +175,8 @@ void ReplicationManager::SetAutomaticAdmission(bool enabled)
 
 void ReplicationManager::Dereference(Replica3 *replica)
 {
-	if (managed && role != ReplicationRole::Client && replica && replica->replicaManager == managed.get())
+	WorldGuard guard(*this);
+	if (replica && replica->replicaManager == managed.get() && (managed->staticObjects.count(replica->GetNetworkID()) || managed->ordinary.count(replica->GetNetworkID()) || managed->interest.Contains(replica->GetNetworkID())))
 	{
 		managed->staticObjects.erase(replica->GetNetworkID());
 		managed->Dereference(replica);
@@ -206,6 +208,7 @@ bool ReplicationManager::SetObserverVirtualWorld(PeerGuid guid, uint32_t dimensi
 	if (!connection)
 		return false;
 	connection->SetVirtualWorld(dimension);
+	managed->interest.SetObserverDimension(guid, dimension);
 	return true;
 }
 void ReplicationManager::SetSerializeInterval(Time interval)

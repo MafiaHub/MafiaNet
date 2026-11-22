@@ -386,3 +386,22 @@ TEST(BuiltinReplication, MarkedSnapshotsConvergeAfterFinalDatagramLoss)
 	ASSERT_TRUE(net.RunUntil([&]
 	                         { return copy()->state.open; }, 5000));
 }
+
+TEST(BuiltinReplication, ShutdownInsideTickReleasesBorrowedObjectsAndAllowsRestart)
+{
+	SimulatedNetwork net(65);
+	auto *server = net.AddPeer(1, 1);
+	auto &service = server->GetReplication();
+	ASSERT_TRUE(service.SetRole(ReplicationRole::Server));
+	ASSERT_TRUE(service.RegisterReplica<Door>(doorType, 1));
+	Door door;
+	ASSERT_TRUE(service.Reference(&door));
+	bool after = false;
+	service.SetTickCallbacks([&]
+	                         { server->Shutdown(0); }, [&]
+	                         { after = true; });
+	service.Tick();
+	EXPECT_FALSE(door.WasReferenced());
+	EXPECT_EQ(service.GetConnectionCount(), 0u);
+	EXPECT_FALSE(after);
+}

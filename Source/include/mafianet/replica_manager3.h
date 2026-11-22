@@ -27,7 +27,7 @@
 #include "mafianet/time.h"
 #include "mafianet/bit_stream.h"
 #include "mafianet/packet_priority.h"
-#include "mafianet/plugin_interface2.h"
+
 #include "mafianet/network_id_object.h"
 #include "mafianet/simple_mutex.h"
 #include "mafianet/virtual_world.h"
@@ -47,6 +47,7 @@ namespace MafiaNet
 {
 class Connection_RM3;
 class Replica3;
+class RakPeerInterface;
 class VirtualWorldReplica3;
 struct RM3ConnectionLock;
 struct DeserializeParameters;
@@ -322,10 +323,10 @@ public:
 	/// \return The number of worlds added
 	unsigned int GetWorldCount(void) const;
 
-	/// \details Sets the networkIDManager instance that this plugin relys upon.<BR>
+	/// \details Sets the networkIDManager instance that the manager uses.<BR>
 	/// Uses whatever instance is attached to RakPeerInterface if unset.<BR>
-	/// To support multiple worlds, you should set it to a different manager for each instance of the plugin
-	/// \param[in] _networkIDManager The externally allocated NetworkIDManager instance for this plugin to use.
+	/// To support multiple worlds, you should set it to a different manager for each world
+	/// \param[in] _networkIDManager The externally allocated NetworkIDManager instance for this world.
 	/// \param[in] worldId Used for multiple worlds. World 0 is created automatically by default. See AddWorld()
 	void SetNetworkIDManager(NetworkIDManager *_networkIDManager, WorldId worldId = 0);
 
@@ -356,9 +357,9 @@ public:
 	PRO GetDefaultSendParameters(void) const;
 
 	/// Call interfaces, send data
-	/// \details One thread may run Update() while another is inside RakPeerInterface::Receive(), which is where this plugin handles what connections send and where they open and close. Five locks make that safe, always taken in this order:
+	/// \details One thread may run Update() while another is inside RakPeerInterface::Receive(), which is where the peer handles what connections send and where they open and close. Five locks make that safe, always taken in this order:
 	/// <OL>
-	/// <LI>The world (WorldGuard), held for the whole of Update() and by everything that changes which connections and replicas exist or what a connection holds, with every callback those make: PushConnection(), PopConnection(), AutoCreateConnectionList(), Reference(), Dereference(), DereferenceList(), BroadcastDestruction() and BroadcastDestructionList() (Replica3::BroadcastDestruction() included), Clear(), AddWorld(), RemoveWorld(), Replica3::SetNetworkID() and Replica3::SetNetworkIDManager() on a referenced replica, the destructor of a referenced replica, a WorldGuard, an incoming construction or destruction message, and the peer shutting down or this plugin being detached. Nothing else in this class takes it.
+	/// <LI>The world (WorldGuard), held for the whole of Update() and by everything that changes which connections and replicas exist or what a connection holds, with every callback those make: PushConnection(), PopConnection(), AutoCreateConnectionList(), Reference(), Dereference(), DereferenceList(), BroadcastDestruction() and BroadcastDestructionList() (Replica3::BroadcastDestruction() included), Clear(), AddWorld(), RemoveWorld(), Replica3::SetNetworkID() and Replica3::SetNetworkIDManager() on a referenced replica, the destructor of a referenced replica, a WorldGuard, an incoming construction or destruction message, and the peer shutting down. Nothing else in this class takes it.
 	/// <LI>One lock per connection, held while Update() serves that connection (its construction queries and its serialize pass) and while a state, download or validation message from it is handled, Replica3::Deserialize() included. So Deserialize() from a connection never runs at the same time as a Serialize() made for that same connection, and waits for nothing else in the pass.
 	/// <LI>The replica set, held shared by the receive thread from the moment it looks up the replica a state message names until that replica's Deserialize() returns, and exclusively, for an instant and with the world, by whatever changes the NetworkIDManager's table or takes a replica out: Reference(), Dereference(), the destructor of a referenced Replica3 and its SetNetworkID() and SetNetworkIDManager(). So Dereference() returns only once no Deserialize() of that replica is running, with the replica out of the table: none starts afterwards and no lookup passes over it, and a replica can be dereferenced, then deleted, on one thread while another receives state. Nothing waits for the world or for a connection's lock while it holds it.
 	/// <LI>The list lock, around each edit and lookup of the connection and replica lists, never across a callback.
@@ -430,9 +431,6 @@ protected:
 		NetworkIDManager *networkIDManager;
 	};
 
-	virtual void OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason);
-	virtual void OnNewConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, bool isIncoming);
-	virtual void OnRakPeerShutdown(void);
 	virtual void OnFinalDereference(Replica3 &) {}
 
 
@@ -1001,7 +999,7 @@ public:
 	/// If QueryConstructionMode() is overriden to return QUERY_CONNECTION_FOR_REPLICA_LIST, this function is unused.<BR>
 	/// \note Defaults are provided: QueryConstruction_PeerToPeer(), QueryConstruction_ServerConstruction(), QueryConstruction_ClientConstruction(). Return one of these functions for a working default for the relevant topology.
 	/// \param[in] destinationConnection Which system we will send to
-	/// \param[in] replicaManager3 Plugin instance for this Replica3
+	/// \param[in] replicaManager3 Manager for this replica
 	/// \return What action to take
 	virtual RM3ConstructionState QueryConstruction(MafiaNet::Connection_RM3 *destinationConnection, ReplicaManager3 *replicaManager3) = 0;
 
@@ -1012,7 +1010,7 @@ public:
 	/// Note that you can also destroy objects with BroadcastDestruction(), so this function is not useful unless you plan to delete objects for only a particular connection.<BR>
 	/// If QueryConstructionMode() is overriden to return QUERY_CONNECTION_FOR_REPLICA_LIST, this function is unused.<BR>
 	/// \param[in] destinationConnection Which system we will send to
-	/// \param[in] replicaManager3 Plugin instance for this Replica3
+	/// \param[in] replicaManager3 Manager for this replica
 	/// \return What action to take. Only RM3CS_SEND_DESTRUCTION does anything at this time.
 	virtual RM3DestructionState QueryDestruction(MafiaNet::Connection_RM3 *destinationConnection, ReplicaManager3 *replicaManager3)
 	{
@@ -1276,7 +1274,7 @@ public:
 	RakNetGUID deletingSystemGUID;
 
 	/// \internal
-	/// ReplicaManager3 plugin associated with this object
+	/// Replica manager associated with this object
 	ReplicaManager3 *replicaManager;
 
 	LastSerializationResultBS lastSentSerialization;

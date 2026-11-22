@@ -1629,63 +1629,6 @@ void ReplicaManager3::PrepareBroadcast(Replica3 *replica, MafiaNet::Time time)
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-void ReplicaManager3::OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason)
-{
-	(void) lostConnectionReason;
-	(void) systemAddress;
-	if (autoDestroyConnections)
-	{
-		Connection_RM3 *connection = PopConnection(rakNetGUID);
-		if (connection)
-			DeallocConnection(connection);
-	}
-}
-
-// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
-void ReplicaManager3::OnNewConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, bool isIncoming)
-{
-	(void) isIncoming;
-	if (autoCreateConnections)
-	{
-		Connection_RM3 *connection = AllocConnection(systemAddress, rakNetGUID);
-		if (connection)
-			PushConnection(connection);
-	}
-}
-
-// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
-void ReplicaManager3::OnRakPeerShutdown(void)
-{
-	if (autoDestroyConnections)
-	{
-		RM3World *world;
-		unsigned int index3;
-		std::lock_guard<std::recursive_mutex> worldLock(worldMutex);
-		for (index3 = 0; index3 < worldsList.size(); index3++)
-		{
-			world = worldsList[index3];
-
-			while (world->connectionList.size())
-			{
-				Connection_RM3 *connection = PopConnection((unsigned int) (world->connectionList.size() - 1), world->worldId);
-				if (connection)
-					DeallocConnection(connection);
-			}
-		}
-	}
-
-
-	Clear(false);
-}
-
-// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
-
-// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
-
 void ReplicaManager3::BroadcastDestructionList(std::vector<Replica3 *> &replicaListSource, const SystemAddress &exclusionAddress, WorldId worldId)
 {
 	std::lock_guard<std::recursive_mutex> worldLock(worldMutex);

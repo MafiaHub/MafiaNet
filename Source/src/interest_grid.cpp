@@ -271,6 +271,12 @@ bool InterestGrid::SetObserverCells(PeerGuid guid, const std::vector<GridCell> &
 	impl->Subscribe(guid, o, std::move(next));
 	return true;
 }
+void InterestGrid::SetObserverDimension(PeerGuid guid, VirtualWorldId dimension)
+{
+	auto &observer = impl->observers[guid];
+	observer.dimension = dimension;
+	observer.dirty = true;
+}
 void InterestGrid::SetObserverWorld(PeerGuid guid, uint8_t world, VirtualWorldId dimension)
 {
 	auto &o = impl->observers[guid];

@@ -343,17 +343,41 @@ void ManagedReplication::Tick()
 	if (ticking)
 		return;
 	ticking = true;
+	TickScope scope{*this};
 	if (beforeTick)
 		beforeTick();
+	if (resetRequested)
+		return;
 	UpdateGrants(false);
 	Update();
+	if (resetRequested)
+		return;
 	UpdateGrants(true);
 	if (afterTick)
 		afterTick();
+}
+void ManagedReplication::FinishTick()
+{
 	ticking = false;
+	if (resetRequested)
+	{
+		resetRequested = false;
+		closing.clear();
+		Reset();
+		return;
+	}
+	auto closed = std::move(closing);
+	closing.clear();
+	for (auto guid : closed)
+		Disconnected(guid);
 }
 void ManagedReplication::Disconnected(PeerGuid guid)
 {
+	if (ticking)
+	{
+		closing.insert(guid);
+		return;
+	}
 	auto it = sessions.find(guid);
 	if (it == sessions.end())
 		return;
@@ -395,6 +419,12 @@ void ManagedReplication::OnFinalDereference(Replica3 &replica)
 }
 void ManagedReplication::Reset()
 {
+	WorldGuard guard(*this);
+	if (ticking)
+	{
+		resetRequested = true;
+		return;
+	}
 	++generation;
 	while (!sessions.empty())
 		Disconnected(sessions.begin()->first);
@@ -402,7 +432,7 @@ void ManagedReplication::Reset()
 	staticObjects.clear();
 	ordinary.clear();
 	interest.Clear();
-	OnRakPeerShutdown();
+	Clear(false);
 }
 void ManagedReplication::Destroy(Replica3 &replica)
 {

@@ -101,6 +101,14 @@ private:
 	uint64_t nextEpoch = 0;
 	void UpdateGrants(bool publish);
 	void OwnerPacket(Connection &connection, Kind kind, BitStream &in);
+	void FinishTick();
+	struct TickScope
+	{
+		ManagedReplication &manager;
+		~TickScope() { manager.FinishTick(); }
+	};
+	std::set<PeerGuid> closing;
+	bool resetRequested = false;
 	bool ticking = false;
 	uint64_t generation = 0;
 };

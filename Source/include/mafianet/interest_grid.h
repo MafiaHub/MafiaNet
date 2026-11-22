@@ -49,6 +49,7 @@ public:
 	bool SetObserverRadius(PeerGuid guid, SpatialPoint position, float enterRadius, float leaveRadius);
 	bool SetObserverPosition(PeerGuid guid, SpatialPoint position);
 	bool SetObserverCells(PeerGuid guid, const std::vector<GridCell> &cells);
+	void SetObserverDimension(PeerGuid guid, VirtualWorldId dimension);
 	void SetObserverWorld(PeerGuid guid, uint8_t world, VirtualWorldId dimension);
 	void SetObserverLimits(PeerGuid guid, unsigned visibleLimit, unsigned constructionBudget);
 	void SetAudience(std::function<bool(PeerGuid, NetworkID)> eligible);
