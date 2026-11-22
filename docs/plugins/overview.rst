@@ -39,7 +39,6 @@ Available Plugins
 
 **Game Features**
 
-- :doc:`replica-manager-3` - Object replication
 - :doc:`ready-event` - Synchronize ready states
 
 **Utilities**

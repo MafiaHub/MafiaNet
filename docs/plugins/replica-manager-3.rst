@@ -20,13 +20,14 @@ Setup
 
    #include "mafianet/replica_manager3.h"
 
-   // Create and attach
-   MafiaNet::ReplicaManager3* replicaManager =
-       MafiaNet::ReplicaManager3::GetInstance();
-   peer->AttachPlugin(replicaManager);
+   auto &replication = peer->GetReplication();
+   auto *replicaManager = replication.UseLegacyProtocol<GameReplicaManager>();
 
-   // Set network ID manager
-   replicaManager->SetNetworkIDManager(&networkIdManager);
+Use your existing ``ReplicaManager3`` subclass for ``GameReplicaManager``.
+The peer creates it once, supplies a default network ID manager, and runs its
+callbacks from the ordinary receive loop. Match the allocation and payload
+codecs on both endpoints. Rebuild downstream binaries for the peer interface
+and RM3 ABI change.
 
 Creating Replica Objects
 ------------------------
@@ -290,6 +291,5 @@ Send the reliable RPCs that name replicas on the manager's default channel, so a
 See Also
 --------
 
-* :doc:`overview` - Plugin basics
 * :doc:`virtual-worlds` - Per-player dimension/visibility scoping
 * :doc:`../basics/network-id-object` - NetworkIDObject

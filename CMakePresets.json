@@ -45,7 +45,7 @@
         {
             "name": "minimal",
             "inherits": "base",
-            "displayName": "Minimal (core transport only)",
+            "displayName": "Minimal (core transport, RPC and replication)",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Release",
                 "MAFIANET_MINIMAL": "ON"

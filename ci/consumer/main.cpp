@@ -21,6 +21,7 @@ int main()
 	MafiaNet::SocketDescriptor descriptor;
 	const MafiaNet::StartupResult result = peer->Startup(1, &descriptor, 1);
 	const bool registered = peer->GetRPC().RegisterFunction("probe", [](MafiaNet::BitStream *, MafiaNet::Packet *, void *) {}, nullptr);
+	const bool replication = peer->GetReplication().SetRole(MafiaNet::ReplicationRole::Server);
 	peer->Shutdown(0);
 	MafiaNet::RakPeerInterface::DestroyInstance(peer);
 	if (result != MafiaNet::RAKNET_STARTED)
@@ -28,7 +29,7 @@ int main()
 		std::printf("Startup failed: %d\n", (int) result);
 		return 1;
 	}
-	if (!registered)
+	if (!registered || !replication)
 		return 1;
 	std::printf("MafiaNet consumer OK\n");
 	return 0;

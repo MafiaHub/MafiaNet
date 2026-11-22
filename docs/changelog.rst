@@ -6,6 +6,13 @@ All notable changes to MafiaNet are documented here.
 Unreleased — breaking
 ---------------------
 
+**Built-in object replication**
+
+* Every UDP peer owns its replication service, including in minimal builds.
+  Use ``peer->GetReplication()``. Games with an RM3 subclass can select the
+  original wire protocol through ``UseLegacyProtocol<GameReplicaManager>()``.
+  Rebuild downstream binaries for the peer and RM3 ABI changes.
+
 **Built-in RPC**
 
 * Use ``peer->GetRPC()`` and ``mafianet/remote_procedure_call.h`` for named calls, signals and callbacks.
