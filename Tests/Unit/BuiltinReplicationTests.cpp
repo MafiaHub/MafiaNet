@@ -955,9 +955,9 @@ TEST(BuiltinReplication, StateCallbackCannotStartANestedWorldTick)
 	struct TickDoor : Door
 	{
 		std::function<void()> attempt;
-		void Deserialize(DeserializeParameters *state) override
+		void Deserialize(DeserializeParameters *parameters) override
 		{
-			Door::Deserialize(state);
+			Door::Deserialize(parameters);
 			if (attempt)
 				attempt();
 		}

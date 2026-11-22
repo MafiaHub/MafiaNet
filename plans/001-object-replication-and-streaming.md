@@ -146,13 +146,13 @@ ci/format.sh --check
 
 ## Measured streaming workloads
 
-On an Apple M5 Pro, Apple Clang 21 Release and Rust 1.99.0 bench profile, the following measurements ran consecutively on the same machine. The MafiaNet timer surrounds the public server replication tick, including interest resolution, serialization and enqueue to a connected RakPeer. Simulated transport progress, client decoding and validation run outside the timer. Bytes count replication envelopes before UDP headers, encryption and retransmission.
+At MafiaNet commit `aafd9d22` on an Apple M5 Pro, Apple Clang 21 Release and Rust 1.99.0 bench profile, the following measurements ran consecutively on the same machine. The MafiaNet timer surrounds the public server replication tick, including interest resolution, serialization and enqueue to a connected RakPeer. Simulated transport progress, client decoding and validation run outside the timer. Bytes count replication envelopes before UDP headers, encryption and retransmission.
 
 | Workload | Server time | p95 tick | Bytes per tick | Ticks to last client baseline |
 |---|---:|---:|---:|---:|
-| MafiaNet dense updates, 100 ticks | 1,347 µs/tick | 1,408 µs | 538,200 | Already in scope |
-| MafiaNet room entry and crossings, 500 ticks | 171 µs/tick | 521 µs | 18,412 | 10 maximum |
-| Bevy Replicon dense updates, 20 Criterion samples | 365 µs/update (364–367 µs estimate interval) | — | — | Already in scope |
+| MafiaNet dense updates, 100 ticks | 1,343 µs/tick | 1,393 µs | 538,200 | Already in scope |
+| MafiaNet room entry and crossings, 500 ticks | 171 µs/tick | 520 µs | 18,412 | 10 maximum |
+| Bevy Replicon dense updates, 20 Criterion samples | 363 µs/update (361–364 µs estimate interval) | — | — | Already in scope |
 
 In the dense case, all 500 three-float positions change each tick. Each of 20 clients sees 390 objects, with the same client-specific exclusion window as upstream. MafiaNet checks the ID and decoded value of every visible replica after every tick. Replicon times its server app update through message production and exchanges messages with test clients afterward. Its lower time on this workload makes per-recipient batching worth measuring: MafiaNet enqueues 7,800 envelopes for 93,600 bytes of position data per tick. Neither benchmark measures Internet latency. [Replicon benchmark at the tested revision](https://github.com/simgine/bevy_replicon/blob/839d838c7834bcb394f154b7ed51d0412e05a2d7/benches/replication.rs)
 
