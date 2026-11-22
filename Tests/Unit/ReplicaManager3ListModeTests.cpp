@@ -79,7 +79,6 @@ namespace
 class ListReplica : public Replica3
 {
 public:
-	void WriteAllocationID(Connection_RM3 *, MafiaNet::BitStream *) const {}
 	RM3ConstructionState QueryConstruction(Connection_RM3 *, ReplicaManager3 *) { return RM3CS_SEND_CONSTRUCTION; }
 	bool QueryRemoteConstruction(Connection_RM3 *) { return false; }
 	void SerializeConstruction(MafiaNet::BitStream *, Connection_RM3 *) {}
@@ -111,7 +110,6 @@ public:
 		isValidated = true;
 	}
 
-	Replica3 *AllocReplica(MafiaNet::BitStream *, ReplicaManager3 *) { return 0; }
 	ConstructionMode QueryConstructionMode() const { return QUERY_CONNECTION_FOR_REPLICA_LIST; }
 
 	void QueryReplicaList(std::vector<Replica3 *> &create, std::vector<Replica3 *> &destroy)

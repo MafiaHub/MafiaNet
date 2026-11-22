@@ -37,125 +37,17 @@ Register the type on both endpoints before connecting. On the server,
 state to admitted clients. Changes to ``door.state.open`` are replicated from
 the ordinary receive loop. Call ``replication.Destroy(&door)`` to remove it.
 
-Creating Replica Objects
-------------------------
+Object lifetime
+---------------
 
-Inherit from ``Replica3``:
+The server borrows each referenced object. The receiver allocates a local copy
+using its registered factory. Register a factory and release callback to use a
+pool. A successful remote allocation is paired with a release when its scope
+ends. A snapshot-decoding failure also releases the allocation.
 
-.. code-block:: cpp
-
-   class Player : public MafiaNet::Replica3 {
-   public:
-       float x, y, z;
-       int health;
-       std::string name;
-
-       // Allocation ID for object creation
-       virtual void WriteAllocationID(
-           MafiaNet::Connection_RM3* conn,
-           MafiaNet::BitStream* bs) const override {
-           bs->Write(std::string("Player"));
-       }
-
-       // Serialize object state
-       virtual MafiaNet::RM3SerializationResult Serialize(
-           MafiaNet::SerializeParameters* params) override {
-
-           params->outputBitstream[0].Write(x);
-           params->outputBitstream[0].Write(y);
-           params->outputBitstream[0].Write(z);
-           params->outputBitstream[0].Write(health);
-           params->outputBitstream[0].Write(name);
-
-           return MafiaNet::RM3SR_BROADCAST_IDENTICALLY;
-       }
-
-       // Deserialize object state
-       virtual void Deserialize(
-           MafiaNet::DeserializeParameters* params) override {
-
-           params->serializationBitstream[0].Read(x);
-           params->serializationBitstream[0].Read(y);
-           params->serializationBitstream[0].Read(z);
-           params->serializationBitstream[0].Read(health);
-           params->serializationBitstream[0].Read(name);
-       }
-
-       // When to serialize
-       virtual MafiaNet::RM3QuerySerializationResult QuerySerialization(
-           MafiaNet::Connection_RM3* conn) override {
-           return MafiaNet::RM3QSR_CALL_SERIALIZE;
-       }
-   };
-
-Connection Class
-----------------
-
-Create a connection class for each connected peer:
-
-.. code-block:: cpp
-
-   class GameConnection : public MafiaNet::Connection_RM3 {
-   public:
-       virtual MafiaNet::Replica3* AllocReplica(
-           MafiaNet::BitStream* allocationIdBitstream,
-           MafiaNet::ReplicaManager3* rm3) override {
-
-           std::string typeName;
-           allocationIdBitstream->Read(typeName);
-
-           if (typeName == "Player") {
-               return new Player();
-           }
-           return nullptr;
-       }
-   };
-
-   // In your ReplicaManager3 subclass
-   class GameReplicaManager : public MafiaNet::ReplicaManager3 {
-   public:
-       virtual MafiaNet::Connection_RM3* AllocConnection(
-           const MafiaNet::SystemAddress& addr,
-           MafiaNet::RakNetGUID guid) const override {
-           return new GameConnection();
-       }
-
-       virtual void DeallocConnection(
-           MafiaNet::Connection_RM3* conn) const override {
-           delete conn;
-       }
-   };
-
-Registering Objects
--------------------
-
-.. code-block:: cpp
-
-   // Server creates and references
-   Player* player = new Player();
-   player->x = 100;
-   player->y = 0;
-   player->z = 50;
-   replicaManager->Reference(player);
-
-   // Automatically replicated to all connections!
-
-Static objects
---------------
-
-For an object that every peer creates locally, such as a door loaded with a
-level, assign the same unique network ID on every peer. Call
-``SetNetworkIDManager()`` on the replica with the manager used by
-``ReplicaManager3``, then call ``SetNetworkID()`` before ``Reference()``.
-
-Have the authoritative peer return ``RM3CS_ALREADY_EXISTS_REMOTELY`` from
-``QueryConstruction()``. It can send initial state through
-``SerializeConstructionExisting()``, which the receiver reads in
-``DeserializeConstructionExisting()`` on its local object. Other peers return
-``RM3CS_ALREADY_EXISTS_REMOTELY_DO_NOT_CONSTRUCT``. Send subsequent state
-changes through ``Serialize()`` on the authoritative peer. For a level-owned
-object that survives a disconnect, return ``RM3AOPC_DO_NOTHING`` from
-``QueryActionOnPopConnection()``.
+Use ``ReferenceStatic(&room, id)`` on both peers for a level object with a
+game-defined network ID. Its construction-existing callbacks bind current
+state to the local object. The game retains ownership of that object.
 
 Serialization Results
 ---------------------

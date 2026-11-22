@@ -31,16 +31,18 @@ bool ReplicationManager::Reference(Replica3 *replica)
 {
 	if ((role != ReplicationRole::Server && role != ReplicationRole::Peer) || !replica || replica->WasReferenced())
 		return false;
-	if (!managed || !managed->IsRegistered(*replica))
+	if (!managed || !managed->SetRegisteredType(*replica))
 		return false;
+	replica->staticBinding = false;
 	managed->Reference(replica);
 	return true;
 }
 
 bool ReplicationManager::ReferenceStatic(Replica3 *replica, NetworkID id)
 {
-	if (!replica || id == UNASSIGNED_NETWORK_ID || FindReplica(id) || replica->WasReferenced() || !managed || !managed->IsRegistered(*replica))
+	if (!replica || id == UNASSIGNED_NETWORK_ID || FindReplica(id) || replica->WasReferenced() || !managed || !managed->SetRegisteredType(*replica))
 		return false;
+	replica->staticBinding = true;
 	replica->SetNetworkID(id);
 	managed->Reference(replica);
 	managed->staticObjects[id] = replica;

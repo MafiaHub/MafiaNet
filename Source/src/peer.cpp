@@ -207,12 +207,6 @@ static bool MayReachApplicationFromRemote(const unsigned char *data, unsigned in
 		return true;
 	switch (innerId)
 	{
-	// ReplicaManager3 accepts all of its messages behind a timestamp (Connection_RM3::SendSerializeHeader).
-	case ID_REPLICA_MANAGER_CONSTRUCTION:
-	case ID_REPLICA_MANAGER_SCOPE_CHANGE:
-	case ID_REPLICA_MANAGER_SERIALIZE:
-	case ID_REPLICA_MANAGER_DOWNLOAD_STARTED:
-	case ID_REPLICA_MANAGER_DOWNLOAD_COMPLETE:
 	// NatPunchthroughServer
 	case ID_NAT_CONNECT_AT_TIME:
 		return true;

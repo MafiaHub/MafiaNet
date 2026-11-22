@@ -18,7 +18,6 @@ class WorldTestConnection : public Connection_RM3
 public:
 	WorldTestConnection(const SystemAddress &sa, RakNetGUID g)
 	    : Connection_RM3(sa, g) {}
-	Replica3 *AllocReplica(MafiaNet::BitStream *, ReplicaManager3 *) { return 0; }
 };
 
 class WorldTestManager : public ReplicaManager3

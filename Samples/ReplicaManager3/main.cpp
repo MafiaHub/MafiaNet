@@ -61,13 +61,6 @@ struct SampleReplica : public Replica3
 	{
 	}
 	virtual std::string GetName(void) const = 0;
-	virtual void WriteAllocationID(MafiaNet::Connection_RM3 *destinationConnection, MafiaNet::BitStream *allocationIdBitstream) const
-	{
-		// unused parameters
-		(void) destinationConnection;
-
-		allocationIdBitstream->Write(GetName());
-	}
 	void PrintStringInBitstream(MafiaNet::BitStream *bs)
 	{
 		if (bs->GetNumberOfBitsUsed() == 0)

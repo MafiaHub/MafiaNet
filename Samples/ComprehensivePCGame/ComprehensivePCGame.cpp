@@ -152,12 +152,6 @@ public:
 		if (masterServerQueryResult)
 			json_decref(masterServerQueryResult);
 	}
-	virtual void WriteAllocationID(MafiaNet::Connection_RM3 *destinationConnection, MafiaNet::BitStream *allocationIdBitstream) const
-	{
-		// unused parameters
-		(void) destinationConnection;
-		(void) allocationIdBitstream;
-	}
 	virtual RM3ConstructionState QueryConstruction(MafiaNet::Connection_RM3 *destinationConnection, ReplicaManager3 *replicaManager3)
 	{
 		// unused parameters
@@ -427,13 +421,6 @@ public:
 	virtual ~User()
 	{
 		game->users.erase(std::find(game->users.begin(), game->users.end(), this));
-	}
-	virtual void WriteAllocationID(MafiaNet::Connection_RM3 *destinationConnection, MafiaNet::BitStream *allocationIdBitstream) const
-	{
-		// unused parameters
-		(void) destinationConnection;
-
-		allocationIdBitstream->Write("User");
 	}
 	virtual RM3ConstructionState QueryConstruction(MafiaNet::Connection_RM3 *destinationConnection, ReplicaManager3 *replicaManager3)
 	{

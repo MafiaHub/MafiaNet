@@ -24,7 +24,6 @@ public:
 	explicit Field(bool sender = true)
 	    : sender(sender) {}
 	bool BroadcastsIdentically() const override { return shared; }
-	void WriteAllocationID(Connection_RM3 *, BitStream *) const override {}
 	RM3ConstructionState QueryConstruction(Connection_RM3 *to, ReplicaManager3 *) override
 	{
 		if (!sender)

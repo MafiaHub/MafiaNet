@@ -10,7 +10,8 @@ Unreleased — breaking
 
 * Every UDP peer owns its replication service, including in minimal builds.
   Register replica types through ``peer->GetReplication()`` and configure a
-  server, client or peer role. Rebuild both endpoints for transport protocol 12.
+  server, client or peer role. Protocol 12 assigns one message ID to replication
+  and removes retired message slots. Rebuild both endpoints.
 
 
 **Built-in RPC**

@@ -175,16 +175,10 @@ TEST(RemoteControlIds, ATimestampedApplicationMessageIsDelivered)
 
 TEST(RemoteControlIds, TheLibraryMessagesThatCarryATimestampAreDelivered)
 {
-	// ReplicaManager3 timestamps its serializes and the NAT punchthrough server its connect-at-time;
-	// with no plugin attached to claim them they come out of Receive().
-	for (const MessageID id : {(MessageID) ID_REPLICA_MANAGER_SERIALIZE, (MessageID) ID_NAT_CONNECT_AT_TIME})
-	{
-		ConnectedPair pair;
-		ASSERT_NO_FATAL_FAILURE(pair.SetUp());
-
-		SendTimestamped(pair.client, pair.net.AddressOf(pair.server), id);
-		ASSERT_TRUE(pair.FlushWithSentinel());
-
-		EXPECT_TRUE(Delivered(pair.net, pair.server, id)) << "id " << (int) id;
-	}
+	const MessageID id = ID_NAT_CONNECT_AT_TIME;
+	ConnectedPair pair;
+	ASSERT_NO_FATAL_FAILURE(pair.SetUp());
+	SendTimestamped(pair.client, pair.net.AddressOf(pair.server), id);
+	ASSERT_TRUE(pair.FlushWithSentinel());
+	EXPECT_TRUE(Delivered(pair.net, pair.server, id));
 }

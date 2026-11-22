@@ -157,7 +157,7 @@ TEST(PacketLoggerIdNames, RakVoiceRelayDataAndItsNeighboursAreNamed)
 {
 	EXPECT_STREQ(PacketLogger::BaseIDTOString(ID_RAKVOICE_DATA), "ID_RAKVOICE_DATA");
 	EXPECT_STREQ(PacketLogger::BaseIDTOString(ID_RAKVOICE_RELAY_DATA), "ID_RAKVOICE_RELAY_DATA");
-	EXPECT_STREQ(PacketLogger::BaseIDTOString(ID_RESERVED_49), "ID_RESERVED_49");
+	EXPECT_STREQ(PacketLogger::BaseIDTOString(ID_NAT_PUNCHTHROUGH_REQUEST), "ID_NAT_PUNCHTHROUGH_REQUEST");
 }
 
 // Everything past the break was shifted, so the ids the session handshake uses were all wrong.
@@ -170,27 +170,15 @@ TEST(PacketLoggerIdNames, SessionConfigIdsAreNamed)
 	EXPECT_STREQ(PacketLogger::BaseIDTOString(ID_SESSION_CONFIG_ABANDONED), "ID_SESSION_CONFIG_ABANDONED");
 }
 
-TEST(PacketLoggerIdNames, Protocol10WireIdsMatchLoggerNames)
+TEST(PacketLoggerIdNames, Protocol12WireIdsMatchLoggerNames)
 {
-	EXPECT_EQ(48, (int) ID_RAKVOICE_RELAY_DATA);
-	EXPECT_EQ(59, (int) ID_NAT_PUNCHTHROUGH_REQUEST);
-	EXPECT_STREQ(PacketLogger::BaseIDTOString(58), "ID_RESERVED_58");
-	EXPECT_STREQ(PacketLogger::BaseIDTOString(59), "ID_NAT_PUNCHTHROUGH_REQUEST");
-	EXPECT_EQ(73, (int) ID_RPC_REMOTE_ERROR);
-	EXPECT_STREQ(PacketLogger::BaseIDTOString(73), "ID_RPC_REMOTE_ERROR");
-	EXPECT_EQ(77, (int) ID_FCM2_NEW_HOST);
-	EXPECT_STREQ(PacketLogger::BaseIDTOString(77), "ID_FCM2_NEW_HOST");
-	EXPECT_EQ(91, (int) ID_NAT_TYPE_DETECTION_REQUEST);
-	EXPECT_STREQ(PacketLogger::BaseIDTOString(97), "ID_RESERVED_97");
-	EXPECT_STREQ(PacketLogger::BaseIDTOString(98), "ID_RESERVED_98");
-	EXPECT_STREQ(PacketLogger::BaseIDTOString(99), "ID_RESERVED_99");
-	EXPECT_STREQ(PacketLogger::BaseIDTOString(100), "ID_RESERVED_100");
-	EXPECT_STREQ(PacketLogger::BaseIDTOString(101), "ID_RESERVED_101");
-	EXPECT_EQ(110, (int) ID_RELAY_PLUGIN);
-	EXPECT_EQ(119, (int) ID_USER_PACKET_ENUM);
-	EXPECT_STREQ(PacketLogger::BaseIDTOString(91), "ID_NAT_TYPE_DETECTION_REQUEST");
-	EXPECT_STREQ(PacketLogger::BaseIDTOString(103), "ID_RESERVED_103");
-	EXPECT_STREQ(PacketLogger::BaseIDTOString(110), "ID_RELAY_PLUGIN");
+	EXPECT_STREQ(PacketLogger::BaseIDTOString(39), "ID_REPLICATION");
+	EXPECT_STREQ(PacketLogger::BaseIDTOString(44), "ID_RAKVOICE_RELAY_DATA");
+	EXPECT_STREQ(PacketLogger::BaseIDTOString(45), "ID_NAT_PUNCHTHROUGH_REQUEST");
+	EXPECT_STREQ(PacketLogger::BaseIDTOString(59), "ID_RPC_REMOTE_ERROR");
+	EXPECT_STREQ(PacketLogger::BaseIDTOString(63), "ID_FCM2_NEW_HOST");
+	EXPECT_STREQ(PacketLogger::BaseIDTOString(74), "ID_NAT_TYPE_DETECTION_REQUEST");
+	EXPECT_STREQ(PacketLogger::BaseIDTOString(81), "ID_RELAY_PLUGIN");
 }
 
 // The connection packets, which is what a reader of a handshake log keys off.

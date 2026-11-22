@@ -48,13 +48,6 @@ public:
 	virtual ~User()
 	{
 	}
-	virtual void WriteAllocationID(MafiaNet::Connection_RM3 *destinationConnection, MafiaNet::BitStream *allocationIdBitstream) const
-	{
-		// unused parameters
-		(void) destinationConnection;
-
-		allocationIdBitstream->Write("User");
-	}
 	virtual RM3ConstructionState QueryConstruction(MafiaNet::Connection_RM3 *destinationConnection, ReplicaManager3 *replicaManager3)
 	{
 		// unused parameters

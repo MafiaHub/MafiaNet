@@ -3,6 +3,7 @@
 #include "mafianet/replica_manager3.h"
 #include "mafianet/replication_manager.h"
 #include <map>
+#include "replication_wire.h"
 
 namespace MafiaNet
 {
@@ -12,7 +13,7 @@ public:
 	ManagedReplication(ReplicationManager &owner, RakPeerInterface &peer)
 	    : ReplicaManager3(peer), owner(owner) {}
 	bool Register(ReplicaTypeId id, uint16_t version, std::type_index type, std::function<Replica3 *()> create, std::function<void(Replica3 *)> release);
-	bool IsRegistered(const Replica3 &replica) const;
+	bool SetRegisteredType(Replica3 &replica) const;
 	void Connected(PeerGuid guid, bool incoming);
 	void Disconnected(PeerGuid guid);
 	void Reset();
@@ -31,17 +32,7 @@ public:
 
 private:
 	class Connection;
-	enum class Kind : uint8_t
-	{
-		Hello,
-		Accept,
-		Reject,
-		Spawn,
-		State,
-		Leave,
-		Destroy,
-		Bind
-	};
+	using Kind = ReplicationWire::Kind;
 	struct Type
 	{
 		std::type_index cppType;

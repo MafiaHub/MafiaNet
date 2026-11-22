@@ -13,7 +13,6 @@ class SnapshotReplica : public Replica3
 {
 public:
 	State state{};
-	void WriteAllocationID(Connection_RM3 *, BitStream *) const override {}
 	RM3ConstructionState QueryConstruction(Connection_RM3 *, ReplicaManager3 *) override { return RM3CS_SEND_CONSTRUCTION; }
 	bool QueryRemoteConstruction(Connection_RM3 *) override { return true; }
 	void SerializeConstruction(BitStream *out, Connection_RM3 *) override { state.Write(*out); }

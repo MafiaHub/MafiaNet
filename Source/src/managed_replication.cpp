@@ -8,36 +8,16 @@
 
 namespace MafiaNet
 {
-namespace
-{
-constexpr uint8_t protocolVersion = 1;
-constexpr BitSize_t maxPayloadBits = 8 * 1024 * 1024;
-bool WriteBlock(BitStream &out, BitStream &data)
-{
-	const auto bits = data.GetNumberOfBitsUsed();
-	if (bits > maxPayloadBits)
-		return false;
-	out.Write(bits);
-	if (bits)
-		out.WriteBits(data.GetData(), bits, false);
-	return true;
-}
-bool ReadBlock(BitStream &in, BitStream &data)
-{
-	BitSize_t bits;
-	return in.Read(bits) && bits <= maxPayloadBits && bits <= in.GetNumberOfUnreadBits() && (!bits || in.Read(data, bits));
-}
-}
-
+using namespace ReplicationWire;
 class ManagedReplication::Connection final : public Connection_RM3
 {
 public:
 	Connection(ManagedReplication &runtime, PeerGuid guid, const Session &session)
-	    : Connection_RM3(runtime.GetRakPeerInterface()->GetSystemAddressFromGuid(ToGuid(guid)), ToGuid(guid)), runtime(runtime), session(session)
+	    : Connection_RM3(runtime.GetRakPeerInterface()->GetSystemAddressFromGuid(ToGuid(guid)), ToGuid(guid)), runtime(runtime)
 	{
-		isValidated = true;
+		clientToken = session.clientToken;
+		serverToken = session.serverToken;
 	}
-	Replica3 *AllocReplica(BitStream *, ReplicaManager3 *) override { return nullptr; }
 	ConstructionMode QueryConstructionMode() const override { return QUERY_CONNECTION_FOR_REPLICA_LIST; }
 	bool QuerySerializationList(std::vector<Replica3 *> &out) override
 	{
@@ -62,56 +42,9 @@ public:
 				leave.push_back(replica);
 		}
 	}
-	void SendConstruction(std::vector<Replica3 *> &enter, std::vector<Replica3 *> &leave, PRO, RakPeerInterface *, unsigned char, ReplicaManager3 *) override
-	{
-		for (auto *replica : enter)
-		{
-			BitStream out, snapshot;
-			const bool bind = runtime.staticObjects.count(replica->GetNetworkID()) != 0;
-			runtime.WriteHeader(out, bind ? Kind::Bind : Kind::Spawn, session);
-			out.Write(replica->GetNetworkID());
-			out.Write(runtime.typeIds.at(typeid(*replica)));
-			if (bind)
-				replica->SerializeConstructionExisting(&snapshot, this);
-			else
-				replica->SerializeConstruction(&snapshot, this);
-			if (WriteBlock(out, snapshot))
-				runtime.Send(ToPeerGuid(guid), out);
-		}
-		for (auto *replica : leave)
-			Remove(*replica, Kind::Leave);
-	}
-	void Remove(Replica3 &replica, Kind kind)
-	{
-		BitStream out;
-		runtime.WriteHeader(out, kind, session);
-		out.Write(replica.GetNetworkID());
-		runtime.Send(ToPeerGuid(guid), out);
-	}
-	SendSerializeIfChangedResult SendSerialize(Replica3 *replica, bool selected[], BitStream channels[], Time timestamp, PRO pro[], RakPeerInterface *, unsigned char, Time) override
-	{
-		BitStream out;
-		runtime.WriteHeader(out, Kind::State, session);
-		out.Write(replica->GetNetworkID());
-		out.Write(timestamp);
-		for (unsigned int i = 0; i < RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; ++i)
-		{
-			out.Write(selected[i]);
-			if (selected[i] && !WriteBlock(out, channels[i]))
-				return SSICR_DID_NOT_SEND_DATA;
-		}
-		for (unsigned int i = 0; i < RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; ++i)
-			if (selected[i])
-			{
-				runtime.GetRakPeerInterface()->Send(&out, pro[i].priority, pro[i].reliability, pro[i].orderingChannel, guid, false, pro[i].sendReceipt);
-				break;
-			}
-		return SSICR_SENT_DATA;
-	}
 
 private:
 	ManagedReplication &runtime;
-	const Session session;
 };
 
 bool ManagedReplication::Register(ReplicaTypeId id, uint16_t version, std::type_index type, std::function<Replica3 *()> create, std::function<void(Replica3 *)> release)
@@ -123,9 +56,13 @@ bool ManagedReplication::Register(ReplicaTypeId id, uint16_t version, std::type_
 	return true;
 }
 
-bool ManagedReplication::IsRegistered(const Replica3 &replica) const
+bool ManagedReplication::SetRegisteredType(Replica3 &replica) const
 {
-	return typeIds.count(typeid(replica)) != 0;
+	auto it = typeIds.find(typeid(replica));
+	if (it == typeIds.end())
+		return false;
+	replica.registeredType = static_cast<uint32_t>(it->second);
+	return true;
 }
 
 uint64_t ManagedReplication::Schema() const
@@ -147,11 +84,7 @@ uint64_t ManagedReplication::Schema() const
 }
 void ManagedReplication::WriteHeader(BitStream &out, Kind kind, const Session &session) const
 {
-	out.Write(static_cast<MessageID>(ID_REPLICATION));
-	out.Write(protocolVersion);
-	out.Write(kind);
-	out.Write(session.clientToken);
-	out.Write(session.serverToken);
+	ReplicationWire::WriteHeader(out, kind, session.clientToken, session.serverToken);
 }
 void ManagedReplication::Send(PeerGuid guid, BitStream &packet)
 {
@@ -278,7 +211,7 @@ void ManagedReplication::Destroy(Replica3 &replica)
 	{
 		auto *connection = static_cast<Connection *>(GetConnectionAtIndex(i));
 		if (connection->HasReplicaConstructed(&replica))
-			connection->Remove(replica, Kind::Destroy);
+			connection->SendRemoval(replica, true, *GetRakPeerInterface(), 0);
 	}
 	Dereference(&replica);
 }
@@ -287,7 +220,7 @@ void ManagedReplication::Receive(Packet &packet)
 {
 	const auto guid = ToPeerGuid(packet.guid);
 	auto it = sessions.find(guid);
-	if (it == sessions.end() || packet.length > (maxPayloadBits / 8) * RM3_NUM_OUTPUT_BITSTREAM_CHANNELS + 256 ||
+	if (it == sessions.end() || packet.length > (MaxPayloadBits / 8) * RM3_NUM_OUTPUT_BITSTREAM_CHANNELS + 256 ||
 	    packet.bitSize > static_cast<uint64_t>(packet.length) * 8)
 		return;
 	BitStream in(packet.data, packet.length, false);
@@ -295,8 +228,9 @@ void ManagedReplication::Receive(Packet &packet)
 	in.IgnoreBytes(1);
 	uint8_t version;
 	Kind kind;
+	WorldId world;
 	uint64_t clientToken, serverToken;
-	if (!in.Read(version) || !in.Read(kind) || !in.Read(clientToken) || !in.Read(serverToken) || !clientToken)
+	if (!in.Read(version) || !in.Read(kind) || !in.Read(clientToken) || !in.Read(serverToken) || !in.Read(world) || world != 0 || !clientToken)
 		return;
 	auto &session = it->second;
 	const bool server = !session.initiator;
@@ -307,9 +241,9 @@ void ManagedReplication::Receive(Packet &packet)
 			return;
 		session.clientToken = clientToken;
 		session.helloReceived = true;
-		if (version != protocolVersion || schema != Schema())
+		if (version != Version || schema != Schema())
 		{
-			session.status = version != protocolVersion ? ReplicationPeerStatus::ProtocolMismatch : ReplicationPeerStatus::SchemaMismatch;
+			session.status = version != Version ? ReplicationPeerStatus::ProtocolMismatch : ReplicationPeerStatus::SchemaMismatch;
 			BitStream out;
 			WriteHeader(out, Kind::Reject, session);
 			out.Write(static_cast<uint8_t>(session.status));
@@ -319,7 +253,7 @@ void ManagedReplication::Receive(Packet &packet)
 			Start(guid, session);
 		return;
 	}
-	if (version != protocolVersion || clientToken != session.clientToken || !session.admitted)
+	if (version != Version || clientToken != session.clientToken || !session.admitted)
 		return;
 	if (!server && session.status == ReplicationPeerStatus::Waiting)
 	{

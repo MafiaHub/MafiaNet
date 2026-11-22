@@ -64,7 +64,6 @@ struct ServerView
 class OwnedReplica : public Replica3
 {
 public:
-	void WriteAllocationID(Connection_RM3 *, BitStream *) const override {}
 	RM3ConstructionState QueryConstruction(Connection_RM3 *, ReplicaManager3 *) override { return RM3CS_SEND_CONSTRUCTION; }
 	bool QueryRemoteConstruction(Connection_RM3 *) override { return false; }
 	void SerializeConstruction(BitStream *, Connection_RM3 *) override {}
@@ -107,7 +106,6 @@ public:
 		}
 	}
 
-	void WriteAllocationID(Connection_RM3 *, BitStream *) const override {}
 	RM3ConstructionState QueryConstruction(Connection_RM3 *, ReplicaManager3 *) override { return RM3CS_NEVER_CONSTRUCT; }
 	bool QueryRemoteConstruction(Connection_RM3 *) override { return true; }
 	void SerializeConstruction(BitStream *, Connection_RM3 *) override {}
@@ -155,7 +153,6 @@ public:
 	}
 
 	bool BroadcastsIdentically() const override { return broadcastsIdentically; }
-	void WriteAllocationID(Connection_RM3 *, BitStream *) const override {}
 	RM3ConstructionState QueryConstruction(Connection_RM3 *, ReplicaManager3 *) override { return RM3CS_SEND_CONSTRUCTION; }
 	bool QueryRemoteConstruction(Connection_RM3 *) override { return false; }
 	void SerializeConstruction(BitStream *, Connection_RM3 *) override {}
@@ -197,7 +194,6 @@ public:
 
 	~ServerOwnedCopy() override { ++stats->destroyed; }
 
-	void WriteAllocationID(Connection_RM3 *, BitStream *) const override {}
 	RM3ConstructionState QueryConstruction(Connection_RM3 *, ReplicaManager3 *) override { return RM3CS_NEVER_CONSTRUCT; }
 	bool QueryRemoteConstruction(Connection_RM3 *) override { return true; }
 	void SerializeConstruction(BitStream *, Connection_RM3 *) override {}

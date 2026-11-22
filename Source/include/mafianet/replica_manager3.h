@@ -90,16 +90,7 @@ struct PRO
 /// \brief System to help automate game object construction, destruction, and serialization
 /// \details ReplicaManager3 tracks your game objects and automates the networking for replicating them across the network<BR>
 /// As objects are created, destroyed, or serialized differently, those changes are pushed out to other systems.<BR>
-/// To use:<BR>
-/// <OL>
-/// <LI>Derive from Connection_RM3 and implement Connection_RM3::AllocReplica(). This is a factory function where given a user-supplied identifier for a class (such as name) return an instance of that class. Should be able to return any networked object in your game.
-/// <LI>Derive from ReplicaManager3 and implement AllocConnection() and DeallocConnection() to return the class you created in step 1.
-/// <LI>Derive your networked game objects from Replica3. All pure virtuals have to be implemented, however defaults are provided for Replica3::QueryConstruction(), Replica3::QueryRemoteConstruction(), and Replica3::QuerySerialization() depending on your network architecture.
-/// <LI>When a new game object is created on the local system, pass it to ReplicaManager3::Reference().
-/// <LI>When a game object is destroyed on the local system, and you want other systems to know about it, call Replica3::BroadcastDestruction()
-/// </OL>
-/// <BR>
-/// At this point, all new connections will automatically download, get construction messages, get destruction messages, and update serialization automatically.
+/// Games register object types on RakPeerInterface::GetReplication().
 /// \ingroup REPLICA_MANAGER_GROUP3
 class RAK_DLL_EXPORT ReplicaManager3
 {
@@ -309,10 +300,6 @@ public:
 	/// \param[out] connectionsThatHaveConstructedThisReplica Populated with connection instances that we believe have \a replica allocated
 	void GetConnectionsThatHaveReplicaConstructed(Replica3 *replica, std::vector<Connection_RM3 *> &connectionsThatHaveConstructedThisReplica, WorldId worldId = 0);
 
-	/// \brief Returns if GetDownloadWasCompleted() returns true for all connections
-	/// \param[in] worldId Used for multiple worlds. World 0 is created automatically by default. See AddWorld()
-	/// \return True when all downloads have been completed
-	bool GetAllConnectionDownloadsCompleted(WorldId worldId = 0) const;
 
 	/// \brief ReplicaManager3 can support multiple worlds, where each world has a separate NetworkIDManager, list of connections, replicas, etc
 	/// A world with id 0 is created automatically. If you want multiple worlds, use this function, and ReplicaManager3::SetNetworkIDManager() to have a different NetworkIDManager instance per world
@@ -416,7 +403,7 @@ public:
 	};
 
 protected:
-	/// \brief For a subclass that receives replica state in a message format of its own, from its OnReceive(): delivers it as ID_REPLICA_MANAGER_SERIALIZE is delivered.
+	/// \brief Deliver state while holding the sender and replica lifetime locks.
 	/// \details Holds the sender's lock for its scope, and never the world: the state waits only while Update() serves that same connection (see Update()). Each Deserialize() holds the replica set from the lookup of the replica until its Replica3::Deserialize() returns, so a replica dereferenced on another thread is either delivered to in full or not at all.
 	/// What Replica3::Deserialize() must not do under a connection's lock applies here unchanged. Make one per message, on the stack, and let it go before the message is handed on.
 	class RAK_DLL_EXPORT StateDelivery
@@ -442,27 +429,18 @@ protected:
 		NetworkIDManager *networkIDManager;
 	};
 
-	virtual PluginReceiveResult OnReceive(Packet *packet);
 	virtual void OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason);
 	virtual void OnNewConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, bool isIncoming);
 	virtual void OnRakPeerShutdown(void);
 
 
-	PluginReceiveResult OnConstruction(Packet *packet, unsigned char *packetData, int packetDataLength, RakNetGUID senderGuid, unsigned char packetDataOffset, WorldId worldId);
-	PluginReceiveResult OnSerialize(Packet *packet, unsigned char *packetData, int packetDataLength, RakNetGUID senderGuid, MafiaNet::Time timestamp, unsigned char packetDataOffset, WorldId worldId);
-	PluginReceiveResult OnDownloadStarted(Packet *packet, unsigned char *packetData, int packetDataLength, RakNetGUID senderGuid, unsigned char packetDataOffset, WorldId worldId);
-	PluginReceiveResult OnDownloadComplete(Packet *packet, unsigned char *packetData, int packetDataLength, RakNetGUID senderGuid, unsigned char packetDataOffset, WorldId worldId);
-
-	void DeallocReplicaNoBroadcastDestruction(MafiaNet::Connection_RM3 *connection, MafiaNet::Replica3 *replica3);
 	MafiaNet::Connection_RM3 *PopConnection(unsigned int index, WorldId worldId);
-	Replica3 *GetReplicaByNetworkID(NetworkID networkId, WorldId worldId);
 	unsigned int ReferenceInternal(MafiaNet::Replica3 *replica3, WorldId worldId);
 
 	PRO defaultSendParameters;
 	MafiaNet::Time autoSerializeInterval;
 	MafiaNet::Time lastAutoSerializeOccurance;
 	bool autoCreateConnections, autoDestroyConnections;
-	Replica3 *currentlyDeallocatingReplica;
 	// Set on the first call to ReferenceInternal(), and should never be changed after that
 	// Used to lookup in Replica3LSRComp. I don't want to rely on GetNetworkID() in case it changes at runtime
 	uint32_t nextReferenceIndex;
@@ -607,7 +585,6 @@ enum SendSerializeIfChangedResult
 };
 
 /// \brief Each remote system is represented by Connection_RM3. Used to allocate Replica3 and track which instances have been allocated
-/// \details Important function: AllocReplica() - must be overridden to create an object given an identifier for that object, which you define for all objects in your game
 /// \ingroup REPLICA_MANAGER_GROUP3
 class RAK_DLL_EXPORT Connection_RM3
 {
@@ -615,18 +592,6 @@ public:
 	Connection_RM3(const SystemAddress &_systemAddress, RakNetGUID _guid);
 	virtual ~Connection_RM3();
 
-	/// \brief Class factory to create a Replica3 instance, given a user-defined identifier
-	/// \details Identifier is returned by Replica3::WriteAllocationID() for what type of class to create.<BR>
-	/// This is called when you download a replica from another system.<BR>
-	/// See Replica3::Dealloc for the corresponding destruction message.<BR>
-	/// Return 0 if unable to create the intended object. Note, in that case the other system will still think we have the object and will try to serialize object updates to us. Generally, you should not send objects the other system cannot create.<BR>
-	/// \sa Replica3::WriteAllocationID().
-	/// Sample implementation:<BR>
-	/// {std::string typeName; allocationIdBitstream->Read(typeName); if (typeName=="Soldier") return new Soldier; return 0;}<BR>
-	/// \param[in] allocationIdBitstream user-defined bitstream uniquely identifying a game object type
-	/// \param[in] replicaManager3 Instance of ReplicaManager3 that controls this connection
-	/// \return The new replica instance
-	virtual Replica3 *AllocReplica(MafiaNet::BitStream *allocationIdBitstream, ReplicaManager3 *replicaManager3) = 0;
 
 	/// \brief Get list of all replicas that are constructed for this connection
 	/// \param[out] objectsTheyDoHave Destination list. Returned in sorted ascending order, sorted on the value of the Replica3 pointer.
@@ -637,21 +602,6 @@ public:
 	/// \return True if constructed, false othewise
 	bool HasReplicaConstructed(MafiaNet::Replica3 *replica);
 
-	/// When a new connection connects, before sending any objects, SerializeOnDownloadStarted() is called
-	/// \param[out] bitStream Passed to DeserializeOnDownloadStarted()
-	virtual void SerializeOnDownloadStarted(MafiaNet::BitStream *bitStream) { (void) bitStream; }
-
-	/// Receives whatever was written in SerializeOnDownloadStarted()
-	/// \param[in] bitStream Written in SerializeOnDownloadStarted()
-	virtual void DeserializeOnDownloadStarted(MafiaNet::BitStream *bitStream) { (void) bitStream; }
-
-	/// When a new connection connects, after constructing and serialization all objects, SerializeOnDownloadComplete() is called
-	/// \param[out] bitStream Passed to DeserializeOnDownloadComplete()
-	virtual void SerializeOnDownloadComplete(MafiaNet::BitStream *bitStream) { (void) bitStream; }
-
-	/// Receives whatever was written in DeserializeOnDownloadComplete()
-	/// \param[in] bitStream Written in SerializeOnDownloadComplete()
-	virtual void DeserializeOnDownloadComplete(MafiaNet::BitStream *bitStream) { (void) bitStream; }
 
 	/// \return The system address passed to the constructor of this object
 	SystemAddress GetSystemAddress(void) const { return systemAddress; }
@@ -668,8 +618,6 @@ public:
 	/// \return The virtual world this observer perceives. Defaults to VIRTUAL_WORLD_DEFAULT.
 	VirtualWorldId GetVirtualWorld(void) const { return virtualWorld; }
 
-	/// \return True if ID_REPLICA_MANAGER_DOWNLOAD_COMPLETE arrived for this connection
-	bool GetDownloadWasCompleted(void) const { return gotDownloadComplete; }
 
 	/// List of enumerations for how to get the list of valid objects for other systems
 	enum ConstructionMode
@@ -691,15 +639,6 @@ public:
 		QUERY_CONNECTION_FOR_REPLICA_LIST
 	};
 
-	/// \brief Return whether or not downloads to our system should all be processed the same tick (call to RakPeer::Receive() )
-	/// \details Normally the system will send ID_REPLICA_MANAGER_DOWNLOAD_STARTED, ID_REPLICA_MANAGER_CONSTRUCTION for all downloaded objects,
-	/// ID_REPLICA_MANAGER_SERIALIZE for each downloaded object, and lastly ID_REPLICA_MANAGER_DOWNLOAD_COMPLETE.
-	/// This enables the application to show a downloading splash screen on ID_REPLICA_MANAGER_DOWNLOAD_STARTED, a progress bar, and to close the splash screen and activate all objects on ID_REPLICA_MANAGER_DOWNLOAD_COMPLETE
-	/// However, if the application was not set up for this then it would result in incomplete objects spread out over time, and cause problems
-	/// If you return true from QueryGroupDownloadMessages(), then these messages will be returned all in one tick, returned only when the download is complete
-	/// \note ID_REPLICA_MANAGER_DOWNLOAD_STARTED calls the callback DeserializeOnDownloadStarted()
-	/// \note ID_REPLICA_MANAGER_DOWNLOAD_COMPLETE calls the callback DeserializeOnDownloadComplete()
-	virtual bool QueryGroupDownloadMessages(void) const { return false; }
 
 	/// \brief Queries how to get the list of objects that exist on remote systems
 	/// \details The default of calling QueryConstruction for every known object is easy to use, but not efficient, especially for large worlds where many objects are outside of the player's circle of influence.<BR>
@@ -775,7 +714,7 @@ public:
 	virtual void SendConstruction(std::vector<Replica3 *> &newObjects, std::vector<Replica3 *> &deletedObjects, PRO sendParameters, MafiaNet::RakPeerInterface *rakPeer, unsigned char worldId, ReplicaManager3 *replicaManager3);
 
 	/// \internal
-	void SendValidation(MafiaNet::RakPeerInterface *rakPeer, WorldId worldId);
+	void SendRemoval(Replica3 &replica, bool destroyed, RakPeerInterface &peer, WorldId worldId);
 
 	/// \internal
 	void AutoConstructByQuery(ReplicaManager3 *replicaManager3, WorldId worldId);
@@ -793,15 +732,13 @@ public:
 	/// \internal Whether \a lsr is still one of this connection's records. Compares pointers only, so it is safe
 	/// to ask about a record a game callback may have freed.
 	bool HoldsRecord(const LastSerializationResult *lsr) const;
-	// Internal - Used to see if we should send download started
-	bool isFirstConstruction;
 
 	static int Replica3LSRComp(Replica3 *const &replica3, LastSerializationResult *const &data);
 
 	// Internal
-	void ClearDownloadGroup(RakPeerInterface *rakPeerInterface);
 
 protected:
+	uint64_t clientToken = 0, serverToken = 0;
 	SystemAddress systemAddress;
 	RakNetGUID guid;
 
@@ -855,14 +792,11 @@ protected:
 	*/
 	void OnLocalReference(Replica3 *replica3, ReplicaManager3 *replicaManager);
 	void OnDereference(Replica3 *replica3, ReplicaManager3 *replicaManager);
-	void OnDownloadFromThisSystem(Replica3 *replica3, ReplicaManager3 *replicaManager);
-	void OnDownloadFromOtherSystem(Replica3 *replica3, ReplicaManager3 *replicaManager);
 	void OnNeverConstruct(unsigned int queryToConstructIdx, ReplicaManager3 *replicaManager);
 	void OnConstructToThisConnection(unsigned int queryToConstructIdx, ReplicaManager3 *replicaManager);
 	void OnConstructToThisConnection(Replica3 *replica, ReplicaManager3 *replicaManager);
 	void OnNeverSerialize(LastSerializationResult *lsr, ReplicaManager3 *replicaManager);
 	void OnReplicaAlreadyExists(unsigned int queryToConstructIdx, ReplicaManager3 *replicaManager);
-	void OnDownloadExisting(Replica3 *replica3, ReplicaManager3 *replicaManager);
 	void OnSendDestructionFromQuery(unsigned int queryToDestructIdx, ReplicaManager3 *replicaManager);
 	void OnDoNotQueryDestruction(unsigned int queryToDestructIdx, ReplicaManager3 *replicaManager);
 	void ValidateLists(ReplicaManager3 *replicaManager) const;
@@ -888,14 +822,6 @@ protected:
 
 	// Working lists
 	std::vector<Replica3 *> constructedReplicasCulled, destroyedReplicasCulled;
-
-	// This is used if QueryGroupDownloadMessages() returns true when ID_REPLICA_MANAGER_DOWNLOAD_STARTED arrives
-	// Packets will be gathered and not returned until ID_REPLICA_MANAGER_DOWNLOAD_COMPLETE arrives
-	bool groupConstructionAndSerialize;
-	std::deque<Packet *> downloadGroup;
-
-	// Stores if we got download complete for this connection
-	bool gotDownloadComplete;
 
 	friend class ReplicaManager3;
 
@@ -1062,12 +988,6 @@ public:
 	/// It is not necessary to call ReplicaManager3::Dereference(), as this happens automatically in the destructor
 	virtual ~Replica3();
 
-	/// \brief Write a unique identifer that can be read on a remote system to create an object of this same class.
-	/// \details The value written to \a allocationIdBitstream will be passed to Connection_RM3::AllocReplica().<BR>
-	/// Sample implementation:<BR>
-	/// {allocationIdBitstream->Write("Soldier");}<BR>
-	/// \param[out] allocationIdBitstream Bitstream for the user to write to, to identify this class
-	virtual void WriteAllocationID(MafiaNet::Connection_RM3 *destinationConnection, MafiaNet::BitStream *allocationIdBitstream) const = 0;
 
 	/// \brief Ask if this object, which does not exist on \a destinationConnection should (now) be sent to that system.
 	/// \details If ReplicaManager3::QueryConstructionMode() returns QUERY_CONNECTION_FOR_REPLICA_LIST or QUERY_REPLICA_FOR_CONSTRUCTION_AND_DESTRUCTION (default),
@@ -1341,6 +1261,10 @@ public:
 
 	/// GUID of the system that first called Reference() on this object.
 	/// Transmitted automatically when the object is constructed
+	friend class ManagedReplication;
+	friend class ReplicationManager;
+	uint32_t registeredType = 0;
+	bool staticBinding = false;
 	RakNetGUID creatingSystemGUID;
 	/// GUID of the system that caused the item to send a deletion command over the network
 	RakNetGUID deletingSystemGUID;
@@ -1390,7 +1314,6 @@ protected:
 public:
 	void SetCompositeOwner(parent_type *p) { r3CompositeOwner = p; }
 	parent_type *GetCompositeOwner(void) const { return r3CompositeOwner; };
-	virtual void WriteAllocationID(MafiaNet::Connection_RM3 *destinationConnection, MafiaNet::BitStream *allocationIdBitstream) const { r3CompositeOwner->WriteAllocationID(destinationConnection, allocationIdBitstream); }
 	virtual MafiaNet::RM3ConstructionState QueryConstruction(MafiaNet::Connection_RM3 *destinationConnection, MafiaNet::ReplicaManager3 *replicaManager3) { return r3CompositeOwner->QueryConstruction(destinationConnection, replicaManager3); }
 	virtual MafiaNet::RM3DestructionState QueryDestruction(MafiaNet::Connection_RM3 *destinationConnection, MafiaNet::ReplicaManager3 *replicaManager3) { return r3CompositeOwner->QueryDestruction(destinationConnection, replicaManager3); }
 	virtual bool QueryRemoteConstruction(MafiaNet::Connection_RM3 *sourceConnection) { return r3CompositeOwner->QueryRemoteConstruction(sourceConnection); }

@@ -51,10 +51,6 @@ public:
 	Player()
 	    : playerId(0) {}
 
-	void WriteAllocationID(Connection_RM3 *, BitStream *allocationIdBitstream) const
-	{
-		allocationIdBitstream->Write(std::string("Player"));
-	}
 	void SerializeConstruction(BitStream *bs, Connection_RM3 *)
 	{
 		bs->Write(playerId);

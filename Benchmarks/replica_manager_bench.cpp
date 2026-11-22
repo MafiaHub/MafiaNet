@@ -1,3 +1,4 @@
+#include "../Source/src/replication_wire.h"
 /*
  *  Copyright (c) 2026, MafiaHub
  *
@@ -41,7 +42,6 @@ class StateReplica : public Replica3
 public:
 	uint32_t value = 0;
 	bool BroadcastsIdentically() const override { return true; }
-	void WriteAllocationID(Connection_RM3 *, BitStream *out) const override { out->Write(uint8_t{1}); }
 	RM3ConstructionState QueryConstruction(Connection_RM3 *, ReplicaManager3 *) override { return RM3CS_SEND_CONSTRUCTION; }
 	bool QueryRemoteConstruction(Connection_RM3 *) override { return true; }
 	void SerializeConstruction(BitStream *out, Connection_RM3 *) override { out->Write(value); }
@@ -64,7 +64,6 @@ class Connection : public Connection_RM3
 public:
 	explicit Connection(RakNetGUID guid)
 	    : Connection_RM3(UNASSIGNED_SYSTEM_ADDRESS, guid) { isValidated = true; }
-	Replica3 *AllocReplica(BitStream *, ReplicaManager3 *) override { return nullptr; }
 };
 struct SerializationCandidates
 {
@@ -206,40 +205,21 @@ struct ConstructionTraffic : CountingPeer
 	uint32_t Send(const BitStream *data, Priority, Reliability, char, const AddressOrGUID, bool, uint32_t) override
 	{
 		const auto size = data->GetNumberOfBytesUsed();
-		switch (data->GetData()[0])
+		if (size >= 3 && data->GetData()[0] == ID_REPLICATION)
 		{
-		case ID_REPLICA_MANAGER_DOWNLOAD_STARTED:
-			downloading = true;
-			controlBytes += size;
-			break;
-		case ID_REPLICA_MANAGER_DOWNLOAD_COMPLETE:
-			downloading = false;
-			controlBytes += size;
-			break;
-		case ID_REPLICA_MANAGER_CONSTRUCTION:
-		{
-			BitStream input(data->GetData(), size, false);
-			input.IgnoreBytes(2); // message ID and world
-			uint16_t count = 0;
-			input.Read(count);
-			records += count;
-			constructionBytes += size;
-			break;
-		}
-		case ID_REPLICA_MANAGER_SERIALIZE:
-			if (downloading)
+			const auto kind = static_cast<ReplicationWire::Kind>(data->GetData()[2]);
+			if (kind == ReplicationWire::Kind::Spawn)
 			{
-				++initialMessages;
-				initialBytes += size;
+				++records;
+				constructionBytes += size;
 			}
-			else
+			else if (kind == ReplicationWire::Kind::State)
 			{
 				++regularMessages;
 				regularBytes += size;
 			}
-			break;
-		default:
-			break;
+			else
+				controlBytes += size;
 		}
 		bytes += size;
 		return 1;

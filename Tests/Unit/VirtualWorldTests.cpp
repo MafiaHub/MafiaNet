@@ -23,7 +23,6 @@ class VWTestConnection : public Connection_RM3
 public:
 	VWTestConnection(const SystemAddress &sa, RakNetGUID g)
 	    : Connection_RM3(sa, g) {}
-	Replica3 *AllocReplica(MafiaNet::BitStream *, ReplicaManager3 *) { return 0; }
 };
 
 // Minimal concrete VirtualWorldReplica3. The within-world hooks return
@@ -32,7 +31,6 @@ public:
 class VWTestReplica : public VirtualWorldReplica3
 {
 public:
-	void WriteAllocationID(Connection_RM3 *, MafiaNet::BitStream *) const {}
 	bool QueryRemoteConstruction(Connection_RM3 *) { return true; }
 	void SerializeConstruction(MafiaNet::BitStream *, Connection_RM3 *) {}
 	bool DeserializeConstruction(MafiaNet::BitStream *, Connection_RM3 *) { return true; }
