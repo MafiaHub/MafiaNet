@@ -1857,6 +1857,8 @@ void ReliabilityLayer::UpdateInternal(RakNetSocket2 *s, SystemAddress &systemAdd
 					{
 						// Flag invalid, and clear the memory. Still needs to be removed from the sendPacketSet later
 						// This fixes a problem where a remote system disconnects, but we don't know it yet, and memory consumption increases to a huge value
+						if (cur->reliability == Reliability::UnreliableWithAckReceipt)
+							ReportReceiptLoss(cur->sendReceiptSerial);
 						FreeInternalPacketData(cur);
 						cur->data = 0;
 						InternalPacket *next = cur->unreliableNext;

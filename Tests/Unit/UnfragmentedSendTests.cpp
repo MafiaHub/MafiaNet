@@ -2,6 +2,7 @@
 #include <gtest/gtest.h>
 #include <cstring>
 #include <set>
+#include <tuple>
 #include "SimulatedNetwork.h"
 #include "mafianet/message_identifiers.h"
 #include "mafianet/plugin_interface2.h"
@@ -49,86 +50,94 @@ TEST(UnfragmentedSend, UnreliablePayloadThatFitsKeepsItsDeliveryMode)
 	EXPECT_EQ(wire.reliability, Reliability::Unreliable);
 }
 
-class DatagramBoundary : public ::testing::TestWithParam<EncryptionMode>
+using BoundaryModes = std::tuple<EncryptionMode, Reliability>;
+class DatagramBoundary : public ::testing::TestWithParam<BoundaryModes>
 {
 };
 
-TEST_P(DatagramBoundary, ChecksTheLastBitForEveryUnreliableMode)
+class StrictDatagramBoundary : public DatagramBoundary
+{
+};
+
+std::string BoundaryName(const testing::TestParamInfo<BoundaryModes> &info)
+{
+	static constexpr const char *names[] = {"Unreliable", "UnreliableSequenced", "Reliable", "ReliableOrdered", "ReliableSequenced", "UnreliableWithAckReceipt", "ReliableWithAckReceipt", "ReliableOrderedWithAckReceipt"};
+	static_assert(sizeof(names) / sizeof(*names) == NUMBER_OF_RELIABILITIES);
+	const auto [encryption, mode] = info.param;
+	return std::string(encryption == EncryptionMode::Required ? "Encrypted" : "Plaintext") + names[static_cast<unsigned>(mode)];
+}
+
+TEST_P(StrictDatagramBoundary, ChecksTheLastBit)
 {
 	WireObserver wire;
 	SimulatedNetwork net;
-	net.SetNewPeerEncryptionMode(GetParam());
+	const auto [encryption, mode] = GetParam();
+	net.SetNewPeerEncryptionMode(encryption);
 	auto *sender = net.AddPeer(1), *receiver = net.AddPeer(1, 1);
 	ASSERT_TRUE(net.Connect(sender, receiver));
 	sender->AttachPlugin(&wire);
 	const auto guid = receiver->GetMyGUID();
-	for (const auto mode : {Reliability::Unreliable, Reliability::UnreliableSequenced, Reliability::UnreliableWithAckReceipt})
-	{
-		SCOPED_TRACE(static_cast<unsigned>(mode));
-		const auto limit = sender->GetMaxUnfragmentedPayload(guid, mode);
-		ASSERT_GT(limit, 0u);
-		EXPECT_EQ(limit, sender->GetMaxUnfragmentedPayload(net.AddressOf(receiver), mode));
-		std::vector<unsigned char> bytes(limit + 1, 'a');
-		bytes.front() = payloadId;
-		BitStream message(bytes.data(), limit + 1, false);
-		message.SetWriteOffset(limit * 8 - 1);
-		auto result = sender->SendDatagram(message, Priority::High, mode, 0, guid);
-		ASSERT_EQ(result.status, DatagramSendStatus::Queued);
-		ASSERT_NE(result.receipt, 0u);
-		ASSERT_TRUE(net.RunUntilReceived(receiver, payloadId, 2000));
-		net.Inbox(receiver).clear();
-		const auto before = wire.packets;
-		result = sender->SendDatagram(reinterpret_cast<const char *>(bytes.data()), static_cast<int>(limit), Priority::High, mode, 0, guid);
-		ASSERT_EQ(result.status, DatagramSendStatus::Queued);
-		ASSERT_TRUE(net.RunUntilReceived(receiver, payloadId, 2000));
-		EXPECT_EQ(wire.packets, before + 1);
-		EXPECT_EQ(wire.fragments, 0u);
-		EXPECT_EQ(wire.reliability, mode);
-		net.Inbox(receiver).clear();
-		message.SetWriteOffset(limit * 8 + 1);
-		const auto rejected = sender->SendDatagram(message, Priority::High, mode, 0, guid);
-		EXPECT_EQ(rejected.status, DatagramSendStatus::TooLarge);
-		EXPECT_EQ(rejected.receipt, 0u);
-		EXPECT_EQ(sender->SendDatagram(reinterpret_cast<const char *>(bytes.data()), static_cast<int>(limit + 1), Priority::High, mode, 0, guid).status, DatagramSendStatus::TooLarge);
-		net.Step(100);
-		EXPECT_FALSE(net.Find(receiver, payloadId));
-		EXPECT_EQ(wire.packets, before + 1);
-	}
+	const auto limit = sender->GetMaxUnfragmentedPayload(guid, mode);
+	ASSERT_GT(limit, 0u);
+	EXPECT_EQ(limit, sender->GetMaxUnfragmentedPayload(net.AddressOf(receiver), mode));
+	std::vector<unsigned char> bytes(limit + 1, 'a');
+	bytes.front() = payloadId;
+	BitStream message(bytes.data(), limit + 1, false);
+	message.SetWriteOffset(limit * 8 - 1);
+	auto result = sender->SendDatagram(message, Priority::High, mode, 0, guid);
+	ASSERT_EQ(result.status, DatagramSendStatus::Queued);
+	ASSERT_NE(result.receipt, 0u);
+	ASSERT_TRUE(net.RunUntilReceived(receiver, payloadId, 2000));
+	net.Inbox(receiver).clear();
+	const auto before = wire.packets;
+	result = sender->SendDatagram(reinterpret_cast<const char *>(bytes.data()), static_cast<int>(limit), Priority::High, mode, 0, guid);
+	ASSERT_EQ(result.status, DatagramSendStatus::Queued);
+	ASSERT_TRUE(net.RunUntilReceived(receiver, payloadId, 2000));
+	EXPECT_EQ(wire.packets, before + 1);
+	EXPECT_EQ(wire.fragments, 0u);
+	EXPECT_EQ(wire.reliability, mode);
+	net.Inbox(receiver).clear();
+	message.SetWriteOffset(limit * 8 + 1);
+	const auto rejected = sender->SendDatagram(message, Priority::High, mode, 0, guid);
+	EXPECT_EQ(rejected.status, DatagramSendStatus::TooLarge);
+	EXPECT_EQ(rejected.receipt, 0u);
+	EXPECT_EQ(sender->SendDatagram(reinterpret_cast<const char *>(bytes.data()), static_cast<int>(limit + 1), Priority::High, mode, 0, guid).status, DatagramSendStatus::TooLarge);
+	net.Step(100);
+	EXPECT_FALSE(net.Find(receiver, payloadId));
+	EXPECT_EQ(wire.packets, before + 1);
 }
-TEST_P(DatagramBoundary, OrdinarySendSplitsOnlyBeyondTheReportedLimitForEachDeliveryMode)
+TEST_P(DatagramBoundary, OrdinarySendSplitsOnlyBeyondTheReportedLimit)
 {
 	WireObserver wire;
 	SimulatedNetwork net;
-	net.SetNewPeerEncryptionMode(GetParam());
+	const auto [encryption, mode] = GetParam();
+	net.SetNewPeerEncryptionMode(encryption);
 	auto *sender = net.AddPeer(1), *receiver = net.AddPeer(1, 1);
 	ASSERT_TRUE(net.Connect(sender, receiver));
 	sender->AttachPlugin(&wire);
 	const auto target = receiver->GetMyGUID();
-	for (unsigned index = 0; index < NUMBER_OF_RELIABILITIES; ++index)
+	const auto limit = sender->GetMaxUnfragmentedPayload(target, mode);
+	ASSERT_GT(limit, 0u);
+	std::vector<char> bytes(limit + 1, 'x');
+	bytes.front() = payloadId;
+	for (unsigned extra : {0u, 1u})
 	{
-		const auto mode = static_cast<Reliability>(index);
-		SCOPED_TRACE(index);
-		const auto limit = sender->GetMaxUnfragmentedPayload(target, mode);
-		ASSERT_GT(limit, 0u);
-		std::vector<char> bytes(limit + 1, 'x');
-		bytes.front() = payloadId;
-		for (unsigned extra : {0u, 1u})
+		wire.packets = wire.fragments = 0;
+		net.Inbox(receiver).clear();
+		ASSERT_NE(sender->Send(bytes.data(), static_cast<int>(limit + extra), Priority::High, mode, 0, target, false), 0u);
+		ASSERT_TRUE(net.RunUntilReceived(receiver, payloadId, 2000));
+		EXPECT_EQ(net.Find(receiver, payloadId)->data.size(), limit + extra);
+		EXPECT_EQ(wire.fragments != 0, extra != 0);
+		if (!extra)
 		{
-			wire.packets = wire.fragments = 0;
-			net.Inbox(receiver).clear();
-			ASSERT_NE(sender->Send(bytes.data(), static_cast<int>(limit + extra), Priority::High, mode, 0, target, false), 0u);
-			ASSERT_TRUE(net.RunUntilReceived(receiver, payloadId, 2000));
-			EXPECT_EQ(net.Find(receiver, payloadId)->data.size(), limit + extra);
-			EXPECT_EQ(wire.fragments != 0, extra != 0);
-			if (!extra)
-			{
-				EXPECT_EQ(wire.packets, 1u);
-				EXPECT_EQ(wire.reliability, mode);
-			}
+			EXPECT_EQ(wire.packets, 1u);
+			EXPECT_EQ(wire.reliability, mode);
 		}
 	}
 }
-INSTANTIATE_TEST_SUITE_P(EncryptedAndPlaintext, DatagramBoundary, testing::Values(EncryptionMode::Required, EncryptionMode::Plaintext));
+const auto encryptionModes = testing::Values(EncryptionMode::Required, EncryptionMode::Plaintext);
+INSTANTIATE_TEST_SUITE_P(Transport, StrictDatagramBoundary, testing::Combine(encryptionModes, testing::Values(Reliability::Unreliable, Reliability::UnreliableSequenced, Reliability::UnreliableWithAckReceipt)), BoundaryName);
+INSTANTIATE_TEST_SUITE_P(Transport, DatagramBoundary, testing::Combine(encryptionModes, testing::Values(Reliability::Unreliable, Reliability::UnreliableSequenced, Reliability::Reliable, Reliability::ReliableOrdered, Reliability::ReliableSequenced, Reliability::UnreliableWithAckReceipt, Reliability::ReliableWithAckReceipt, Reliability::ReliableOrderedWithAckReceipt)), BoundaryName);
 
 TEST(UnfragmentedSend, UnknownTargetAndUnsupportedArgumentsDoNotQueue)
 {
@@ -149,7 +158,16 @@ TEST(UnfragmentedSend, UnknownTargetAndUnsupportedArgumentsDoNotQueue)
 	EXPECT_EQ(sender->GetMaxUnfragmentedPayload(address, static_cast<Reliability>(-1)), 0u);
 }
 
-TEST(UnfragmentedSend, AlreadyQueuedReceiptIsSettledWhenTheDatagramStopsFitting)
+enum class QueuedDrop
+{
+	MtuShrink,
+	Timeout
+};
+class QueuedDatagramLoss : public ::testing::TestWithParam<QueuedDrop>
+{
+};
+
+TEST_P(QueuedDatagramLoss, EachDiscardedDatagramGetsOneLossReceipt)
 {
 	SimulatedNetwork net;
 	auto *sender = net.AddPeer(1), *receiver = net.AddPeer(1, 1);
@@ -159,6 +177,8 @@ TEST(UnfragmentedSend, AlreadyQueuedReceiptIsSettledWhenTheDatagramStopsFitting)
 	std::vector<char> data(sender->GetMaxUnfragmentedPayload(address, mode), 'x');
 	ASSERT_FALSE(data.empty());
 	data.front() = payloadId;
+	if (GetParam() == QueuedDrop::Timeout)
+		sender->SetUnreliableTimeout(10);
 	sender->SetPerConnectionOutgoingBandwidthLimit(8);
 	for (unsigned i = 0; i < 8; ++i)
 		ASSERT_EQ(sender->SendDatagram(data.data(), static_cast<int>(data.size()), Priority::High, mode, 0, address).status, DatagramSendStatus::Queued);
@@ -170,8 +190,15 @@ TEST(UnfragmentedSend, AlreadyQueuedReceiptIsSettledWhenTheDatagramStopsFitting)
 		if (p.data[0] == payloadId)
 			pending.insert(p.sendReceiptSerial); }));
 	ASSERT_FALSE(pending.empty());
-	ASSERT_TRUE(net.StepDownMtu(sender, address));
-	net.Step(1);
+	if (GetParam() == QueuedDrop::MtuShrink)
+	{
+		ASSERT_TRUE(net.StepDownMtu(sender, address));
+		net.Step(1);
+	}
+	else
+	{
+		net.Step(600);
+	}
 	for (const auto &msg : net.Inbox(sender))
 	{
 		if (msg.id != ID_SND_RECEIPT_LOSS)
@@ -183,6 +210,9 @@ TEST(UnfragmentedSend, AlreadyQueuedReceiptIsSettledWhenTheDatagramStopsFitting)
 	}
 	EXPECT_TRUE(pending.empty());
 }
+
+INSTANTIATE_TEST_SUITE_P(Transport, QueuedDatagramLoss, testing::Values(QueuedDrop::MtuShrink, QueuedDrop::Timeout), [](const auto &info)
+                         { return info.param == QueuedDrop::Timeout ? "Timeout" : "MtuShrink"; });
 
 TEST(UnfragmentedSend, PathShrinkingBetweenAdmissionAndTheNetworkThreadReportsLoss)
 {

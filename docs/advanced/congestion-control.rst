@@ -177,7 +177,8 @@ on the network thread. ``TooLarge`` queues zero bytes. ``Queued`` means the
 message was accepted for unreliable delivery. If the path shrinks before
 transmission, the transport can discard the queued message. Use
 ``UnreliableWithAckReceipt`` and the returned receipt number to observe a
-size-related discard as ``ID_SND_RECEIPT_LOSS`` on an active connection.
+size-related discard or an expired queue entry as ``ID_SND_RECEIPT_LOSS``
+on an active connection.
 The other supported modes are ``Unreliable`` and ``UnreliableSequenced``.
 
 Ordinary ``Send`` supports larger messages through fragmentation. Oversized
