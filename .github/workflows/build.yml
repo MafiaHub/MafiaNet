@@ -507,10 +507,15 @@ jobs:
 
       - name: Configure CMake
         run: |
+          # Start the cache before parallel compiler processes try to launch it.
+          cache=ON
+          if ! sccache --start-server; then
+            echo "::warning::sccache startup failed. Building directly with Clang."
+            cache=OFF
+          fi
           cmake -B build \
             -DMAFIANET_WARNINGS_AS_ERRORS=ON \
-            -DCMAKE_C_COMPILER_LAUNCHER=sccache \
-            -DCMAKE_CXX_COMPILER_LAUNCHER=sccache \
+            -DMAFIANET_USE_COMPILER_CACHE="$cache" \
             -DMAFIANET_BUILD_SAMPLES=ON \
             -DMAFIANET_BUILD_TESTS=ON
 
