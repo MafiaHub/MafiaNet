@@ -1,5 +1,6 @@
 // Copyright (c) 2026, MafiaHub. MIT license.
 #include "managed_replication.h"
+#include "steady_time.h"
 #include "replication_receive_scope.h"
 #include "mafianet/message_identifiers.h"
 #include "mafianet/network_id_manager.h"
@@ -686,14 +687,14 @@ std::optional<double> ManagedReplication::RenderTick(PeerGuid source, unsigned d
 	const auto clock = clocks.find(source == UNASSIGNED_PEER_GUID ? clockServer : source);
 	if (clock == clocks.end())
 		return std::nullopt;
-	return clock->second.RenderTick(GetTimeUS(), delay);
+	return clock->second.RenderTick(GetSteadyTimeUS(), delay);
 }
 
 void ManagedReplication::PublishClock()
 {
 	if (!hasTimedTypes || owner.GetRole() == ReplicationRole::Client || !GetConnectionCount())
 		return;
-	const auto now = GetTimeUS();
+	const auto now = GetSteadyTimeUS();
 	if (now < nextClockSample)
 		return;
 	nextClockSample = now + ReplicationClock::SampleIntervalUS;
@@ -964,7 +965,7 @@ void ManagedReplication::Receive(Packet &packet)
 		if (hasTimedTypes && owner.GetRole() != ReplicationRole::Server && sample.Read(in))
 		{
 			std::lock_guard<std::mutex> lock(clockMutex);
-			clocks[guid].Observe(sample.tick, sample.sent, GetTimeUS());
+			clocks[guid].Observe(sample.tick, sample.sent, GetSteadyTimeUS());
 			if (owner.GetRole() == ReplicationRole::Client)
 				clockServer = guid;
 		}

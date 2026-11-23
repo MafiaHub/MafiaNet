@@ -1,6 +1,7 @@
 // Copyright (c) 2026, MafiaHub. MIT license.
 #include <gtest/gtest.h>
 #include "../../Source/src/replication_clock.h"
+#include "../../Source/src/steady_time.h"
 #include "../../Source/src/replication_wire.h"
 #include "SimulatedNetwork.h"
 #include "mafianet/snapshot_replica.h"
@@ -8,6 +9,14 @@
 using namespace MafiaNet;
 namespace
 {
+TEST(ReplicationClock, SteadyTimeUsesTheSimulatedClockOverride)
+{
+	SimulatedNetwork net;
+	const auto start = GetSteadyTimeUS();
+	ASSERT_EQ(start, net.Now());
+	net.Step(17);
+	EXPECT_EQ(GetSteadyTimeUS(), start + 17000);
+}
 TEST(ReplicationClock, InterpolatesFractionalTicksAcrossUnrelatedClockOrigins)
 {
 	ReplicationClock clock;
