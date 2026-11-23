@@ -332,14 +332,14 @@ public:
 		if (limit < HeaderBytes + SnapshotAckRecord::WireBytes)
 			return;
 		const unsigned perMessage = (limit - HeaderBytes) / SnapshotAckRecord::WireBytes;
-		for (unsigned first = 0; first < acks.count;)
+		for (unsigned nextRecord = 0; nextRecord < acks.count;)
 		{
 			BitStream out;
 			ReplicationWire::WriteHeader(out, Kind::SnapshotAck, clientToken, serverToken);
-			const unsigned end = std::min(acks.count, first + perMessage);
-			while (first < end)
+			const unsigned end = std::min(acks.count, nextRecord + perMessage);
+			while (nextRecord < end)
 			{
-				const auto &record = acks.records[first++];
+				const auto &record = acks.records[nextRecord++];
 				out.Write(record.id);
 				out.Write(record.seq);
 			}
