@@ -18,7 +18,7 @@ permissions:
 
 # sccache keeps compiled objects in the GitHub Actions cache, so a PR rebuilds
 # only the translation units it touched. Jobs opt in by running
-# mozilla-actions/sccache-action and passing it as the compiler launcher.
+# mozilla-actions/sccache-action and loading ci/compiler-cache.cmake.
 env:
   SCCACHE_GHA_ENABLED: "true"
 
@@ -139,8 +139,7 @@ jobs:
           cmake -B build \
             -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
             -DMAFIANET_WARNINGS_AS_ERRORS=ON \
-            -DCMAKE_C_COMPILER_LAUNCHER=sccache \
-            -DCMAKE_CXX_COMPILER_LAUNCHER=sccache \
+            -C ci/compiler-cache.cmake \
             -DMAFIANET_BUILD_TESTS=ON \
             -DMAFIANET_BUILD_EXTRAS=ON
 
@@ -199,8 +198,7 @@ jobs:
           cmake -B build \
             -DCMAKE_BUILD_TYPE=Release \
             -DMAFIANET_WARNINGS_AS_ERRORS=ON \
-            -DCMAKE_C_COMPILER_LAUNCHER=sccache \
-            -DCMAKE_CXX_COMPILER_LAUNCHER=sccache \
+            -C ci/compiler-cache.cmake \
             -DMAFIANET_MINIMAL=ON
 
       - name: Build
@@ -248,8 +246,7 @@ jobs:
         if: runner.os != 'Windows'
         run: |
           cmake -B build -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_C_COMPILER_LAUNCHER=sccache \
-            -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
+            -C ci/compiler-cache.cmake
           cmake --build build --parallel 4
           cmake --install build --prefix "$PWD/install"
 
@@ -348,8 +345,7 @@ jobs:
             -DMAFIANET_WARNINGS_AS_ERRORS=ON \
             -DCMAKE_C_COMPILER=clang \
             -DCMAKE_CXX_COMPILER=clang++ \
-            -DCMAKE_C_COMPILER_LAUNCHER=sccache \
-            -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
+            -C ci/compiler-cache.cmake
 
       - name: Build
         run: cmake --build --preset ${{ matrix.preset }}
@@ -412,8 +408,7 @@ jobs:
       - name: Build harnesses
         run: |
           cmake --preset fuzz -G Ninja \
-            -DCMAKE_C_COMPILER_LAUNCHER=sccache \
-            -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
+            -C ci/compiler-cache.cmake
           cmake --build --preset fuzz
 
       - name: Fuzz each harness for 60 seconds
@@ -509,8 +504,7 @@ jobs:
         run: |
           cmake -B build \
             -DMAFIANET_WARNINGS_AS_ERRORS=ON \
-            -DCMAKE_C_COMPILER_LAUNCHER=sccache \
-            -DCMAKE_CXX_COMPILER_LAUNCHER=sccache \
+            -C ci/compiler-cache.cmake \
             -DMAFIANET_BUILD_SAMPLES=ON \
             -DMAFIANET_BUILD_TESTS=ON
 

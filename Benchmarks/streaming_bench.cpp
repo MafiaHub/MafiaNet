@@ -349,7 +349,7 @@ bool StartFeedbackSession(benchmark::State &state, SimulatedNetwork &net, Feedba
 	return true;
 }
 
-// One update per simulated second leaves time for the 250 ms reliable repair.
+// One update per simulated second leaves time for reliable repair.
 // Count UDP payload bytes at the socket, including control traffic in both directions.
 void BM_SnapshotFeedback(benchmark::State &state)
 {
@@ -467,14 +467,21 @@ void BM_SnapshotFreshness(benchmark::State &state)
 	for (auto _ : state)
 	{
 		std::vector<Replica> actors(1);
+		uint64_t udpBytes = 0;
 		SimulatedNetwork net(19);
 		auto *server = static_cast<FeedbackPeer *>(net.AddCustomPeer(std::make_unique<FeedbackPeer>(), 1, 1));
 		auto *client = static_cast<FeedbackPeer *>(net.AddCustomPeer(std::make_unique<FeedbackPeer>(), 1));
 		if (!StartFeedbackSession(state, net, server, client, actors))
 			return;
 		SimulatedNetwork::LinkRule link;
-		link.delayMs = 20;
-		net.SetLinkBothWays(server, client, link);
+		link.delayMs = static_cast<unsigned>(state.range(2));
+		net.SetLink(server, client, link);
+		auto reverse = link;
+		reverse.lossPercent = static_cast<int>(state.range(3));
+		reverse.jitterMs = static_cast<unsigned>(state.range(4));
+		net.SetLink(client, server, reverse);
+		net.SetTap([&](const SystemAddress &, const SystemAddress &, const char *, int bytes)
+		           { udpBytes += bytes; });
 		auto &host = server->GetReplication();
 		auto &actor = actors.front();
 		const auto *copy = static_cast<const Replica *>(client->GetReplication().FindReplica(actor.GetNetworkID()));
@@ -539,10 +546,24 @@ void BM_SnapshotFreshness(benchmark::State &state)
 		state.counters["final_converged"] = converged;
 		state.counters["final_convergence_ms"] = finalMs;
 		state.counters["repair_messages"] = static_cast<double>(server->repairs);
+		state.counters["total_udp_bytes"] = static_cast<double>(udpBytes);
 	}
 }
-BENCHMARK_TEMPLATE(BM_SnapshotFreshness, Actor)->ArgsProduct({{30, 60}, {0, 100}})->Iterations(1);
-BENCHMARK_TEMPLATE(BM_SnapshotFreshness, SplitActor)->ArgsProduct({{30, 60}, {0, 100}})->Iterations(1);
+void SnapshotFreshnessCases(benchmark::Benchmark *bench)
+{
+	bench->ArgNames({"Hz", "blackout_ms", "one_way_ms", "reverse_loss_pct", "reverse_jitter_ms"});
+	for (int hz : {30, 60})
+	{
+		bench->Args({hz, 0, 20, 0, 0});
+		bench->Args({hz, 100, 20, 0, 0});
+		bench->Args({hz, 0, 150, 0, 0});
+		bench->Args({hz, 100, 20, 10, 0});
+		bench->Args({hz, 100, 20, 0, 40});
+		bench->Args({hz, 100, 20, 10, 40});
+	}
+}
+BENCHMARK_TEMPLATE(BM_SnapshotFreshness, Actor)->Apply(SnapshotFreshnessCases)->Iterations(1);
+BENCHMARK_TEMPLATE(BM_SnapshotFreshness, SplitActor)->Apply(SnapshotFreshnessCases)->Iterations(1);
 BENCHMARK(BM_StreamingObserverCadence)->Arg(0)->Arg(768)->UseManualTime()->Iterations(100)->Unit(benchmark::kMicrosecond);
 BENCHMARK(BM_StreamingDenseMutations)->UseManualTime()->Iterations(100)->Unit(benchmark::kMicrosecond);
 BENCHMARK(BM_StreamingRoomCrossing)->UseManualTime()->Iterations(50)->Unit(benchmark::kMicrosecond);

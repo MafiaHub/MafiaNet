@@ -173,8 +173,14 @@ several it sends a base sequence and a 32-bit mask. Both go out at the end
 of the incoming message, including when ticking manually. A clear
 bit leaves that snapshot eligible for repair. Each reply fits the reverse
 path's unreliable datagram budget. For each object, a newer update supersedes
-only the channels it carries. After 250 ms the sender reissues the
-still-unconfirmed channels on the reliable lifecycle channel. A refused transport enqueue of a handshake, grant, revocation or
+only the channels it carries. The sender initially waits 250 ms before reissuing
+still-unconfirmed channels on the reliable lifecycle channel. Each observer then
+gets its own repair delay based on the time from sending a snapshot to processing
+its acknowledgment and how much that time varies. The delay is bounded to
+32–2000 ms and repairs run on the next replication tick after the deadline.
+If the sampled snapshot needed a reliable repair, its reply backs off the
+next delay, since either transmission may have produced it. A refused
+transport enqueue of a handshake, grant, revocation or
 removal is retried on a subsequent tick. ``SendOwnerUpdate`` returns false
 when the report could not be queued, allowing the client to retry.
 Both modes progress while the application drives replication.

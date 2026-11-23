@@ -1438,6 +1438,135 @@ TEST_F(SnapshotAcknowledgments, SmallUpdatesFitOneCompactBatchAndOneCompactReply
 	EXPECT_LE(saved.GetNumberOfBytesUsed(), ReplicationWire::WireHeaderBytes(Kind::SnapshotAck, 1) + 8u);
 }
 
+TEST(BuiltinReplication, SharedSnapshotRepairsOnlyTheObserverThatMissedIt)
+{
+	using namespace ReplicationWire;
+	Door door;
+	SimulatedNetwork net;
+	auto *server = static_cast<RefusingPeer *>(net.AddCustomPeer(std::make_unique<RefusingPeer>(), 2, 2));
+	auto *fast = net.AddPeer(1);
+	auto *slow = net.AddPeer(1);
+	auto &host = server->GetReplication();
+	ASSERT_TRUE(host.SetRole(ReplicationRole::Server));
+	ASSERT_TRUE(host.RegisterReplica<Door>(doorType, 1));
+	ASSERT_TRUE(host.SetSnapshotPolicy(doorType, ChangeDetection::Explicit, SnapshotDelivery::Replaceable));
+	ASSERT_TRUE(host.Reference(&door));
+	for (auto *observer : {fast, slow})
+	{
+		auto &view = observer->GetReplication();
+		ASSERT_TRUE(view.SetRole(ReplicationRole::Client));
+		ASSERT_TRUE(view.RegisterReplica<Door>(doorType, 1));
+		ASSERT_TRUE(view.SetSnapshotPolicy(doorType, ChangeDetection::Explicit, SnapshotDelivery::Replaceable));
+		ASSERT_TRUE(net.Connect(observer, server));
+		ASSERT_TRUE(net.RunUntil([&]
+		                         { return view.FindReplica(door.GetNetworkID()) != nullptr; }, 5000));
+	}
+	host.SetTickMode(ReplicationTickMode::Manual);
+	host.SetSerializeInterval(0);
+	SimulatedNetwork::LinkRule shortPath, longPath;
+	shortPath.delayMs = 20;
+	longPath.delayMs = 150;
+	net.SetLinkBothWays(server, fast, shortPath);
+	net.SetLinkBothWays(server, slow, longPath);
+	auto advance = [&](unsigned ms)
+	{
+		for (unsigned elapsed = 0; elapsed < ms; elapsed += 5)
+		{
+			net.Step(5);
+			host.Tick();
+		}
+	};
+	auto isOpen = [&](RakPeer *peer)
+	{ return static_cast<Door *>(peer->GetReplication().FindReplica(door.GetNetworkID()))->state.open; };
+	for (unsigned i = 0; i < 10; ++i)
+	{
+		door.state.open = i % 2 != 0;
+		ASSERT_TRUE(host.MarkDirty(door));
+		host.Tick();
+		advance(400);
+	}
+	ASSERT_TRUE(isOpen(fast));
+	ASSERT_TRUE(isOpen(slow));
+	std::map<PeerGuid, unsigned> repairs;
+	server->inspect = [&](const Header &header, const BitStream &, PRO pro, PeerGuid recipient)
+	{
+		if (header.kind == Kind::Snapshot && pro.reliability == Reliability::ReliableOrdered)
+			++repairs[recipient];
+	};
+	shortPath.dark = true;
+	net.SetLink(server, fast, shortPath);
+	door.state.open = false;
+	ASSERT_TRUE(host.MarkDirty(door));
+	host.Tick();
+	advance(25);
+	shortPath.dark = false;
+	net.SetLink(server, fast, shortPath);
+	advance(120);
+	EXPECT_FALSE(isOpen(fast));
+	EXPECT_TRUE(isOpen(slow));
+	advance(300);
+	EXPECT_FALSE(isOpen(slow));
+	EXPECT_EQ(repairs[ToPeerGuid(fast->GetMyGUID())], 1u);
+	EXPECT_EQ(repairs[ToPeerGuid(slow->GetMyGUID())], 0u);
+}
+
+TEST_F(SnapshotAcknowledgments, WarmShortPathRepairsFinalLossWithin150Ms)
+{
+	SimulatedNetwork::LinkRule link;
+	link.delayMs = 20;
+	net.SetLinkBothWays(server, client, link);
+	auto &door = doors.front();
+	// Publish faster than the RTT so the ACKs refer to superseded snapshots.
+	for (unsigned i = 0; i < 120; ++i)
+	{
+		door.state.open = i % 2 != 0;
+		ASSERT_TRUE(host.MarkDirty(door));
+		host.Tick();
+		net.Step(16);
+	}
+	net.Step(80);
+	ASSERT_TRUE(Copy(door).state.open);
+	ASSERT_EQ(repairs, 0u);
+	link.dark = true;
+	net.SetLink(server, client, link);
+	door.state.open = false;
+	ASSERT_TRUE(host.MarkDirty(door));
+	host.Tick();
+	net.Step(25);
+	link.dark = false;
+	net.SetLink(server, client, link);
+	for (unsigned ms = 25; ms < 145; ms += 10)
+	{
+		host.Tick();
+		net.Step(10);
+	}
+	EXPECT_FALSE(Copy(door).state.open);
+	EXPECT_EQ(repairs, 1u);
+}
+
+TEST_F(SnapshotAcknowledgments, WarmLongPathWaitsForTheOriginalAck)
+{
+	SimulatedNetwork::LinkRule link;
+	link.delayMs = 150;
+	net.SetLinkBothWays(server, client, link);
+	auto &door = doors.front();
+	for (unsigned i = 0; i < 9; ++i)
+	{
+		door.state.open = i % 2 == 0;
+		ASSERT_TRUE(host.MarkDirty(door));
+		host.Tick();
+		for (unsigned ms = 0; ms < 400; ms += 10)
+		{
+			net.Step(10);
+			host.Tick();
+		}
+		ASSERT_EQ(Copy(door).state.open, door.state.open);
+		if (i == 7)
+			repairs = 0; // Measure the next update on the warmed path.
+	}
+	EXPECT_EQ(repairs, 0u);
+}
+
 TEST_F(SnapshotAcknowledgments, SecondaryAckLeavesLostPrimaryEligibleForRepair)
 {
 	auto &door = doors.front();
