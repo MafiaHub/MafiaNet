@@ -1268,7 +1268,7 @@ TEST(BuiltinReplication, EachObserversCellUsesItsOwnPathMtu)
 	const auto widePeer = ToPeerGuid(clients[1]->GetMyGUID());
 	const int mtu = server->GetMTUSize(net.AddressOf(clients[0]));
 	EXPECT_GT(largestBatch[narrowPeer], 0u);
-	EXPECT_LE(largestBatch[narrowPeer], static_cast<unsigned>(mtu - 96));
+	EXPECT_LE(largestBatch[narrowPeer], server->GetMaxUnfragmentedPayload(net.AddressOf(clients[0]), Reliability::ReliableOrdered));
 	EXPECT_GT(largestBatch[widePeer], static_cast<unsigned>(mtu));
 }
 

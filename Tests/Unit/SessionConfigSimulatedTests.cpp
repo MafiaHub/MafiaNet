@@ -80,7 +80,7 @@ public:
 		(peer->*&SendGateBypass::SendBuffered)(
 		    (const char *) bs.GetData(), bs.GetNumberOfBitsUsed(), Priority::Immediate,
 		    reliability, orderingChannel, target, false,
-		    RemoteSystemStruct::NO_ACTION, 0);
+		    RemoteSystemStruct::NO_ACTION, 0, true);
 	}
 };
 

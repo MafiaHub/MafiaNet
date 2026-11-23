@@ -103,9 +103,7 @@ public:
 	{
 		if (runtime.owner.GetRole() == ReplicationRole::Client)
 			return;
-		// Leave room for IP/UDP, encryption and reliability framing on this path.
-		const int mtu = runtime.owner.PathMTU(systemAddress.systemIndex);
-		batchLimit = static_cast<unsigned>(std::clamp(mtu - 96, 0, static_cast<int>(MaxBatchBytes)));
+		batchLimit = std::min(runtime.owner.BatchPayloadLimit(systemAddress.systemIndex), MaxBatchBytes);
 		const auto observer = ToPeerGuid(guid);
 		std::vector<NetworkID> desired;
 		runtime.interest.GetVisible(observer, desired);

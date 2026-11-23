@@ -553,6 +553,10 @@ public:
 	/// \return The current MTU size of the target system.
 	int GetMTUSize(const SystemAddress target) const;
 
+	unsigned GetMaxUnfragmentedPayload(const AddressOrGUID target, Reliability reliability) const;
+	DatagramSendResult SendDatagram(const char *data, int length, Priority priority, Reliability reliability, char orderingChannel, const AddressOrGUID target);
+	DatagramSendResult SendDatagram(const BitStream &data, Priority priority, Reliability reliability, char orderingChannel, const AddressOrGUID target);
+
 	/// \brief Returns the number of IP addresses this system has internally.
 	/// \details Get the actual addresses from GetLocalIP()
 	unsigned GetNumberOfAddresses(void);
@@ -995,7 +999,15 @@ protected:
 	RemoteSystemStruct **activeSystemList;
 	unsigned int activeSystemListSize;
 
-	using ConnectedSystems = std::vector<std::pair<SystemAddress, RakNetGUID>>;
+	struct ConnectedSystem
+	{
+		SystemAddress address;
+		RakNetGUID guid;
+		int mtu;
+	};
+	using ConnectedSystems = std::vector<ConnectedSystem>;
+	ConnectedSystem FindDatagramTarget(const AddressOrGUID target) const;
+	DatagramSendResult QueueDatagram(const char *data, uint64_t bits, Priority priority, Reliability reliability, char orderingChannel, const AddressOrGUID target);
 	std::shared_ptr<const ConnectedSystems> connectedSystems;
 	void SetConnectMode(RemoteSystemStruct &system, RemoteSystemStruct::ConnectMode mode);
 	void PublishConnectedSystems();
@@ -1152,6 +1164,7 @@ protected:
 		char orderingChannel;
 		AddressOrGUID systemIdentifier;
 		bool broadcast;
+		bool allowFragmentation = true;
 		RemoteSystemStruct::ConnectMode connectionMode;
 		NetworkID networkID;
 		bool blockingCommand; // Only used for RPC
@@ -1213,9 +1226,9 @@ protected:
 	void PingInternal(const SystemAddress target, bool performImmediate, MafiaNet::Reliability reliability);
 	// This stores the user send calls to be handled by the update thread.  This way we don't have thread contention over systemAddresss
 	void CloseConnectionInternal(const AddressOrGUID &systemIdentifier, bool sendDisconnectionNotification, bool performImmediate, unsigned char orderingChannel, MafiaNet::Priority disconnectionNotificationPriority);
-	void SendBuffered(const char *data, BitSize_t numberOfBitsToSend, MafiaNet::Priority priority, MafiaNet::Reliability reliability, char orderingChannel, const AddressOrGUID systemIdentifier, bool broadcast, RemoteSystemStruct::ConnectMode connectionMode, uint32_t receipt);
+	bool SendBuffered(const char *data, BitSize_t numberOfBitsToSend, MafiaNet::Priority priority, MafiaNet::Reliability reliability, char orderingChannel, const AddressOrGUID systemIdentifier, bool broadcast, RemoteSystemStruct::ConnectMode connectionMode, uint32_t receipt, bool allowFragmentation = true);
 	void SendBufferedList(const char **data, const int *lengths, const int numParameters, MafiaNet::Priority priority, MafiaNet::Reliability reliability, char orderingChannel, const AddressOrGUID systemIdentifier, bool broadcast, RemoteSystemStruct::ConnectMode connectionMode, uint32_t receipt);
-	bool SendImmediate(char *data, BitSize_t numberOfBitsToSend, MafiaNet::Priority priority, MafiaNet::Reliability reliability, char orderingChannel, const AddressOrGUID systemIdentifier, bool broadcast, bool useCallerDataAllocation, MafiaNet::TimeUS currentTime, uint32_t receipt);
+	bool SendImmediate(char *data, BitSize_t numberOfBitsToSend, MafiaNet::Priority priority, MafiaNet::Reliability reliability, char orderingChannel, const AddressOrGUID systemIdentifier, bool broadcast, bool useCallerDataAllocation, MafiaNet::TimeUS currentTime, uint32_t receipt, bool allowFragmentation = true);
 	//bool HandleBufferedRPC(BufferedCommandStruct *bcs, MafiaNet::TimeMS time);
 	void ClearBufferedCommands(void);
 	void ClearBufferedPackets(void);
