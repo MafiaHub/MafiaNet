@@ -1308,6 +1308,8 @@ public:
 	friend class ReplicationManager;
 	uint32_t registeredType = 0;
 	bool replaceableSnapshot = false;
+	// The pre-serialize pass visits this flag and the virtual hook on every replica.
+	bool forceSendUntilNextUpdate;
 	bool CheckStateSize(const SerializeParameters &parameters);
 	std::atomic<uint64_t> rejectedStateCount{0};
 	bool staticBinding = false;
@@ -1320,7 +1322,6 @@ public:
 	ReplicaManager3 *replicaManager;
 
 	LastSerializationResultBS lastSentSerialization;
-	bool forceSendUntilNextUpdate;
 	/// \deprecated Not maintained: shared by every connection, it could only ever name one of them, and
 	/// that connection's record is freed when the replica leaves it. Look records up per connection.
 	LastSerializationResult *lsr;

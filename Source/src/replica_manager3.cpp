@@ -1205,8 +1205,10 @@ void ReplicaManager3::Update(void)
 
 			for (index = 0; index < world->userReplicaList.size(); index++)
 			{
-				world->userReplicaList[index]->forceSendUntilNextUpdate = false;
-				world->userReplicaList[index]->OnUserReplicaPreSerializeTick();
+				auto *replica = world->userReplicaList[index];
+				if (replica->forceSendUntilNextUpdate)
+					replica->forceSendUntilNextUpdate = false;
+				replica->OnUserReplicaPreSerializeTick();
 			}
 
 			// A new pass: whatever replicas prepared for the last one is stale. 0 is never a pass.
@@ -1451,13 +1453,20 @@ bool ServeSerializeList(Connection_RM3 *connection, std::vector<LastSerializatio
 // entries are the game's own list, held apart from ours, so a record is looked up for each one as it comes.
 bool ServeOwnSerializeList(Connection_RM3 *connection, const ConstructedList &constructed, std::vector<Replica3 *> &replicasToSerialize, SerializeParameters &sp, RakPeerInterface *rakPeer, WorldId worldId, ReplicaManager3 *replicaManager, MafiaNet::Time time)
 {
-	for (unsigned int i = 0; i < replicasToSerialize.size(); i++)
+	unsigned int next = 0;
+	for (unsigned int i = 0; i < replicasToSerialize.size(); ++i)
 	{
-		bool held;
-		const unsigned int recordIndex = FindConstructed(constructed, replicasToSerialize[i], &held);
-		if (!held)
-			continue;
-		LastSerializationResult *lsr = constructed[recordIndex];
+		auto *replica = replicasToSerialize[i];
+		// Consecutive candidates often follow construction order. Recheck the
+		// live slot after every callback; a reordered list or a gap uses the normal lookup.
+		if (next >= constructed.size() || constructed[next]->replica != replica)
+		{
+			bool held;
+			next = FindConstructed(constructed, replica, &held);
+			if (!held)
+				continue;
+		}
+		LastSerializationResult *lsr = constructed[next++];
 		const uint32_t allocation = lsr->allocationNumber;
 		sp.destinationConnection = connection;
 		sp.whenLastSerialized = lsr->whenLastSerialized;

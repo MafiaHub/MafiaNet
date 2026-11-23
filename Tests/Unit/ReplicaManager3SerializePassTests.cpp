@@ -1008,6 +1008,26 @@ TEST_F(ReplicaManager3SerializePass, ReplacementRecordStartsWithFreshSerializati
 	EXPECT_EQ(record->whenLastSerialized, MafiaNet::GetTime());
 }
 
+TEST_F(ReplicaManager3SerializePass, OwnListRetainsOrderAcrossGapsDuplicatesAndMembershipChanges)
+{
+	auto *first = AddReplica(true);
+	auto *removed = AddReplica(true);
+	auto *third = AddReplica(true);
+	auto *missing = AddReplica(true);
+	auto *observer = AddConnections(1, {first, removed, third}).front();
+	Tick();
+	Tick();
+	first->value = 11;
+	third->value = 3;
+	observer->received.clear();
+	observer->candidates = &candidates;
+	candidates = {first, removed, missing, third, third, first};
+	first->onSerialize = [&]
+	{ manager.Dereference(removed); };
+	Tick();
+	EXPECT_EQ(observer->received, (std::vector<int>{11, 3, 3, 11}));
+}
+
 TEST_F(ReplicaManager3SerializePass, SharedBodiesKeepRecipientHeadersAndExactChannelBits)
 {
 	class SplitReplica : public PassReplica
