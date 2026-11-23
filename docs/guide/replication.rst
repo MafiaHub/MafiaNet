@@ -150,8 +150,8 @@ decode into a temporary before replacing the previous state.
 Within each tick the service batches consecutive state updates for the same
 recipient, priority, reliability and ordering channel. A batch holds up to
 32 records and 1,200 bytes, with a lower ceiling on smaller negotiated MTUs.
-Each record retains its own object ID, visit, sequence and exact payload bit
-length. Immediate, sequenced and receipt-bearing sends keep individual
+Each record identifies the object and its current visit, and preserves the
+exact payload bit length. Immediate, sequenced and receipt-bearing sends keep individual
 message boundaries, as do oversized records. A single pending update goes
 out in the same tick.
 
@@ -160,9 +160,14 @@ After registering a snapshot type, use
 for frequently changing state. Mark changed objects with ``MarkDirty(object)``
 or use ``MarkAllDirty()`` after a bulk edit. An entering observer always gets
 current state. Replaceable snapshots go out unreliably with application
-acknowledgment. In replication wire version 5, the receiver confirms the object ID
-and sequence of each delivered snapshot in a bounded unreliable reply at the end
-of the incoming message, including when ticking manually. A newer snapshot supersedes the pending one. After 250 ms
+acknowledgment. In replication wire version 6, snapshots address an object by
+the visit handle assigned when it enters scope. A batch of consecutive snapshot
+sequences with the same timestamp carries the first sequence and timestamp once.
+The receiver confirms applied sequences with a base sequence and a 32-bit mask
+at the end of each incoming message, including when ticking manually. A clear
+bit leaves that snapshot eligible for repair. Each reply fits the reverse
+path's unreliable datagram budget. A newer snapshot supersedes the pending
+one for the same object. After 250 ms
 the sender reissues the latest unconfirmed snapshot on the reliable lifecycle
 channel. A refused transport enqueue of a handshake, grant, revocation or
 removal is retried on a subsequent tick. ``SendOwnerUpdate`` returns false

@@ -820,7 +820,7 @@ protected:
 	void OnSendDestructionFromQuery(unsigned int queryToDestructIdx, ReplicaManager3 *replicaManager);
 	void OnDoNotQueryDestruction(unsigned int queryToDestructIdx, ReplicaManager3 *replicaManager);
 	void ValidateLists(ReplicaManager3 *replicaManager) const;
-	void SendSerializeHeader(MafiaNet::Replica3 *replica, MafiaNet::Time timestamp, MafiaNet::BitStream *bs);
+	void SendSerializeHeader(MafiaNet::Replica3 *replica, MafiaNet::Time timestamp, MafiaNet::BitStream *bs, bool primaryOnly);
 
 	// The list of objects that our local system and this remote system both have
 	// Either we sent this object to them, or they sent this object to us

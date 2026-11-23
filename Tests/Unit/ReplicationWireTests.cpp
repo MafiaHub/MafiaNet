@@ -55,52 +55,87 @@ TEST(ReplicationWire, BatchFramingChecksAllBoundariesBeforeDelivery)
 	EXPECT_FALSE(view.Read(wire));
 }
 
-TEST(ReplicationWire, EmptySnapshotAckIsRejected)
-{
-	BitStream body;
-	ReplicationWire::SnapshotAcks acks;
-	EXPECT_FALSE(acks.Read(body));
-}
-
-TEST(ReplicationWire, SnapshotAckDecodesOneThroughTheMaximumRecordCount)
+TEST(ReplicationWire, SelectiveAckPreservesHolesAndTheHighestBit)
 {
 	using namespace ReplicationWire;
-	BitStream body;
-	for (unsigned n = 1; n <= MaxBatchRecords; ++n)
-	{
-		body.Write(static_cast<NetworkID>(n));
-		body.Write(static_cast<uint64_t>(n * 7));
-		body.ResetReadPointer();
-		SnapshotAcks acks;
-		ASSERT_TRUE(acks.Read(body));
-		ASSERT_EQ(acks.count, n);
-		EXPECT_EQ(acks.records[n - 1].id, n);
-		EXPECT_EQ(acks.records[n - 1].seq, n * 7);
-	}
+	BitStream in;
+	WriteVar(in, UINT64_MAX - 31);
+	WriteVar(in, 0x80000005u);
+	SnapshotAckWindow window;
+	ASSERT_TRUE(window.Read(in));
+	EXPECT_EQ(window.first, UINT64_MAX - 31);
+	EXPECT_EQ(window.mask, 0x80000005u);
 }
 
-TEST(ReplicationWire, TooManySnapshotAckRecordsRejectTheWholeReply)
+TEST(ReplicationWire, InvalidWindowsCannotConfirmAnySequence)
 {
 	using namespace ReplicationWire;
-	BitStream body;
-	for (unsigned i = 0; i <= MaxBatchRecords; ++i)
+	auto valid = [](uint64_t first, uint64_t mask)
 	{
-		body.Write(static_cast<NetworkID>(i));
-		body.Write(uint64_t{1});
-	}
-	SnapshotAcks acks;
-	EXPECT_FALSE(acks.Read(body));
-	EXPECT_EQ(acks.count, 0u);
+		BitStream in;
+		WriteVar(in, first);
+		WriteVar(in, mask);
+		SnapshotAckWindow window;
+		return window.Read(in);
+	};
+	EXPECT_FALSE(valid(0, 1));
+	EXPECT_FALSE(valid(1, 0));
+	EXPECT_FALSE(valid(1, 2));
+	EXPECT_FALSE(valid(UINT64_MAX, 3));
+	EXPECT_FALSE(valid(1, uint64_t{1} << 32 | 1));
+	EXPECT_TRUE(valid(UINT64_MAX, 1));
 }
 
-TEST(ReplicationWire, ZeroSequenceRejectsEarlierSnapshotAckRecords)
+TEST(ReplicationWire, CompactIntegersRejectTruncationOverflowAndOverlongEncodings)
 {
-	BitStream body;
-	body.Write(NetworkID{1});
-	body.Write(uint64_t{2});
-	body.Write(NetworkID{3});
-	body.Write(uint64_t{0});
-	ReplicationWire::SnapshotAcks acks;
-	EXPECT_FALSE(acks.Read(body));
-	EXPECT_EQ(acks.count, 0u);
+	using namespace ReplicationWire;
+	for (uint64_t value : std::array<uint64_t, 6>{0, 127, 128, 16384, UINT32_MAX, UINT64_MAX})
+	{
+		BitStream encoded;
+		WriteVar(encoded, value);
+		EXPECT_EQ(encoded.GetNumberOfBytesUsed(), VarBytes(value));
+		const auto full = encoded.GetNumberOfBitsUsed();
+		uint64_t decoded = 7;
+		for (unsigned bits = 0; bits < full; ++bits)
+		{
+			encoded.SetWriteOffset(bits);
+			encoded.ResetReadPointer();
+			ASSERT_FALSE(ReadVar(encoded, decoded));
+			ASSERT_EQ(decoded, 7u);
+		}
+		encoded.SetWriteOffset(full);
+		encoded.ResetReadPointer();
+		ASSERT_TRUE(ReadVar(encoded, decoded));
+		EXPECT_EQ(decoded, value);
+	}
+	BitStream overlong;
+	overlong.Write(uint8_t{0x81});
+	overlong.Write(uint8_t{0});
+	uint64_t ignored = 0;
+	EXPECT_FALSE(ReadVar(overlong, ignored));
+}
+
+TEST(ReplicationWire, CompactBatchValidatesSequenceRangeAndEveryRecordBoundary)
+{
+	using namespace ReplicationWire;
+	auto read = [](uint64_t base, BitSize_t cut)
+	{
+		BitStream wire;
+		WriteVar(wire, base);
+		WriteVar(wire, 128);
+		for (unsigned i = 0; i < 2; ++i)
+		{
+			WriteVar(wire, 9);
+			wire.Write(uint8_t{1});
+			wire.Write(uint8_t{0x80});
+		}
+		wire.SetWriteOffset(wire.GetNumberOfBitsUsed() - cut);
+		StateBatchView view;
+		return view.Read(wire, true);
+	};
+	EXPECT_TRUE(read(UINT64_MAX - 1, 0));
+	EXPECT_FALSE(read(UINT64_MAX, 0));
+	EXPECT_FALSE(read(0, 0));
+	for (unsigned cut = 1; cut <= 24; ++cut)
+		EXPECT_FALSE(read(1, cut));
 }

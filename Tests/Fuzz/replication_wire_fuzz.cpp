@@ -14,12 +14,12 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *bytes, size_t size)
 	if (header.kind == ReplicationWire::Kind::StateBatch || header.kind == ReplicationWire::Kind::SnapshotBatch)
 	{
 		ReplicationWire::StateBatchView batch;
-		batch.Read(in);
+		batch.Read(in, header.kind == ReplicationWire::Kind::SnapshotBatch);
 		return 0;
 	}
 	if (header.kind == ReplicationWire::Kind::SnapshotAck)
 	{
-		ReplicationWire::SnapshotAcks acks;
+		ReplicationWire::SnapshotAckWindow acks;
 		acks.Read(in);
 		return 0;
 	}

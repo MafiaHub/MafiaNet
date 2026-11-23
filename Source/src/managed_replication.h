@@ -106,7 +106,7 @@ private:
 	Connection *Activate(PeerGuid guid, Session &session);
 	bool Send(PeerGuid guid, BitStream &packet);
 	void WriteHeader(BitStream &out, Kind kind, const Session &session) const;
-	void ReadState(Connection &connection, StateDelivery &delivery, BitStream &in, ReplicationWire::SnapshotAcks *acks);
+	void ReadState(Connection &connection, StateDelivery &delivery, BitStream &in, ReplicationWire::SnapshotAcks *acks, uint64_t seq = 0, Time timestamp = 0);
 	void Apply(Connection &connection, Kind kind, BitStream &in);
 
 	ReplicationManager &owner;

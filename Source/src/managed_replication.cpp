@@ -30,6 +30,21 @@ public:
 		std::array<uint64_t, RM3_NUM_OUTPUT_BITSTREAM_CHANNELS> lastState{};
 	};
 	std::map<NetworkID, Visit> incoming;
+	std::map<uint64_t, NetworkID> idsByVisit;
+	void RememberVisit(NetworkID id, uint64_t incarnation, uint32_t referenceIndex)
+	{
+		incoming.emplace(id, Visit{incarnation, referenceIndex});
+		idsByVisit.emplace(incarnation, id);
+	}
+	void EndVisit(NetworkID id)
+	{
+		const auto it = incoming.find(id);
+		if (it != incoming.end())
+		{
+			idsByVisit.erase(it->second.incarnation);
+			incoming.erase(it);
+		}
+	}
 	uint64_t Watermark() const { return nextState; }
 	bool Matches(uint64_t client, uint64_t server) const { return clientToken == client && serverToken == server; }
 	ConstructionMode QueryConstructionMode() const override { return QUERY_CONNECTION_FOR_REPLICA_LIST; }
@@ -198,6 +213,16 @@ public:
 		std::vector<unsigned char> bytes;
 	};
 	std::map<NetworkID, Unconfirmed> unconfirmed;
+	std::map<uint64_t, NetworkID> idByUnconfirmedSequence;
+	void Confirm(uint64_t seq)
+	{
+		auto it = idByUnconfirmedSequence.find(seq);
+		if (it != idByUnconfirmedSequence.end())
+		{
+			unconfirmed.erase(it->second);
+			idByUnconfirmedSequence.erase(it);
+		}
+	}
 	void Forget(NetworkID id)
 	{
 		serviceAge.erase(id);
@@ -207,7 +232,11 @@ public:
 			                    refusedStates.end());
 		dirty.erase(id);
 		polled.erase(id);
-		unconfirmed.erase(id);
+		if (auto it = unconfirmed.find(id); it != unconfirmed.end())
+		{
+			idByUnconfirmedSequence.erase(it->second.seq);
+			unconfirmed.erase(it);
+		}
 		pending.erase(id);
 	}
 	void TransmitState(Replica3 &object, BitStream &out, PRO pro, RakPeerInterface &peer) override
@@ -229,7 +258,11 @@ public:
 		const Kind kind = object.replaceableSnapshot ? Kind::Snapshot : Kind::State;
 		if (object.replaceableSnapshot)
 		{
-			auto &item = unconfirmed[id];
+			auto [it, inserted] = unconfirmed.try_emplace(id);
+			auto &item = it->second;
+			if (!inserted)
+				idByUnconfirmedSequence.erase(item.seq);
+			idByUnconfirmedSequence.emplace(nextState, id);
 			item.seq = nextState;
 			item.sent = GetTimeMS();
 			item.bits = out.GetNumberOfBitsUsed();
@@ -241,14 +274,33 @@ public:
 		const bool share = !pro.sendReceipt && pro.priority != Priority::Immediate &&
 		                   (pro.reliability == Reliability::ReliableOrdered || pro.reliability == Reliability::Reliable || pro.reliability == Reliability::Unreliable);
 		const auto bytes = out.GetNumberOfBytesUsed();
-		if (!share || bytes <= HeaderBytes || bytes + sizeof(uint16_t) > batchLimit)
+		if (!share || bytes <= HeaderBytes || bytes > batchLimit)
 		{
 			FlushBatch();
 			SendSingle(id, kind, out, pro, peer);
 			return;
 		}
-		const unsigned recordBytes = static_cast<unsigned>(bytes - HeaderBytes + sizeof(uint16_t));
-		if (recordCount && (pro != batchPro || kind != batchKind || recordCount == MaxBatchRecords || batchBytes + recordBytes > batchLimit))
+		unsigned bodyOffset = HeaderBytes;
+		uint64_t sequence = 0;
+		Time timestamp = 0;
+		const bool snapshot = kind == Kind::Snapshot;
+		if (snapshot)
+		{
+			BitStream header(out.GetData(), bytes, false);
+			header.SetWriteOffset(out.GetNumberOfBitsUsed());
+			header.SetReadOffset(HeaderBytes * 8);
+			if (!ReadVar(header, sequence) || !sequence || !ReadVar(header, timestamp) || !header.GetNumberOfUnreadBits())
+			{
+				FlushBatch();
+				SendSingle(id, kind, out, pro, peer);
+				return;
+			}
+			bodyOffset = header.GetReadOffset() / 8;
+		}
+		const auto bodyBits = out.GetNumberOfBitsUsed() - bodyOffset * 8;
+		const unsigned recordBytes = bytes - bodyOffset + (snapshot ? VarBytes(bodyBits) : static_cast<unsigned>(sizeof(uint16_t)));
+		const bool contiguous = !snapshot || (sequence >= firstSequence && sequence - firstSequence == recordCount && timestamp == batchTimestamp);
+		if (recordCount && (pro != batchPro || kind != batchKind || !contiguous || recordCount == MaxBatchRecords || batchBytes + recordBytes > batchLimit))
 			FlushBatch();
 		if (recordCount == 0)
 		{
@@ -257,7 +309,10 @@ public:
 			firstId = id;
 			batchKind = kind;
 			batchPro = pro;
-			batchBytes = HeaderBytes;
+			firstBodyOffset = bodyOffset;
+			firstSequence = sequence;
+			batchTimestamp = timestamp;
+			batchBytes = bodyOffset;
 		}
 		else
 		{
@@ -265,9 +320,14 @@ public:
 			{
 				batch.Reset();
 				ReplicationWire::WriteHeader(batch, kind == Kind::Snapshot ? Kind::SnapshotBatch : Kind::StateBatch, clientToken, serverToken);
-				AppendRecord(first);
+				if (snapshot)
+				{
+					WriteVar(batch, firstSequence);
+					WriteVar(batch, batchTimestamp);
+				}
+				AppendRecord(first, firstBodyOffset);
 			}
-			AppendRecord(out);
+			AppendRecord(out, bodyOffset);
 		}
 		batchBytes += recordBytes;
 		++recordCount;
@@ -319,6 +379,7 @@ public:
 			if (runtime.GetRakPeerInterface()->Send(&retry, Priority::High, Reliability::ReliableOrdered, 0, guid, false))
 			{
 				stats.stateBytes += retry.GetNumberOfBytesUsed();
+				idByUnconfirmedSequence.erase(item.seq);
 				it = unconfirmed.erase(it);
 			}
 			else
@@ -329,22 +390,27 @@ public:
 	{
 		auto &peer = *runtime.GetRakPeerInterface();
 		const auto limit = peer.GetMaxUnfragmentedPayload(guid, Reliability::Unreliable);
-		if (limit < HeaderBytes + SnapshotAckRecord::WireBytes)
-			return;
-		const unsigned perMessage = (limit - HeaderBytes) / SnapshotAckRecord::WireBytes;
-		for (unsigned nextRecord = 0; nextRecord < acks.count;)
+		for (unsigned i = 0; i < acks.count;)
 		{
+			const uint64_t base = acks.sequences[i++];
+			const unsigned prefix = HeaderBytes + VarBytes(base);
+			if (prefix + 1 > limit)
+				return;
+			uint32_t mask = 1;
+			while (i < acks.count && acks.sequences[i] >= base && acks.sequences[i] - base < 32)
+			{
+				const uint32_t nextMask = mask | (uint32_t{1} << (acks.sequences[i] - base));
+				if (prefix + VarBytes(nextMask) > limit)
+					break;
+				mask = nextMask;
+				++i;
+			}
 			BitStream out;
 			ReplicationWire::WriteHeader(out, Kind::SnapshotAck, clientToken, serverToken);
-			const unsigned end = std::min(acks.count, nextRecord + perMessage);
-			while (nextRecord < end)
-			{
-				const auto &record = acks.records[nextRecord++];
-				out.Write(record.id);
-				out.Write(record.seq);
-			}
+			WriteVar(out, base);
+			WriteVar(out, mask);
 			if (peer.SendDatagram(out, Priority::High, Reliability::Unreliable, 0, guid).status != DatagramSendStatus::Queued)
-				return; // The sender repairs any confirmation lost to a path change.
+				return;
 		}
 	}
 
@@ -361,11 +427,17 @@ private:
 	Kind batchKind = Kind::State;
 	PRO batchPro{};
 	unsigned batchLimit = 0, batchBytes = 0, recordCount = 0;
-	void AppendRecord(const BitStream &packet)
+	uint64_t firstSequence = 0;
+	Time batchTimestamp = 0;
+	unsigned firstBodyOffset = 0;
+	void AppendRecord(const BitStream &packet, unsigned bodyOffset)
 	{
-		const auto bits = static_cast<uint16_t>(packet.GetNumberOfBitsUsed() - HeaderBytes * 8);
-		batch.Write(bits);
-		batch.WriteAlignedBytes(packet.GetData() + HeaderBytes, BITS_TO_BYTES(bits));
+		const auto bits = static_cast<uint16_t>(packet.GetNumberOfBitsUsed() - bodyOffset * 8);
+		if (batchKind == Kind::Snapshot)
+			WriteVar(batch, bits);
+		else
+			batch.Write(bits);
+		batch.WriteAlignedBytes(packet.GetData() + bodyOffset, BITS_TO_BYTES(bits));
 		if (const unsigned tail = bits % 8)
 			batch.GetData()[batch.GetNumberOfBytesUsed() - 1] &= static_cast<unsigned char>(0xffu << (8 - tail));
 	}
@@ -681,7 +753,7 @@ bool ManagedReplication::Release(NetworkID id, ReplicaEventKind reason)
 	{
 		StateDelivery guard(*this, ToGuid(it->second.source));
 		if (auto *conn = static_cast<Connection *>(guard.GetConnection()))
-			conn->incoming.erase(id);
+			conn->EndVisit(id);
 	}
 	downloads.erase(it);
 	auto *replica = GetNetworkIDManager()->GET_BASE_OBJECT_FROM_ID(id);
@@ -831,7 +903,7 @@ void ManagedReplication::OnFinalDereference(Replica3 &replica)
 			connection->FlushBatch();
 			connection->Forget(id);
 			connection->intervals.erase(id);
-			connection->incoming.erase(id);
+			connection->EndVisit(id);
 		}
 	}
 	downloads.erase(id);
@@ -898,16 +970,12 @@ void ManagedReplication::Receive(Packet &packet)
 			return;
 		if (kind == Kind::SnapshotAck)
 		{
-			SnapshotAcks acks;
-			if (!acks.Read(in))
+			SnapshotAckWindow window;
+			if (!window.Read(in))
 				return;
-			for (unsigned i = 0; i < acks.count; ++i)
-			{
-				const auto &record = acks.records[i];
-				auto it = connection->unconfirmed.find(record.id);
-				if (it != connection->unconfirmed.end() && it->second.seq == record.seq)
-					connection->unconfirmed.erase(it);
-			}
+			for (uint64_t seq = window.first; window.mask; ++seq, window.mask >>= 1)
+				if (window.mask & 1u)
+					connection->Confirm(seq);
 			return;
 		}
 		// Scoped to one envelope so manual ticks never hold up confirmations.
@@ -916,14 +984,14 @@ void ManagedReplication::Receive(Packet &packet)
 		if (batched)
 		{
 			StateBatchView view;
-			if (!view.Read(in))
+			if (!view.Read(in, kind == Kind::SnapshotBatch))
 				return;
 			for (unsigned i = 0; i < view.count && !receive.IsClosing() && delivery.GetConnection(); ++i)
 			{
 				const auto record = view.records[i];
 				BitStream body(record.data, BITS_TO_BYTES(record.bits), false);
 				body.SetWriteOffset(record.bits);
-				ReadState(*connection, delivery, body, acks);
+				ReadState(*connection, delivery, body, acks, acks ? view.firstSequence + i : 0, view.timestamp);
 			}
 		}
 		else
@@ -1228,13 +1296,15 @@ void ManagedReplication::Apply(Connection &connection, Kind kind, BitStream &in)
 		auto it = connection.incoming.find(id);
 		if (in.GetNumberOfUnreadBits() || it == connection.incoming.end() || it->second.incarnation != visit)
 			return;
-		connection.incoming.erase(it);
+		connection.EndVisit(id);
 		const auto reason = kind == Kind::Destroy ? ReplicaEventKind::Destroyed : ReplicaEventKind::LeftScope;
 		if (!Release(id, reason))
 			Notify(reason, id, ToPeerGuid(connection.GetRakNetGUID()));
 		return;
 	}
 	auto *replica = static_cast<Replica3 *>(GetNetworkIDManager()->GET_BASE_OBJECT_FROM_ID(id));
+	if (connection.idsByVisit.count(visit) || connection.incoming.count(id))
+		return;
 	if ((kind == Kind::Spawn && !replica) || (kind == Kind::Bind && replica && staticObjects.count(id)))
 	{
 		ReplicaTypeId type;
@@ -1249,12 +1319,12 @@ void ManagedReplication::Apply(Connection &connection, Kind kind, BitStream &in)
 		{
 			const auto source = ToPeerGuid(connection.GetRakNetGUID());
 			const auto before = generation;
-			if (!connection.incoming.count(id) && entry->second.cppType == typeid(*replica) && replica->QueryRemoteConstruction(&connection) &&
+			if (entry->second.cppType == typeid(*replica) && replica->QueryRemoteConstruction(&connection) &&
 			    before == generation && owner.FindReplica(id) == replica)
 			{
 				if (auto *snapshotObject = dynamic_cast<SnapshotReplicaTag *>(replica))
 					snapshotObject->ResetSnapshotHistory();
-				connection.incoming.insert_or_assign(id, Connection::Visit{visit, replica->referenceIndex});
+				connection.RememberVisit(id, visit, replica->referenceIndex);
 				if (baseline)
 					replica->DeserializeConstructionExisting(&snapshot, &connection);
 				if (before == generation && owner.FindReplica(id) == replica && connection.incoming.count(id))
@@ -1276,26 +1346,50 @@ void ManagedReplication::Apply(Connection &connection, Kind kind, BitStream &in)
 		copy->creatingSystemGUID = connection.GetRakNetGUID();
 		copy->SetNetworkID(id);
 		Reference(copy);
-		connection.incoming.insert_or_assign(id, Connection::Visit{visit, copy->referenceIndex});
+		connection.RememberVisit(id, visit, copy->referenceIndex);
 		const auto source = ToPeerGuid(connection.GetRakNetGUID());
 		downloads.emplace(id, Download{type, source});
 		Notify(ReplicaEventKind::EnteredScope, id, source);
 	}
 }
 
-void ManagedReplication::ReadState(Connection &connection, StateDelivery &delivery, BitStream &in, SnapshotAcks *acks)
+void ManagedReplication::ReadState(Connection &connection, StateDelivery &delivery, BitStream &in, SnapshotAcks *acks, uint64_t seq, Time timestamp)
 {
 	NetworkID id;
-	uint64_t incarnation, seq;
+	uint64_t incarnation;
 	DeserializeParameters params{};
-	if (!in.Read(id) || !in.Read(incarnation) || !in.Read(seq) || !seq || !in.Read(params.timeStamp))
+	bool primaryOnly = false;
+	if (acks)
+	{
+		if (!seq && (!ReadVar(in, seq) || !seq || !ReadVar(in, timestamp)))
+			return;
+		params.timeStamp = timestamp;
+		if (!ReadVar(in, incarnation))
+			return;
+		primaryOnly = incarnation != 0;
+		if (!primaryOnly && (!ReadVar(in, incarnation) || !incarnation))
+			return;
+		const auto known = connection.idsByVisit.find(incarnation);
+		if (known == connection.idsByVisit.end())
+			return;
+		id = known->second;
+	}
+	else if (!in.Read(id) || !in.Read(incarnation) || !in.Read(seq) || !seq || !in.Read(params.timeStamp))
 		return;
 	auto it = connection.incoming.find(id);
 	if (it == connection.incoming.end() || it->second.incarnation != incarnation)
 		return;
-	for (unsigned i = 0; i < RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; ++i)
-		if (!in.Read(params.bitstreamWrittenTo[i]) || (params.bitstreamWrittenTo[i] && !ReadBlock(in, params.serializationBitstream[i])))
+	if (primaryOnly)
+	{
+		const auto bits = in.GetNumberOfUnreadBits();
+		if (!bits || bits > MaxPayloadBits || !in.Read(params.serializationBitstream[0], bits))
 			return;
+		params.bitstreamWrittenTo[0] = true;
+	}
+	else
+		for (unsigned i = 0; i < RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; ++i)
+			if (!in.Read(params.bitstreamWrittenTo[i]) || (params.bitstreamWrittenTo[i] && !ReadBlock(in, params.serializationBitstream[i])))
+				return;
 	if (in.GetNumberOfUnreadBits())
 		return;
 	// Reserve the sequence before the callback, which may reenter Receive().
@@ -1327,6 +1421,6 @@ void ManagedReplication::ReadState(Connection &connection, StateDelivery &delive
 		}
 		return;
 	}
-	acks->records[acks->count++] = {id, seq};
+	acks->sequences[acks->count++] = seq;
 }
 }

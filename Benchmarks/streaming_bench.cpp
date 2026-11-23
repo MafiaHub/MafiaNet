@@ -288,13 +288,14 @@ class FeedbackPeer final : public RakPeer
 public:
 	using RakPeer::Send;
 	using RakPeer::SendDatagram;
-	uint64_t snapshotAcks = 0, repairs = 0;
+	uint64_t snapshotAcks = 0, repairs = 0, replicationBytes = 0;
 	void CountSnapshotMessage(const BitStream &data, Reliability reliability)
 	{
 		BitStream in(data.GetData(), data.GetNumberOfBytesUsed(), false);
 		ReplicationWire::Header header;
 		if (!ReplicationWire::ReadHeader(in, header))
 			return;
+		replicationBytes += data.GetNumberOfBytesUsed();
 		const auto kind = header.kind;
 		snapshotAcks += kind == ReplicationWire::Kind::SnapshotAck;
 		repairs += kind == ReplicationWire::Kind::Snapshot && reliability == Reliability::ReliableOrdered;
@@ -366,6 +367,7 @@ void BM_SnapshotFeedback(benchmark::State &state)
 		else
 			forwardBytes += length; });
 	client->snapshotAcks = server->repairs = 0;
+	server->replicationBytes = client->replicationBytes = 0;
 	for (auto _ : state)
 	{
 		for (auto &actor : actors)
@@ -396,6 +398,8 @@ void BM_SnapshotFeedback(benchmark::State &state)
 		}
 	}
 	const double n = static_cast<double>(state.iterations());
+	state.counters["forward_replication_bytes"] = server->replicationBytes / n;
+	state.counters["reverse_replication_bytes"] = client->replicationBytes / n;
 	state.counters["reverse_ack_messages"] = client->snapshotAcks / n;
 	state.counters["reverse_udp_datagrams"] = reversePackets / n;
 	state.counters["reverse_udp_bytes"] = reverseBytes / n;
