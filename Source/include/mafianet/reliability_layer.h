@@ -552,6 +552,7 @@ private:
 		// as Update() estimates a packet's for the black-hole check: an ack for
 		// it is evidence that the path carries datagrams of this size.
 		int wireBytes;
+		bool acknowledged = false; // Unreliable-only datagrams also receive congestion feedback.
 	};
 	// Queue length is programmatically restricted to DATAGRAM_MESSAGE_ID_ARRAY_LENGTH
 	// This is essentially an O(1) lookup to get a DatagramHistoryNode given an index
@@ -572,7 +573,6 @@ private:
 	std::vector<UnreliableWithAckReceiptNode> unreliableWithAckReceiptHistory;
 
 	void RemoveFromDatagramHistory(DatagramSequenceNumberType index);
-	MessageNumberNode *GetMessageNumberNodeByDatagramIndex(DatagramSequenceNumberType index, CCTimeType *timeSent, int *wireBytes = nullptr);
 	void AddFirstToDatagramHistory(DatagramSequenceNumberType datagramNumber, CCTimeType timeSent);
 	MessageNumberNode *AddFirstToDatagramHistory(DatagramSequenceNumberType datagramNumber, DatagramSequenceNumberType messageNumber, CCTimeType timeSent);
 	MessageNumberNode *AddSubsequentToDatagramHistory(MessageNumberNode *messageNumberNode, DatagramSequenceNumberType messageNumber);
