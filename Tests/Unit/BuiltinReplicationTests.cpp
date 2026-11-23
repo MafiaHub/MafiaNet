@@ -1141,13 +1141,13 @@ struct AckDoor : Door
 	bool truncateNext = false;
 	bool separateChannels = false;
 	Time stamp = 0;
-	bool extra = false;
+	bool extra = false, writeExtra = false;
 	RM3SerializationResult Serialize(SerializeParameters *params) override
 	{
 		params->messageTimestamp = stamp;
 		if (separateChannels)
 			params->pro[0].priority = Priority::Immediate;
-		if (extra)
+		if (writeExtra)
 			params->outputBitstream[2].Write(extra);
 		return Door::Serialize(params);
 	}
@@ -1393,6 +1393,7 @@ TEST_F(SnapshotAcknowledgments, SecondaryAckLeavesLostPrimaryEligibleForRepair)
 {
 	auto &door = doors.front();
 	door.separateChannels = true;
+	door.writeExtra = true;
 	door.state.open = door.extra = true;
 	server->refuseOnce.insert(Kind::Snapshot);
 	ASSERT_TRUE(host.MarkDirty(door));
@@ -1409,6 +1410,7 @@ TEST_F(SnapshotAcknowledgments, SecondaryAckLeavesLostPrimaryEligibleForRepair)
 TEST_F(SnapshotAcknowledgments, PrimaryUpdateSupersedesOnlyItsPartOfALostCombinedSnapshot)
 {
 	auto &door = doors.front();
+	door.writeExtra = true;
 	door.state.open = door.extra = true;
 	server->refuseOnce.insert(Kind::Snapshot);
 	ASSERT_TRUE(host.MarkDirty(door));
@@ -1416,7 +1418,8 @@ TEST_F(SnapshotAcknowledgments, PrimaryUpdateSupersedesOnlyItsPartOfALostCombine
 	net.Step(32);
 	ASSERT_FALSE(Copy(door).extra);
 
-	door.state.open = door.extra = false; // Omit channel 2 from the second update.
+	door.writeExtra = false;
+	door.state.open = false;
 	ASSERT_TRUE(host.MarkDirty(door));
 	host.Tick();
 	net.Step(32);
@@ -1430,13 +1433,15 @@ TEST_F(SnapshotAcknowledgments, PrimaryUpdateSupersedesOnlyItsPartOfALostCombine
 TEST_F(SnapshotAcknowledgments, PartialRepairOmitsSupersededPrimaryEvenBeforeItsReplacementArrives)
 {
 	auto &door = doors.front();
+	door.writeExtra = true;
 	door.state.open = door.extra = true;
 	server->refuseOnce.insert(Kind::Snapshot);
 	ASSERT_TRUE(host.MarkDirty(door));
 	host.Tick();
 	net.Step(120);
 
-	door.state.open = door.extra = false;
+	door.writeExtra = false;
+	door.state.open = false;
 	server->refuseOnce.insert(Kind::Snapshot);
 	ASSERT_TRUE(host.MarkDirty(door));
 	host.Tick();
@@ -1453,6 +1458,7 @@ TEST_F(SnapshotAcknowledgments, PartialRepairOmitsSupersededPrimaryEvenBeforeIts
 TEST_F(SnapshotAcknowledgments, AckOfPartiallySupersededSequenceLeavesNewerPrimaryPending)
 {
 	auto &door = doors.front();
+	door.writeExtra = true;
 	door.state.open = door.extra = true;
 	client->refuseOnce.insert(Kind::SnapshotSingleAck);
 	ASSERT_TRUE(host.MarkDirty(door));
@@ -1460,7 +1466,8 @@ TEST_F(SnapshotAcknowledgments, AckOfPartiallySupersededSequenceLeavesNewerPrima
 	net.Step(32);
 	ASSERT_TRUE(Copy(door).state.open && Copy(door).extra);
 
-	door.state.open = door.extra = false;
+	door.writeExtra = false;
+	door.state.open = false;
 	server->refuseOnce.insert(Kind::Snapshot);
 	ASSERT_TRUE(host.MarkDirty(door));
 	host.Tick();
@@ -1476,6 +1483,7 @@ TEST_F(SnapshotAcknowledgments, DestroyCancelsAllPendingChannelRepairs)
 {
 	auto &door = doors.front();
 	door.separateChannels = true;
+	door.writeExtra = true;
 	door.state.open = door.extra = true;
 	SimulatedNetwork::LinkRule drop;
 	drop.dark = true;
@@ -1502,7 +1510,7 @@ TEST_F(SnapshotAcknowledgments, SharesOnlyEqualTimestampsAndPreservesSecondaryCh
 	doors[0].stamp = doors[1].stamp = 16384;
 	doors[2].stamp = 16385;
 	for (auto &door : doors)
-		door.extra = true;
+		door.writeExtra = door.extra = true;
 	Publish(true);
 	EXPECT_EQ(batches, 1u);
 	EXPECT_EQ(replies, 2u);
