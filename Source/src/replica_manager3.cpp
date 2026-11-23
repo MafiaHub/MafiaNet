@@ -51,6 +51,7 @@ public:
 			record->servedPass = 0;
 		}
 		record->replica = replica;
+		record->broadcastRevision = 0;
 		if (++nextAllocation == 0)
 			++nextAllocation; // Zero identifies records constructed outside this store.
 		record->allocationNumber = nextAllocation;
@@ -1638,17 +1639,19 @@ void ReplicaManager3::PrepareBroadcast(Replica3 *replica, MafiaNet::Time time)
 			last.Reset();
 			out.ResetReadPointer();
 			last.Write(&out);
+			if (!any)
+				++replica->broadcastRevision;
+			replica->channelRevision[z] = replica->broadcastRevision;
+			replica->preparedPro[z] = sp.pro[z];
 			any = true;
 		}
 	}
 	// Anything else reaching this replica this pass (a connection's own list) sends the same bytes.
 	replica->forceSendUntilNextUpdate = true;
-	replica->prepared = any ? Replica3::PB_SEND : Replica3::PB_NOTHING_TO_SEND;
+	replica->prepared = any ? Replica3::PB_SEND : Replica3::PB_UNCHANGED;
 	if (!any)
 		return;
 	replica->preparedTimestamp = sp.messageTimestamp;
-	for (int z = 0; z < RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; z++)
-		replica->preparedPro[z] = sp.pro[z];
 	replica->lastBroadcast = time;
 }
 
@@ -1851,20 +1854,31 @@ SendSerializeIfChangedResult Connection_RM3::SendSerializeIfChanged(LastSerializ
 			if (gone())
 				return SSICR_NEVER_SERIALIZE;
 		}
-		if (replica->prepared == Replica3::PB_NOTHING_TO_SEND)
+		if (replica->prepared == Replica3::PB_NOTHING_TO_SEND || (replica->prepared == Replica3::PB_UNCHANGED && !independentStateCache))
 			return SSICR_DID_NOT_SEND_DATA;
-		if (replica->prepared == Replica3::PB_SEND)
+		if (replica->prepared == Replica3::PB_SEND || replica->prepared == Replica3::PB_UNCHANGED)
 		{
+			bool missed[RM3_NUM_OUTPUT_BITSTREAM_CHANNELS];
+			bool *selected = replica->lastSentSerialization.indicesToSend;
+			if (independentStateCache)
+			{
+				if (lsr->broadcastRevision == replica->broadcastRevision)
+					return SSICR_DID_NOT_SEND_DATA;
+				for (int z = 0; z < RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; ++z)
+					missed[z] = replica->channelRevision[z] > lsr->broadcastRevision;
+				selected = missed;
+				lsr->broadcastRevision = replica->broadcastRevision;
+			}
 			for (int z = 0; z < RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; z++)
 			{
-				if (replica->lastSentSerialization.indicesToSend[z])
+				if (selected[z])
 					sp->bitsWrittenSoFar += replica->lastSentSerialization.bitStream[z].GetNumberOfBitsUsed();
 			}
-			return SendSerialize(replica, replica->lastSentSerialization.indicesToSend, replica->lastSentSerialization.bitStream, replica->preparedTimestamp, replica->preparedPro, rakPeer, worldId, curTime);
+			return SendSerialize(replica, selected, replica->lastSentSerialization.bitStream, replica->preparedTimestamp, replica->preparedPro, rakPeer, worldId, curTime);
 		}
 	}
 
-	if (replica->forceSendUntilNextUpdate)
+	if (!independentStateCache && replica->forceSendUntilNextUpdate)
 	{
 		for (int z = 0; z < RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; z++)
 		{
@@ -1874,6 +1888,9 @@ SendSerializeIfChangedResult Connection_RM3::SendSerializeIfChanged(LastSerializ
 		return SendSerialize(replica, replica->lastSentSerialization.indicesToSend, replica->lastSentSerialization.bitStream, sp->messageTimestamp, sp->pro, rakPeer, worldId, curTime);
 	}
 
+	// Observers served at distinct cadences compare with their own last sent value.
+	if (independentStateCache)
+		lsr->AllocBS();
 	for (int i = 0; i < RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; i++)
 	{
 		sp->outputBitstream[i].Reset();
@@ -1886,6 +1903,13 @@ SendSerializeIfChangedResult Connection_RM3::SendSerializeIfChanged(LastSerializ
 	RM3SerializationResult serializationResult = replica->Serialize(sp);
 	if (gone())
 		return SSICR_NEVER_SERIALIZE;
+	if (independentStateCache)
+	{
+		if (serializationResult == RM3SR_BROADCAST_IDENTICALLY)
+			serializationResult = RM3SR_SERIALIZED_UNIQUELY;
+		else if (serializationResult == RM3SR_BROADCAST_IDENTICALLY_FORCE_SERIALIZATION || serializationResult == RM3SR_SERIALIZED_ALWAYS_IDENTICALLY)
+			serializationResult = RM3SR_SERIALIZED_ALWAYS;
+	}
 
 	if (serializationResult == RM3SR_NEVER_SERIALIZE_FOR_THIS_CONNECTION)
 	{

@@ -4,6 +4,7 @@
 #include "mafianet/message_identifiers.h"
 #include "mafianet/snapshot_replica.h"
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <vector>
 
@@ -220,6 +221,68 @@ void BM_StreamingRoomCrossing(benchmark::State &state)
 	Counters(state, samples, scene.Bytes() - before);
 	state.counters["ticks_to_last_baseline"] = worstTicks;
 }
+// Sample the age of the state actually installed on each client, in server ticks.
+void BM_StreamingObserverCadence(benchmark::State &state)
+{
+	constexpr unsigned count = 32;
+	Scene scene(count);
+	if (!scene.Start(1))
+	{
+		state.SkipWithError("session setup failed");
+		return;
+	}
+	for (auto *client : scene.clients)
+	{
+		const auto observer = ToPeerGuid(client->GetMyGUID());
+		scene.host.GetInterestGrid().SetObserverCells(observer, {{0, 0}});
+		if (!scene.host.SetObserverStateBudget(observer, static_cast<uint32_t>(state.range(0))))
+		{
+			state.SkipWithError("budget setup failed");
+			return;
+		}
+		for (unsigned i = 8; i < count; ++i)
+			scene.host.SetUpdateInterval(observer, scene.actors[i], 6);
+	}
+	scene.host.Tick();
+	if (!scene.Converged(count, [](unsigned, unsigned)
+	                     { return true; }))
+	{
+		state.SkipWithError("baseline mismatch");
+		return;
+	}
+	unsigned tick = 0;
+	std::vector<double> elapsed;
+	std::array<std::vector<unsigned>, 2> ages;
+	const auto before = scene.Bytes();
+	for (auto _ : state)
+	{
+		++tick;
+		for (auto &actor : scene.actors)
+			actor.state.x = static_cast<float>(tick);
+		elapsed.push_back(scene.Tick());
+		state.SetIterationTime(elapsed.back());
+		scene.net.Step(16);
+		for (auto *client : scene.clients)
+			for (unsigned i = 0; i < count; ++i)
+			{
+				auto *copy = static_cast<Actor *>(client->GetReplication().FindReplica(scene.actors[i].GetNetworkID()));
+				if (!copy)
+				{
+					state.SkipWithError("visible actor disappeared");
+					return;
+				}
+				ages[i >= 8].push_back(tick - static_cast<unsigned>(copy->state.x));
+			}
+	}
+	Counters(state, elapsed, scene.Bytes() - before);
+	for (unsigned i = 0; i < ages.size(); ++i)
+	{
+		auto &values = ages[i];
+		std::sort(values.begin(), values.end());
+		state.counters[i ? "far_p95_age_ticks" : "near_p95_age_ticks"] = values[values.size() - values.size() / 20 - 1];
+	}
+}
+BENCHMARK(BM_StreamingObserverCadence)->Arg(0)->Arg(768)->UseManualTime()->Iterations(100)->Unit(benchmark::kMicrosecond);
 BENCHMARK(BM_StreamingDenseMutations)->UseManualTime()->Iterations(100)->Unit(benchmark::kMicrosecond);
 BENCHMARK(BM_StreamingRoomCrossing)->UseManualTime()->Iterations(50)->Unit(benchmark::kMicrosecond);
 }

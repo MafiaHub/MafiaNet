@@ -13,7 +13,7 @@ class ManagedReplication final : public ReplicaManager3
 public:
 	ManagedReplication(ReplicationManager &owner, RakPeerInterface &peer)
 	    : ReplicaManager3(peer), owner(owner) {}
-	bool Register(ReplicaTypeId id, uint16_t version, std::type_index type, bool snapshot, std::function<Replica3 *()> create, std::function<void(Replica3 *)> release);
+	bool Register(ReplicaTypeId id, uint16_t version, std::type_index type, bool snapshot, bool timed, std::function<Replica3 *()> create, std::function<void(Replica3 *)> release);
 	bool Policy(ReplicaTypeId id, ChangeDetection detection, SnapshotDelivery delivery);
 	bool Mark(Replica3 &object);
 	void MarkAll();
@@ -37,7 +37,8 @@ public:
 	std::function<bool(PeerGuid, std::vector<Replica3 *> &)> serializationList;
 	std::function<void()> beforeTick, afterTick;
 	std::function<void(PeerGuid, bool)> connectionChanged;
-	void Tick();
+	bool Tick(Time requested = 0);
+	bool ConfigureObserver(PeerGuid observer, Replica3 *object, unsigned value);
 	struct Report
 	{
 		std::type_index cppType;
@@ -49,13 +50,14 @@ public:
 	bool Assign(Replica3 &object, PeerGuid guid, bool force = false);
 	bool Correct(Replica3 &object);
 	bool Owns(Replica3 &object) const;
-	bool Submit(Replica3 &object, std::type_index type, const BitStream &payload);
+	OwnerInputStamp LocalStamp(Replica3 &object) const;
+	bool Submit(Replica3 &object, std::type_index type, const BitStream &payload, OwnerInputStamp *sent);
 	bool IsDownload(NetworkID id) const { return downloads.count(id) != 0; }
 	bool HasSessions() const { return !sessions.empty(); }
 
 private:
 	class Connection;
-	void Notify(ReplicaEventKind kind, NetworkID id, PeerGuid source);
+	void Notify(ReplicaEventKind kind, NetworkID id, PeerGuid source, OwnerInputStamp input = {});
 	std::deque<ReplicaEvent> events;
 	bool dispatching = false;
 	using Kind = ReplicationWire::Kind;
@@ -65,7 +67,7 @@ private:
 		uint16_t version;
 		std::function<Replica3 *()> create;
 		std::function<void(Replica3 *)> release;
-		bool snapshot;
+		bool snapshot, timed;
 		ChangeDetection detection = ChangeDetection::Compare;
 		SnapshotDelivery delivery = SnapshotDelivery::Reliable;
 	};
@@ -114,6 +116,8 @@ private:
 		uint64_t epoch;
 		uint64_t sequence = 0;
 		uint64_t publishedEpoch = 0;
+		uint64_t requestedFeedback = 0, publishedFeedback = 0;
+		bool stateChanged = false;
 		bool Ready() const { return publishedEpoch == epoch; }
 	};
 	std::map<ReplicaTypeId, Report> reports;

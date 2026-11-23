@@ -153,7 +153,7 @@ recipient, priority, reliability and ordering channel. A batch holds up to
 Each record retains its own object ID, visit, sequence and exact payload bit
 length. Immediate, sequenced and receipt-bearing sends keep individual
 message boundaries, as do oversized records. A single pending update goes
-out in the same tick. Replication wire version 2 introduces this framing.
+out in the same tick. Replication wire version 3 carries grant-scoped input feedback and supports state batches.
 
 After registering a snapshot type, use
 ``SetSnapshotPolicy(type, ChangeDetection::Explicit, SnapshotDelivery::Replaceable)``
@@ -184,6 +184,74 @@ hands decoded state to the simulation through a synchronized queue. Queue
 world mutations from state callbacks. Grid audience predicates are read-only.
 An attempt to mutate or reevaluate the same grid from its predicate throws
 ``std::logic_error``.
+
+Observer update rates
+---------------------
+
+On an active connection, use ``SetUpdateInterval(observer, vehicle, 4)`` to
+consider a visible vehicle once every four serialization passes for that
+observer. One is the default. ``SetObserverStateBudget(observer, 768)``
+allows 768 bytes of ordinary state per serialization pass. Zero removes the
+budget. Both setters return false if the observer is unknown. Intervals are
+local to the observer and replica; the connection drops its settings at
+disconnect. Grid visibility and construction limits still apply.
+
+The scheduler ranks due objects by how many of their update periods they
+have waited. It charges whole state envelopes before batching. The last
+indivisible object can exceed the allowance and its excess is deducted from
+subsequent passes. Construction, removal, grants, requested owner corrections
+and repair traffic progress independently. ``GetStatistics(observer).deferredState``
+counts eligible candidates held back by the budget on the last serialization
+pass. The streaming benchmark reports delivered state age in server ticks
+for the frequent and infrequent groups.
+
+Interpolation and driver prediction
+-----------------------------------
+
+Use ``SnapshotReplica<VehicleState, 16>`` on both peers to keep the latest
+16 authoritative samples. Choose matching type IDs, codec versions and
+history-enabled codecs on both peers. In a fixed-step game, select manual
+tick mode, set the serialization interval to zero, and call
+``replication.Tick(simulationTick)`` after each simulation step. It returns
+false for a zero, repeated or decreasing tick. The parameterless tick advances
+the counter by one. Automatic mode advances it as the receive loop drives
+replication.
+
+On the spectator, sample a slightly delayed server tick with
+``vehicle.SampleAt(renderTick, interpolate)``. Supply the interpolation
+function for your state type; the library clamps outside the available range.
+``LatestSnapshotTick()`` gives a reference in the server's simulation
+timeline. Advance the render tick using your game's estimate of server time
+and choose the delay for its update rate and jitter. Sample on the same
+thread as delivery or synchronize reads with the game's receive thread.
+For a teleport, change the canonical state and call ``MarkTeleport()`` on
+the server. Explicitly tracked types also need ``MarkDirty(vehicle)``.
+The next received sample snaps to the new position even if the first
+teleport packet was lost. A fresh scope visit starts a new history.
+
+For a locally controlled vehicle, keep a separate predicted state and an
+``OwnerInputHistory<DriverInput>`` per local copy. Its default capacity is
+64 commands. On successful ``inputs.Send(replication, vehicle, command)``,
+apply that command immediately to predicted state. A full history or a
+refused send returns false so the game can avoid predicting unsent input.
+These tracked reports opt that grant into reliable, coalesced owner
+corrections. The unchanged public two-argument ``SendOwnerUpdate`` continues
+to submit ordinary reports. The server's report handler decides which inputs
+affect canonical state. Once processed, even a rejected command retires from
+prediction. Other observers receive ordinary snapshots at their own cadence.
+
+In the existing replica callback, resolve ``event.id`` and handle
+``ReplicaEventKind::InputProcessed`` with
+``predicted = inputs.Reconcile(event.input, vehicle.state, Simulate)``.
+The helper retires commands through the server's sequence in that grant and
+replays the rest using your simulation function. Clear the history and seed
+prediction from canonical state on authority grant, loss or forced correction.
+New submissions automatically discard entries from an earlier epoch.
+
+Build and run the ``Replication`` sample for a scripted loopback drive.
+Pass ``--drive`` for interactive acceleration, braking, teleport and driver
+handoff. The sample configures debug transport latency and jitter. The
+deterministic ``ReplicationMotion`` tests also run delayed links in Release.
 
 Moving an RM3 game to the built-in service
 ------------------------------------------
