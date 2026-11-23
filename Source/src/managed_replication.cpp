@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <array>
 #include <bitset>
+#include <cmath>
 #include <limits>
 #include <sodium.h>
 
@@ -264,10 +265,60 @@ public:
 	{
 		StateRecordInfo record;
 		ChannelMask pending;
-		TimeMS sent;
+		TimeMS sent, repairDelay;
 		BitSize_t bits;
 		std::vector<unsigned char> bytes;
 	};
+	// Time one existing snapshot per observer. Its ACK can arrive after its
+	// payload has already been superseded, especially on a busy connection.
+	struct SnapshotTiming
+	{
+		static constexpr TimeMS InitialDelay = 250, MaxDelay = 2000;
+		TimeMS delay = InitialDelay;
+		uint64_t sequence = 0;
+		TimeMS sent = 0;
+		bool repaired = false;
+		double smoothed = 0, variation = 0;
+
+		void Track(uint64_t seq, TimeMS now)
+		{
+			if (sequence && now - sent < MaxDelay)
+				return;
+			sequence = seq;
+			sent = now;
+			repaired = false;
+		}
+		void Confirm(uint64_t seq)
+		{
+			if (seq != sequence)
+				return;
+			sequence = 0;
+			const auto elapsed = GetTimeMS() - sent;
+			if (elapsed >= MaxDelay)
+				return;
+			if (repaired)
+			{
+				// Either transmission could have generated this ACK. Back off
+				// to allow a clean sample on paths slower than the current timer.
+				delay = std::min(MaxDelay, delay * 2);
+				return;
+			}
+			const double sample = std::max<TimeMS>(1, elapsed);
+			if (smoothed == 0)
+			{
+				smoothed = sample;
+				variation = sample / 2;
+			}
+			else
+			{
+				variation += (std::abs(sample - smoothed) - variation) / 4;
+				smoothed += (sample - smoothed) / 8;
+			}
+			// Leave room for receive pumping and timer granularity even on
+			// steady paths. Actual repair happens on the next replication tick.
+			delay = static_cast<TimeMS>(std::clamp(smoothed + std::max(16.0, 4 * variation), 32.0, static_cast<double>(MaxDelay)));
+		}
+	} timing;
 	using Repairs = std::multimap<NetworkID, Unconfirmed>;
 	Repairs unconfirmed;
 	std::map<uint64_t, Repairs::iterator> repairBySequence;
@@ -278,6 +329,7 @@ public:
 	}
 	void Confirm(uint64_t seq)
 	{
+		timing.Confirm(seq);
 		auto it = repairBySequence.find(seq);
 		if (it != repairBySequence.end())
 			EraseRepair(it->second);
@@ -302,7 +354,9 @@ public:
 		}
 		if (channels.any())
 		{
-			auto added = unconfirmed.emplace_hint(end, id, Unconfirmed{record, channels, GetTimeMS(), out.GetNumberOfBitsUsed(), {out.GetData(), out.GetData() + out.GetNumberOfBytesUsed()}});
+			const auto now = GetTimeMS();
+			timing.Track(record.sequence, now);
+			auto added = unconfirmed.emplace_hint(end, id, Unconfirmed{record, channels, now, timing.delay, out.GetNumberOfBitsUsed(), {out.GetData(), out.GetData() + out.GetNumberOfBytesUsed()}});
 			repairBySequence.emplace(record.sequence, added);
 		}
 	}
@@ -452,7 +506,7 @@ public:
 		for (auto it = unconfirmed.begin(); it != unconfirmed.end();)
 		{
 			auto &item = it->second;
-			if (now - item.sent < 250)
+			if (now - item.sent < item.repairDelay)
 			{
 				++it;
 				continue;
@@ -470,6 +524,8 @@ public:
 			if (runtime.GetRakPeerInterface()->Send(&packet, Priority::High, Reliability::ReliableOrdered, 0, guid, false))
 			{
 				stats.stateBytes += packet.GetNumberOfBytesUsed();
+				if (timing.sequence == item.record.sequence)
+					timing.repaired = true;
 				it = EraseRepair(it);
 			}
 			else

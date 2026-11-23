@@ -1390,6 +1390,63 @@ TEST_F(SnapshotAcknowledgments, SmallUpdatesFitOneCompactBatchAndOneCompactReply
 	EXPECT_LE(saved.GetNumberOfBytesUsed(), ReplicationWire::WireHeaderBytes(Kind::SnapshotAck, 1) + 8u);
 }
 
+TEST_F(SnapshotAcknowledgments, WarmShortPathRepairsFinalLossWithin150Ms)
+{
+	SimulatedNetwork::LinkRule link;
+	link.delayMs = 20;
+	net.SetLinkBothWays(server, client, link);
+	auto &door = doors.front();
+	// Publish faster than the RTT so the ACKs refer to superseded snapshots.
+	for (unsigned i = 0; i < 120; ++i)
+	{
+		door.state.open = i % 2 != 0;
+		ASSERT_TRUE(host.MarkDirty(door));
+		host.Tick();
+		net.Step(16);
+	}
+	net.Step(80);
+	ASSERT_TRUE(Copy(door).state.open);
+	ASSERT_EQ(repairs, 0u);
+	link.dark = true;
+	net.SetLink(server, client, link);
+	door.state.open = false;
+	ASSERT_TRUE(host.MarkDirty(door));
+	host.Tick();
+	net.Step(25);
+	link.dark = false;
+	net.SetLink(server, client, link);
+	for (unsigned ms = 25; ms < 145; ms += 10)
+	{
+		host.Tick();
+		net.Step(10);
+	}
+	EXPECT_FALSE(Copy(door).state.open);
+	EXPECT_EQ(repairs, 1u);
+}
+
+TEST_F(SnapshotAcknowledgments, WarmLongPathWaitsForTheOriginalAck)
+{
+	SimulatedNetwork::LinkRule link;
+	link.delayMs = 150;
+	net.SetLinkBothWays(server, client, link);
+	auto &door = doors.front();
+	for (unsigned i = 0; i < 9; ++i)
+	{
+		door.state.open = i % 2 == 0;
+		ASSERT_TRUE(host.MarkDirty(door));
+		host.Tick();
+		for (unsigned ms = 0; ms < 400; ms += 10)
+		{
+			net.Step(10);
+			host.Tick();
+		}
+		ASSERT_EQ(Copy(door).state.open, door.state.open);
+		if (i == 7)
+			repairs = 0; // Measure the next update on the warmed path.
+	}
+	EXPECT_EQ(repairs, 0u);
+}
+
 TEST_F(SnapshotAcknowledgments, SecondaryAckLeavesLostPrimaryEligibleForRepair)
 {
 	auto &door = doors.front();
