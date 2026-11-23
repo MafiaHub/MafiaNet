@@ -1136,15 +1136,18 @@ TEST(BuiltinReplication, LostBatchRepairsEveryReplaceableSnapshot)
 
 namespace
 {
-struct AckDoor : Door
+struct AckDoor : ControlledDoor
 {
 	bool truncateNext = false;
+	bool separateChannels = false;
 	Time stamp = 0;
-	bool extra = false;
+	bool extra = false, writeExtra = false;
 	RM3SerializationResult Serialize(SerializeParameters *params) override
 	{
 		params->messageTimestamp = stamp;
-		if (extra)
+		if (separateChannels)
+			params->pro[0].priority = Priority::Immediate;
+		if (writeExtra)
 			params->outputBitstream[2].Write(extra);
 		return Door::Serialize(params);
 	}
@@ -1185,6 +1188,7 @@ protected:
 		for (auto *side : {&host, &view})
 		{
 			ASSERT_TRUE(side->RegisterReplica<AckDoor>(doorType, 1));
+			ASSERT_TRUE((side->RegisterOwnerUpdate<AckDoor, SwitchReport>(1, &ControlledDoor::ApplyReport)));
 			ASSERT_TRUE(side->SetSnapshotPolicy(doorType, ChangeDetection::Explicit, SnapshotDelivery::Replaceable));
 		}
 		for (auto &door : doors)
@@ -1386,6 +1390,150 @@ TEST_F(SnapshotAcknowledgments, SmallUpdatesFitOneCompactBatchAndOneCompactReply
 	EXPECT_LE(saved.GetNumberOfBytesUsed(), ReplicationWire::WireHeaderBytes(Kind::SnapshotAck, 1) + 8u);
 }
 
+TEST_F(SnapshotAcknowledgments, SecondaryAckLeavesLostPrimaryEligibleForRepair)
+{
+	auto &door = doors.front();
+	door.separateChannels = true;
+	door.writeExtra = true;
+	door.state.open = door.extra = true;
+	server->refuseOnce.insert(Kind::Snapshot);
+	ASSERT_TRUE(host.MarkDirty(door));
+	host.Tick();
+	net.Step(32);
+	ASSERT_TRUE(Copy(door).extra);
+	ASSERT_FALSE(Copy(door).state.open);
+	ASSERT_EQ(replies, 1u);
+	RunRepair();
+	EXPECT_TRUE(Copy(door).state.open);
+	EXPECT_EQ(repairs, 1u);
+}
+
+TEST_F(SnapshotAcknowledgments, PrimaryUpdateSupersedesOnlyItsPartOfALostCombinedSnapshot)
+{
+	auto &door = doors.front();
+	door.writeExtra = true;
+	door.state.open = door.extra = true;
+	server->refuseOnce.insert(Kind::Snapshot);
+	ASSERT_TRUE(host.MarkDirty(door));
+	host.Tick();
+	net.Step(32);
+	ASSERT_FALSE(Copy(door).extra);
+
+	door.writeExtra = false;
+	door.state.open = false;
+	ASSERT_TRUE(host.MarkDirty(door));
+	host.Tick();
+	net.Step(32);
+	ASSERT_EQ(replies, 1u);
+	RunRepair();
+	EXPECT_TRUE(Copy(door).extra);
+	EXPECT_FALSE(Copy(door).state.open);
+	EXPECT_EQ(repairs, 1u);
+}
+
+TEST_F(SnapshotAcknowledgments, OvertakenAuthorityGrantKeepsMissingChannelEligibleForRepair)
+{
+	auto &door = doors.front();
+	door.writeExtra = door.extra = true;
+	server->refuseOnce.insert(Kind::Snapshot);
+	ASSERT_TRUE(host.MarkDirty(door));
+	host.Tick();
+	net.Step(32);
+	ASSERT_FALSE(Copy(door).extra);
+
+	server->delayGrant = true;
+	ASSERT_TRUE(host.SetAuthority(door, ToPeerGuid(client->GetMyGUID())));
+	host.Tick();
+	ASSERT_GT(server->delayedGrant.GetNumberOfBitsUsed(), 0u);
+	door.writeExtra = false;
+	door.state.open = true;
+	ASSERT_TRUE(host.MarkDirty(door));
+	host.Tick();
+	net.Step(32);
+	ASSERT_TRUE(Copy(door).state.open);
+
+	ASSERT_TRUE(server->RakPeer::Send(&server->delayedGrant, Priority::High, Reliability::ReliableOrdered, 0, client->GetMyGUID(), false));
+	net.Step(32);
+	ASSERT_TRUE(view.HasLocalAuthority(Copy(door)));
+	ASSERT_TRUE(Copy(door).state.open);
+	RunRepair();
+	EXPECT_EQ(repairs, 1u);
+	EXPECT_TRUE(Copy(door).extra);
+	EXPECT_TRUE(Copy(door).state.open);
+}
+
+TEST_F(SnapshotAcknowledgments, PartialRepairOmitsSupersededPrimaryEvenBeforeItsReplacementArrives)
+{
+	auto &door = doors.front();
+	door.writeExtra = true;
+	door.state.open = door.extra = true;
+	server->refuseOnce.insert(Kind::Snapshot);
+	ASSERT_TRUE(host.MarkDirty(door));
+	host.Tick();
+	net.Step(120);
+
+	door.writeExtra = false;
+	door.stamp = 42;
+	door.state.open = false;
+	server->refuseOnce.insert(Kind::Snapshot);
+	ASSERT_TRUE(host.MarkDirty(door));
+	host.Tick();
+	net.Step(150);
+	host.Tick(); // Only the original record is due.
+	net.Step(32);
+	ASSERT_EQ(repairs, 1u);
+	EXPECT_TRUE(Copy(door).extra);
+	EXPECT_FALSE(Copy(door).state.open);
+	RunRepair();
+	EXPECT_EQ(repairs, 2u);
+	EXPECT_EQ(Copy(door).stamp, door.stamp);
+}
+
+TEST_F(SnapshotAcknowledgments, AckOfPartiallySupersededSequenceLeavesNewerPrimaryPending)
+{
+	auto &door = doors.front();
+	door.writeExtra = true;
+	door.state.open = door.extra = true;
+	client->refuseOnce.insert(Kind::SnapshotSingleAck);
+	ASSERT_TRUE(host.MarkDirty(door));
+	host.Tick();
+	net.Step(32);
+	ASSERT_TRUE(Copy(door).state.open && Copy(door).extra);
+
+	door.writeExtra = false;
+	door.state.open = false;
+	server->refuseOnce.insert(Kind::Snapshot);
+	ASSERT_TRUE(host.MarkDirty(door));
+	host.Tick();
+	ReplayFirstAck();
+	net.Step(32);
+	RunRepair();
+	EXPECT_FALSE(Copy(door).state.open);
+	EXPECT_TRUE(Copy(door).extra);
+	EXPECT_EQ(repairs, 1u);
+}
+
+TEST_F(SnapshotAcknowledgments, DestroyCancelsAllPendingChannelRepairs)
+{
+	auto &door = doors.front();
+	door.separateChannels = true;
+	door.writeExtra = true;
+	door.state.open = door.extra = true;
+	SimulatedNetwork::LinkRule drop;
+	drop.dark = true;
+	net.SetLink(server, client, drop);
+	ASSERT_TRUE(host.MarkDirty(door));
+	host.Tick();
+	net.Step(32);
+	net.SetLink(server, client, {});
+	const auto id = door.GetNetworkID();
+	ASSERT_TRUE(host.Destroy(&door));
+	net.Step(32);
+	ASSERT_EQ(view.FindReplica(id), nullptr);
+	RunRepair();
+	EXPECT_EQ(repairs, 0u);
+}
+
 TEST_F(SnapshotAcknowledgments, SharesOnlyEqualTimestampsAndPreservesSecondaryChannelBits)
 {
 	host.SetSerializationList([&](PeerGuid, std::vector<Replica3 *> &out)
@@ -1396,7 +1544,7 @@ TEST_F(SnapshotAcknowledgments, SharesOnlyEqualTimestampsAndPreservesSecondaryCh
 	doors[0].stamp = doors[1].stamp = 16384;
 	doors[2].stamp = 16385;
 	for (auto &door : doors)
-		door.extra = true;
+		door.writeExtra = door.extra = true;
 	Publish(true);
 	EXPECT_EQ(batches, 1u);
 	EXPECT_EQ(replies, 2u);
