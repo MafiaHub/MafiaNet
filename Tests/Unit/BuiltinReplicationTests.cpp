@@ -1136,7 +1136,7 @@ TEST(BuiltinReplication, LostBatchRepairsEveryReplaceableSnapshot)
 
 namespace
 {
-struct AckDoor : Door
+struct AckDoor : ControlledDoor
 {
 	bool truncateNext = false;
 	bool separateChannels = false;
@@ -1188,6 +1188,7 @@ protected:
 		for (auto *side : {&host, &view})
 		{
 			ASSERT_TRUE(side->RegisterReplica<AckDoor>(doorType, 1));
+			ASSERT_TRUE((side->RegisterOwnerUpdate<AckDoor, SwitchReport>(1, &ControlledDoor::ApplyReport)));
 			ASSERT_TRUE(side->SetSnapshotPolicy(doorType, ChangeDetection::Explicit, SnapshotDelivery::Replaceable));
 		}
 		for (auto &door : doors)
@@ -1430,6 +1431,37 @@ TEST_F(SnapshotAcknowledgments, PrimaryUpdateSupersedesOnlyItsPartOfALostCombine
 	EXPECT_EQ(repairs, 1u);
 }
 
+TEST_F(SnapshotAcknowledgments, OvertakenAuthorityGrantKeepsMissingChannelEligibleForRepair)
+{
+	auto &door = doors.front();
+	door.writeExtra = door.extra = true;
+	server->refuseOnce.insert(Kind::Snapshot);
+	ASSERT_TRUE(host.MarkDirty(door));
+	host.Tick();
+	net.Step(32);
+	ASSERT_FALSE(Copy(door).extra);
+
+	server->delayGrant = true;
+	ASSERT_TRUE(host.SetAuthority(door, ToPeerGuid(client->GetMyGUID())));
+	host.Tick();
+	ASSERT_GT(server->delayedGrant.GetNumberOfBitsUsed(), 0u);
+	door.writeExtra = false;
+	door.state.open = true;
+	ASSERT_TRUE(host.MarkDirty(door));
+	host.Tick();
+	net.Step(32);
+	ASSERT_TRUE(Copy(door).state.open);
+
+	ASSERT_TRUE(server->RakPeer::Send(&server->delayedGrant, Priority::High, Reliability::ReliableOrdered, 0, client->GetMyGUID(), false));
+	net.Step(32);
+	ASSERT_TRUE(view.HasLocalAuthority(Copy(door)));
+	ASSERT_TRUE(Copy(door).state.open);
+	RunRepair();
+	EXPECT_EQ(repairs, 1u);
+	EXPECT_TRUE(Copy(door).extra);
+	EXPECT_TRUE(Copy(door).state.open);
+}
+
 TEST_F(SnapshotAcknowledgments, PartialRepairOmitsSupersededPrimaryEvenBeforeItsReplacementArrives)
 {
 	auto &door = doors.front();
@@ -1441,6 +1473,7 @@ TEST_F(SnapshotAcknowledgments, PartialRepairOmitsSupersededPrimaryEvenBeforeIts
 	net.Step(120);
 
 	door.writeExtra = false;
+	door.stamp = 42;
 	door.state.open = false;
 	server->refuseOnce.insert(Kind::Snapshot);
 	ASSERT_TRUE(host.MarkDirty(door));
@@ -1453,6 +1486,7 @@ TEST_F(SnapshotAcknowledgments, PartialRepairOmitsSupersededPrimaryEvenBeforeIts
 	EXPECT_FALSE(Copy(door).state.open);
 	RunRepair();
 	EXPECT_EQ(repairs, 2u);
+	EXPECT_EQ(Copy(door).stamp, door.stamp);
 }
 
 TEST_F(SnapshotAcknowledgments, AckOfPartiallySupersededSequenceLeavesNewerPrimaryPending)

@@ -486,7 +486,8 @@ void BM_SnapshotFreshness(benchmark::State &state)
 		std::vector<unsigned> ages, blackoutAges;
 		ages.reserve(duration);
 		unsigned tick = 1;
-		unsigned finalMs = 0;
+		unsigned finalMs = deadline;
+		bool converged = false;
 		server->repairs = 0;
 		for (unsigned ms = 1; ms <= duration + deadline; ++ms)
 		{
@@ -522,10 +523,10 @@ void BM_SnapshotFreshness(benchmark::State &state)
 				if (dark)
 					blackoutAges.push_back(ms - oldest);
 			}
-			if (oldest == duration)
+			if (!converged && oldest == duration)
 			{
 				finalMs = ms - duration;
-				break;
+				converged = true;
 			}
 		}
 		auto p95 = [](std::vector<unsigned> &values)
@@ -534,12 +535,9 @@ void BM_SnapshotFreshness(benchmark::State &state)
 			return values[values.size() - values.size() / 20 - 1];
 		};
 		state.counters["p95_age_ms"] = p95(ages);
-		if (!blackoutAges.empty())
-			state.counters["p95_blackout_age_ms"] = p95(blackoutAges);
-		const bool converged = copy->state.x == duration && copy->state.y == duration && copy->state.z == duration;
+		state.counters["p95_blackout_age_ms"] = blackoutAges.empty() ? 0 : p95(blackoutAges);
 		state.counters["final_converged"] = converged;
-		if (converged)
-			state.counters["final_convergence_ms"] = finalMs;
+		state.counters["final_convergence_ms"] = finalMs;
 		state.counters["repair_messages"] = static_cast<double>(server->repairs);
 	}
 }

@@ -1380,8 +1380,10 @@ void ManagedReplication::OwnerPacket(Connection &connection, Kind kind, BitStrea
 		auto visit = connection.incoming.find(id);
 		if (visit == connection.incoming.end())
 			return;
-		for (auto &seq : visit->second.lastState)
-			seq = std::max(seq, watermark);
+		// A skipped baseline installed no values. Older disjoint repairs can still be needed.
+		if (!newerSnapshot)
+			for (auto &seq : visit->second.lastState)
+				seq = std::max(seq, watermark);
 		if (feedback)
 		{
 			auto current = grants.find(id);
