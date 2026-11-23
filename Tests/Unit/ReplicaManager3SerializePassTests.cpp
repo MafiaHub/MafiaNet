@@ -1092,7 +1092,9 @@ TEST_F(ReplicaManager3SerializePass, SharedBodiesKeepRecipientHeadersAndExactCha
 				else
 				{
 					if (i == 15)
+					{
 						EXPECT_FALSE(packet->ReadBit());
+					}
 					EXPECT_TRUE(packet->ReadBit());
 				}
 			}
