@@ -160,8 +160,13 @@ After registering a snapshot type, use
 for frequently changing state. Mark changed objects with ``MarkDirty(object)``
 or use ``MarkAllDirty()`` after a bulk edit. An entering observer always gets
 current state. Replaceable snapshots go out unreliably with application
-acknowledgment. In replication wire version 6, snapshots address an object by
-the visit handle assigned when it enters scope. A batch of consecutive snapshot
+acknowledgment. In replication wire version 7, the handshake exchanges a short
+receive-context number in each direction on encrypted connections. Snapshot
+updates and acknowledgments carry the receiver's context. A reconnect gets a
+fresh context, and the encrypted transport authenticates the datagram. Plaintext
+connections carry both full session tokens on each message.
+
+Snapshots address an object by the visit handle assigned when it enters scope. A batch of consecutive snapshot
 sequences with the same timestamp carries the first sequence and timestamp once.
 The receiver confirms applied sequences with a base sequence and a 32-bit mask
 at the end of each incoming message, including when ticking manually. A clear

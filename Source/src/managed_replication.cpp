@@ -22,6 +22,8 @@ public:
 	{
 		clientToken = session.clientToken;
 		serverToken = session.serverToken;
+		incomingSnapshotContext = session.localSnapshotContext;
+		outgoingSnapshotContext = session.remoteSnapshotContext;
 	}
 	struct Visit
 	{
@@ -46,7 +48,12 @@ public:
 		}
 	}
 	uint64_t Watermark() const { return nextState; }
-	bool Matches(uint64_t client, uint64_t server) const { return clientToken == client && serverToken == server; }
+	bool Matches(const Header &header) const
+	{
+		if (incomingSnapshotContext && IsSnapshotMessage(header.kind))
+			return header.snapshotContext == incomingSnapshotContext;
+		return !header.snapshotContext && header.clientToken == clientToken && header.serverToken == serverToken;
+	}
 	ConstructionMode QueryConstructionMode() const override { return QUERY_CONNECTION_FOR_REPLICA_LIST; }
 	uint32_t byteBudget = 0;
 	std::map<NetworkID, unsigned> intervals;
@@ -274,13 +281,14 @@ public:
 		const bool share = !pro.sendReceipt && pro.priority != Priority::Immediate &&
 		                   (pro.reliability == Reliability::ReliableOrdered || pro.reliability == Reliability::Reliable || pro.reliability == Reliability::Unreliable);
 		const auto bytes = out.GetNumberOfBytesUsed();
-		if (!share || bytes <= HeaderBytes || bytes > batchLimit)
+		const auto headerBytes = WireHeaderBytes(kind, outgoingSnapshotContext);
+		if (!share || bytes <= headerBytes || bytes > batchLimit)
 		{
 			FlushBatch();
 			SendSingle(id, kind, out, pro, peer);
 			return;
 		}
-		unsigned bodyOffset = HeaderBytes;
+		unsigned bodyOffset = headerBytes;
 		uint64_t sequence = 0;
 		Time timestamp = 0;
 		const bool snapshot = kind == Kind::Snapshot;
@@ -288,7 +296,7 @@ public:
 		{
 			BitStream header(out.GetData(), bytes, false);
 			header.SetWriteOffset(out.GetNumberOfBitsUsed());
-			header.SetReadOffset(HeaderBytes * 8);
+			header.SetReadOffset(headerBytes * 8);
 			if (!ReadVar(header, sequence) || !sequence || !ReadVar(header, timestamp) || !header.GetNumberOfUnreadBits())
 			{
 				FlushBatch();
@@ -319,7 +327,7 @@ public:
 			if (recordCount == 1)
 			{
 				batch.Reset();
-				ReplicationWire::WriteHeader(batch, kind == Kind::Snapshot ? Kind::SnapshotBatch : Kind::StateBatch, clientToken, serverToken);
+				ReplicationWire::WriteHeader(batch, kind == Kind::Snapshot ? Kind::SnapshotBatch : Kind::StateBatch, clientToken, serverToken, outgoingSnapshotContext);
 				if (snapshot)
 				{
 					WriteVar(batch, firstSequence);
@@ -393,7 +401,7 @@ public:
 		for (unsigned i = 0; i < acks.count;)
 		{
 			const uint64_t base = acks.sequences[i++];
-			const unsigned prefix = HeaderBytes + VarBytes(base);
+			const unsigned prefix = WireHeaderBytes(Kind::SnapshotAck, outgoingSnapshotContext) + VarBytes(base);
 			if (prefix + 1 > limit)
 				return;
 			uint32_t mask = 1;
@@ -406,7 +414,7 @@ public:
 				++i;
 			}
 			BitStream out;
-			ReplicationWire::WriteHeader(out, Kind::SnapshotAck, clientToken, serverToken);
+			ReplicationWire::WriteHeader(out, Kind::SnapshotAck, clientToken, serverToken, outgoingSnapshotContext);
 			WriteVar(out, base);
 			WriteVar(out, mask);
 			if (peer.SendDatagram(out, Priority::High, Reliability::Unreliable, 0, guid).status != DatagramSendStatus::Queued)
@@ -421,6 +429,7 @@ private:
 		bool served;
 	};
 	std::map<NetworkID, ServiceAge> serviceAge;
+	uint64_t incomingSnapshotContext = 0;
 	uint64_t pass = 0, debt = 0;
 	BitStream first, batch;
 	NetworkID firstId = UNASSIGNED_NETWORK_ID;
@@ -643,6 +652,12 @@ bool ManagedReplication::Admit(PeerGuid guid)
 	if (it == sessions.end() || it->second.admitted)
 		return false;
 	auto &session = it->second;
+	if (GetRakPeerInterface()->GetEncryptionMode() == EncryptionMode::Required)
+	{
+		if (lastSnapshotContext == UINT64_MAX)
+			return false;
+		session.localSnapshotContext = ++lastSnapshotContext;
+	}
 	session.admitted = true;
 	if (session.initiator)
 	{
@@ -681,7 +696,10 @@ void ManagedReplication::Handshake(PeerGuid guid, Session &session, Kind kind)
 	if (kind == Kind::Reject)
 		out.Write(static_cast<uint8_t>(session.status));
 	else
+	{
 		out.Write(Schema());
+		WriteVar(out, session.localSnapshotContext);
+	}
 	if (!Send(guid, out))
 	{
 		pendingHandshakes[guid] = kind;
@@ -954,19 +972,19 @@ void ManagedReplication::Receive(Packet &packet)
 	BitStream in(packet.data, packet.length, false);
 	in.SetWriteOffset(packet.bitSize);
 	Header header{};
-	if (!ReadHeader(in, header) || !header.clientToken)
+	if (!ReadHeader(in, header) || (!header.snapshotContext && !header.clientToken))
 		return;
-	const auto &[version, kind, clientToken, serverToken] = header;
+	const auto kind = header.kind;
 
 	const bool batched = kind == Kind::StateBatch || kind == Kind::SnapshotBatch;
 	if (batched || kind == Kind::State || kind == Kind::Snapshot || kind == Kind::SnapshotAck)
 	{
-		if (version != Version || owner.GetRole() == (kind == Kind::SnapshotAck ? ReplicationRole::Client : ReplicationRole::Server))
+		if (header.version != Version || owner.GetRole() == (kind == Kind::SnapshotAck ? ReplicationRole::Client : ReplicationRole::Server))
 			return;
 		ReplicationReceiveScope receive(*GetRakPeerInterface());
 		StateDelivery delivery(*this, packet.guid);
 		auto *connection = static_cast<Connection *>(delivery.GetConnection());
-		if (!connection || !connection->Matches(clientToken, serverToken))
+		if (!connection || !connection->Matches(header))
 			return;
 		if (kind == Kind::SnapshotAck)
 		{
@@ -1005,11 +1023,21 @@ void ManagedReplication::Receive(Packet &packet)
 	if (it == sessions.end())
 		return;
 	auto &session = it->second;
+	const auto version = header.version;
+	const auto clientToken = header.clientToken, serverToken = header.serverToken;
 	const bool server = !session.initiator;
+	auto readContext = [&]
+	{
+		uint64_t context;
+		if (!ReadVar(in, context) || in.GetNumberOfUnreadBits() || (context != 0) != (GetRakPeerInterface()->GetEncryptionMode() == EncryptionMode::Required))
+			return false;
+		session.remoteSnapshotContext = context;
+		return true;
+	};
 	if (kind == Kind::Hello && server && session.status == ReplicationPeerStatus::Waiting && !session.helloReceived && !serverToken)
 	{
 		uint64_t schema;
-		if (!in.Read(schema) || in.GetNumberOfUnreadBits())
+		if (!in.Read(schema) || (version == Version && !readContext()))
 			return;
 		session.clientToken = clientToken;
 		session.helloReceived = true;
@@ -1030,7 +1058,7 @@ void ManagedReplication::Receive(Packet &packet)
 		if (kind == Kind::Accept)
 		{
 			uint64_t schema;
-			if (serverToken && in.Read(schema) && schema == Schema() && !in.GetNumberOfUnreadBits())
+			if (serverToken && in.Read(schema) && schema == Schema() && readContext())
 			{
 				session.serverToken = serverToken;
 				if (Activate(guid, session) && connectionChanged)

@@ -1747,7 +1747,7 @@ void Connection_RM3::TransmitState(Replica3 &, BitStream &out, PRO pro, RakPeerI
 void Connection_RM3::SendSerializeHeader(MafiaNet::Replica3 *replica, MafiaNet::Time timestamp, MafiaNet::BitStream *bs, bool primaryOnly)
 {
 	bs->Reset();
-	ReplicationWire::WriteHeader(*bs, replica->replaceableSnapshot ? ReplicationWire::Kind::Snapshot : ReplicationWire::Kind::State, clientToken, serverToken);
+	ReplicationWire::WriteHeader(*bs, replica->replaceableSnapshot ? ReplicationWire::Kind::Snapshot : ReplicationWire::Kind::State, clientToken, serverToken, outgoingSnapshotContext);
 	const auto visit = outgoingVisits.find(replica->GetNetworkID());
 	const uint64_t incarnation = visit == outgoingVisits.end() ? 0 : visit->second;
 	++nextState;

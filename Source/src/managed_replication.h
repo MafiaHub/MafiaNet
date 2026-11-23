@@ -79,6 +79,7 @@ private:
 		SystemAddress address;
 		ReplicationPeerStatus status = ReplicationPeerStatus::Waiting;
 		uint64_t clientToken = 0, serverToken = 0;
+		uint64_t localSnapshotContext = 0, remoteSnapshotContext = 0;
 		bool initiator = false;
 		bool admitted = false, helloReceived = false;
 	};
@@ -113,6 +114,8 @@ private:
 	std::map<ReplicaTypeId, Type> types;
 	bool explicitScheduling = false;
 	std::map<std::type_index, ReplicaTypeId> typeIds;
+	// Never reset or recycle a receive context while this manager exists.
+	uint64_t lastSnapshotContext = 0;
 	std::map<PeerGuid, Session> sessions;
 	struct Download
 	{

@@ -8,7 +8,7 @@
 
 namespace MafiaNet::ReplicationWire
 {
-constexpr uint8_t Version = 6;
+constexpr uint8_t Version = 7;
 constexpr BitSize_t MaxPayloadBits = 8 * 1024 * 1024;
 enum class Kind : uint8_t
 {
@@ -147,21 +147,48 @@ struct StateBatchView
 	}
 };
 
+// The high bit distinguishes snapshot traffic on an established encrypted
+// session from the version byte of a full replication header.
+constexpr uint8_t SnapshotTag = 0x80;
+static_assert(Version < SnapshotTag);
+inline bool IsSnapshotMessage(Kind kind)
+{
+	return kind == Kind::Snapshot || kind == Kind::SnapshotBatch || kind == Kind::SnapshotAck;
+}
+inline unsigned WireHeaderBytes(Kind kind, uint64_t context)
+{
+	return context && IsSnapshotMessage(kind) ? 2 + VarBytes(context) : HeaderBytes;
+}
 struct Header
 {
 	uint8_t version;
 	Kind kind;
-	uint64_t clientToken, serverToken;
+	uint64_t clientToken = 0, serverToken = 0, snapshotContext = 0;
 };
 inline bool ReadHeader(BitStream &in, Header &header)
 {
 	MessageID id;
-	return in.Read(id) && id == ID_REPLICATION && in.Read(header.version) && in.Read(header.kind) &&
-	       in.Read(header.clientToken) && in.Read(header.serverToken);
+	uint8_t tag;
+	if (!in.Read(id) || id != ID_REPLICATION || !in.Read(tag))
+		return false;
+	if (tag & SnapshotTag)
+	{
+		header = {Version, static_cast<Kind>(tag & ~SnapshotTag)};
+		return IsSnapshotMessage(header.kind) && ReadVar(in, header.snapshotContext) && header.snapshotContext != 0;
+	}
+	header.version = tag;
+	header.snapshotContext = 0;
+	return in.Read(header.kind) && in.Read(header.clientToken) && in.Read(header.serverToken);
 }
-inline void WriteHeader(BitStream &out, Kind kind, uint64_t clientToken, uint64_t serverToken)
+inline void WriteHeader(BitStream &out, Kind kind, uint64_t clientToken, uint64_t serverToken, uint64_t context = 0)
 {
 	out.Write(static_cast<MessageID>(ID_REPLICATION));
+	if (context && IsSnapshotMessage(kind))
+	{
+		out.Write(static_cast<uint8_t>(SnapshotTag | static_cast<uint8_t>(kind)));
+		WriteVar(out, context);
+		return;
+	}
 	out.Write(Version);
 	out.Write(kind);
 	out.Write(clientToken);

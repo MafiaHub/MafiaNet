@@ -139,3 +139,47 @@ TEST(ReplicationWire, CompactBatchValidatesSequenceRangeAndEveryRecordBoundary)
 	for (unsigned cut = 1; cut <= 24; ++cut)
 		EXPECT_FALSE(read(1, cut));
 }
+
+TEST(ReplicationWire, SnapshotContextWidthsMatchTheWireAndRejectTruncatedHeaders)
+{
+	using namespace ReplicationWire;
+	for (const auto kind : {Kind::Snapshot, Kind::SnapshotBatch, Kind::SnapshotAck})
+		for (const auto context : std::array<uint64_t, 5>{1, 127, 128, 16384, UINT64_MAX})
+		{
+			BitStream wire;
+			WriteHeader(wire, kind, 41, 73, context);
+			ASSERT_EQ(wire.GetNumberOfBytesUsed(), WireHeaderBytes(kind, context));
+			const auto full = wire.GetNumberOfBitsUsed();
+			for (BitSize_t length = 0; length <= full; ++length)
+			{
+				wire.SetWriteOffset(length);
+				wire.ResetReadPointer();
+				Header header{};
+				ASSERT_EQ(ReadHeader(wire, header), length == full);
+				if (length == full)
+				{
+					EXPECT_EQ(header.kind, kind);
+					EXPECT_EQ(header.snapshotContext, context);
+					EXPECT_EQ(header.clientToken, 0u);
+					EXPECT_EQ(header.serverToken, 0u);
+				}
+			}
+		}
+}
+
+TEST(ReplicationWire, OnlySnapshotTrafficCanUseANonzeroContext)
+{
+	using namespace ReplicationWire;
+	auto recognized = [](Kind kind, uint64_t context)
+	{
+		BitStream wire;
+		wire.Write(static_cast<MessageID>(ID_REPLICATION));
+		wire.Write(static_cast<uint8_t>(SnapshotTag | static_cast<uint8_t>(kind)));
+		WriteVar(wire, context);
+		Header header{};
+		return ReadHeader(wire, header);
+	};
+	EXPECT_FALSE(recognized(Kind::Accept, 1));
+	EXPECT_FALSE(recognized(Kind::State, 1));
+	EXPECT_FALSE(recognized(Kind::SnapshotAck, 0));
+}
