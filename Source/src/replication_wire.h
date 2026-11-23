@@ -28,7 +28,8 @@ enum class Kind : uint8_t
 	StateBatch,
 	SnapshotBatch,
 	OwnerCorrection,
-	ClockSample
+	ClockSample,
+	SnapshotSingleAck
 };
 
 constexpr unsigned HeaderBytes = 3 + 2 * sizeof(uint64_t);
@@ -81,15 +82,25 @@ bool ReadVar(BitStream &in, T &value)
 	return false;
 }
 
+inline bool IsSnapshotAck(Kind kind)
+{
+	return kind == Kind::SnapshotAck || kind == Kind::SnapshotSingleAck;
+}
+
 // Bit i confirms first + i only. The oldest confirmed sequence anchors each
 // window, so a rejected or stale record creates a hole without any history table.
 struct SnapshotAckWindow
 {
 	uint64_t first = 0;
 	uint32_t mask = 0;
-	bool Read(BitStream &in)
+	bool Read(BitStream &in, Kind kind)
 	{
-		if (!ReadVar(in, first) || !first || !ReadVar(in, mask) || !(mask & 1u) || in.GetNumberOfUnreadBits())
+		if (!ReadVar(in, first) || !first)
+			return false;
+		mask = 1;
+		if (kind == Kind::SnapshotSingleAck)
+			return in.GetNumberOfUnreadBits() == 0;
+		if (kind != Kind::SnapshotAck || !ReadVar(in, mask) || !(mask & 1u) || in.GetNumberOfUnreadBits())
 			return false;
 		const auto remaining = UINT64_MAX - first;
 		return remaining >= 31 || !(mask >> (remaining + 1));
@@ -153,7 +164,7 @@ constexpr uint8_t SnapshotTag = 0x80;
 static_assert(Version < SnapshotTag);
 inline bool IsSnapshotMessage(Kind kind)
 {
-	return kind == Kind::Snapshot || kind == Kind::SnapshotBatch || kind == Kind::SnapshotAck;
+	return kind == Kind::Snapshot || kind == Kind::SnapshotBatch || IsSnapshotAck(kind);
 }
 inline unsigned WireHeaderBytes(Kind kind, uint64_t context)
 {

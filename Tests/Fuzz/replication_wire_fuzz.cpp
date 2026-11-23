@@ -17,10 +17,10 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *bytes, size_t size)
 		batch.Read(in, header.kind == ReplicationWire::Kind::SnapshotBatch);
 		return 0;
 	}
-	if (header.kind == ReplicationWire::Kind::SnapshotAck)
+	if (ReplicationWire::IsSnapshotAck(header.kind))
 	{
 		ReplicationWire::SnapshotAckWindow acks;
-		acks.Read(in);
+		acks.Read(in, header.kind);
 		return 0;
 	}
 	if (header.kind == ReplicationWire::Kind::ClockSample)

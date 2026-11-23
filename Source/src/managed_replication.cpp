@@ -402,7 +402,7 @@ public:
 		{
 			const uint64_t base = acks.sequences[i++];
 			const unsigned prefix = WireHeaderBytes(Kind::SnapshotAck, outgoingSnapshotContext) + VarBytes(base);
-			if (prefix + 1 > limit)
+			if (prefix > limit)
 				return;
 			uint32_t mask = 1;
 			while (i < acks.count && acks.sequences[i] >= base && acks.sequences[i] - base < 32)
@@ -414,9 +414,11 @@ public:
 				++i;
 			}
 			BitStream out;
-			ReplicationWire::WriteHeader(out, Kind::SnapshotAck, clientToken, serverToken, outgoingSnapshotContext);
+			const auto kind = mask == 1 ? Kind::SnapshotSingleAck : Kind::SnapshotAck;
+			ReplicationWire::WriteHeader(out, kind, clientToken, serverToken, outgoingSnapshotContext);
 			WriteVar(out, base);
-			WriteVar(out, mask);
+			if (kind == Kind::SnapshotAck)
+				WriteVar(out, mask);
 			if (peer.SendDatagram(out, Priority::High, Reliability::Unreliable, 0, guid).status != DatagramSendStatus::Queued)
 				return;
 		}
@@ -977,19 +979,19 @@ void ManagedReplication::Receive(Packet &packet)
 	const auto kind = header.kind;
 
 	const bool batched = kind == Kind::StateBatch || kind == Kind::SnapshotBatch;
-	if (batched || kind == Kind::State || kind == Kind::Snapshot || kind == Kind::SnapshotAck)
+	if (kind == Kind::State || kind == Kind::StateBatch || IsSnapshotMessage(kind))
 	{
-		if (header.version != Version || owner.GetRole() == (kind == Kind::SnapshotAck ? ReplicationRole::Client : ReplicationRole::Server))
+		if (header.version != Version || owner.GetRole() == (IsSnapshotAck(kind) ? ReplicationRole::Client : ReplicationRole::Server))
 			return;
 		ReplicationReceiveScope receive(*GetRakPeerInterface());
 		StateDelivery delivery(*this, packet.guid);
 		auto *connection = static_cast<Connection *>(delivery.GetConnection());
 		if (!connection || !connection->Matches(header))
 			return;
-		if (kind == Kind::SnapshotAck)
+		if (IsSnapshotAck(kind))
 		{
 			SnapshotAckWindow window;
-			if (!window.Read(in))
+			if (!window.Read(in, kind))
 				return;
 			for (uint64_t seq = window.first; window.mask; ++seq, window.mask >>= 1)
 				if (window.mask & 1u)

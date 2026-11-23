@@ -62,7 +62,7 @@ TEST(ReplicationWire, SelectiveAckPreservesHolesAndTheHighestBit)
 	WriteVar(in, UINT64_MAX - 31);
 	WriteVar(in, 0x80000005u);
 	SnapshotAckWindow window;
-	ASSERT_TRUE(window.Read(in));
+	ASSERT_TRUE(window.Read(in, Kind::SnapshotAck));
 	EXPECT_EQ(window.first, UINT64_MAX - 31);
 	EXPECT_EQ(window.mask, 0x80000005u);
 }
@@ -76,7 +76,7 @@ TEST(ReplicationWire, InvalidWindowsCannotConfirmAnySequence)
 		WriteVar(in, first);
 		WriteVar(in, mask);
 		SnapshotAckWindow window;
-		return window.Read(in);
+		return window.Read(in, Kind::SnapshotAck);
 	};
 	EXPECT_FALSE(valid(0, 1));
 	EXPECT_FALSE(valid(1, 0));
@@ -143,7 +143,7 @@ TEST(ReplicationWire, CompactBatchValidatesSequenceRangeAndEveryRecordBoundary)
 TEST(ReplicationWire, SnapshotContextWidthsMatchTheWireAndRejectTruncatedHeaders)
 {
 	using namespace ReplicationWire;
-	for (const auto kind : {Kind::Snapshot, Kind::SnapshotBatch, Kind::SnapshotAck})
+	for (const auto kind : {Kind::Snapshot, Kind::SnapshotBatch, Kind::SnapshotAck, Kind::SnapshotSingleAck})
 		for (const auto context : std::array<uint64_t, 5>{1, 127, 128, 16384, UINT64_MAX})
 		{
 			BitStream wire;
@@ -182,4 +182,20 @@ TEST(ReplicationWire, OnlySnapshotTrafficCanUseANonzeroContext)
 	EXPECT_FALSE(recognized(Kind::Accept, 1));
 	EXPECT_FALSE(recognized(Kind::State, 1));
 	EXPECT_FALSE(recognized(Kind::SnapshotAck, 0));
+}
+
+TEST(ReplicationWire, SingleReceiptAndTruncatedMaskHaveDistinctEncodings)
+{
+	using namespace ReplicationWire;
+	BitStream in;
+	WriteVar(in, UINT64_MAX);
+	SnapshotAckWindow window;
+	EXPECT_FALSE(window.Read(in, Kind::SnapshotAck));
+	in.ResetReadPointer();
+	ASSERT_TRUE(window.Read(in, Kind::SnapshotSingleAck));
+	EXPECT_EQ(window.first, UINT64_MAX);
+	EXPECT_EQ(window.mask, 1u);
+	WriteVar(in, 1);
+	in.ResetReadPointer();
+	EXPECT_FALSE(window.Read(in, Kind::SnapshotSingleAck));
 }

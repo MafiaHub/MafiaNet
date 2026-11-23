@@ -168,8 +168,9 @@ connections carry both full session tokens on each message.
 
 Snapshots address an object by the visit handle assigned when it enters scope. A batch of consecutive snapshot
 sequences with the same timestamp carries the first sequence and timestamp once.
-The receiver confirms applied sequences with a base sequence and a 32-bit mask
-at the end of each incoming message, including when ticking manually. A clear
+The receiver confirms one applied sequence with a single receipt. To confirm
+several it sends a base sequence and a 32-bit mask. Both go out at the end
+of the incoming message, including when ticking manually. A clear
 bit leaves that snapshot eligible for repair. Each reply fits the reverse
 path's unreliable datagram budget. A newer snapshot supersedes the pending
 one for the same object. After 250 ms

@@ -1205,7 +1205,7 @@ protected:
 		};
 		client->inspect = [&](const ReplicationWire::Header &header, const BitStream &data, PRO pro, PeerGuid)
 		{
-			if (header.kind != Kind::SnapshotAck)
+			if (!ReplicationWire::IsSnapshotAck(header.kind))
 				return;
 			EXPECT_EQ(pro.reliability, Reliability::Unreliable);
 			ASSERT_LE(data.GetNumberOfBytesUsed(), client->payloadLimit);
@@ -1215,7 +1215,7 @@ protected:
 			ReplicationWire::Header parsed;
 			ASSERT_TRUE(ReplicationWire::ReadHeader(input, parsed));
 			ReplicationWire::SnapshotAckWindow window;
-			ASSERT_TRUE(window.Read(input));
+			ASSERT_TRUE(window.Read(input, parsed.kind));
 			for (uint64_t seq = window.first; window.mask; ++seq, window.mask >>= 1)
 				if (window.mask & 1u)
 					confirmed.insert(seq);
@@ -1286,7 +1286,7 @@ TEST(BuiltinReplication, EachObserverAcknowledgesInTheContextAssignedByItsReceiv
 	for (auto *observer : {alice, bob})
 		observer->inspect = [&, observer](const Header &header, const BitStream &, PRO, PeerGuid)
 		{
-			if (header.kind == Kind::SnapshotAck)
+			if (ReplicationWire::IsSnapshotAck(header.kind))
 				reverse[ToPeerGuid(observer->GetMyGUID())] = header.snapshotContext;
 		};
 	door.state.open = true;
@@ -1329,7 +1329,7 @@ TEST(BuiltinReplication, PlaintextSnapshotsAndRepliesUseBothHandshakeTokens)
 			EXPECT_EQ(header.clientToken, accepted.clientToken);
 			EXPECT_EQ(header.serverToken, accepted.serverToken);
 			snapshots += header.kind == Kind::Snapshot;
-			replies += header.kind == Kind::SnapshotAck;
+			replies += ReplicationWire::IsSnapshotAck(header.kind);
 		}
 	};
 	server->inspect = client->inspect = inspect;
@@ -1347,7 +1347,7 @@ TEST(BuiltinReplication, PlaintextSnapshotsAndRepliesUseBothHandshakeTokens)
 	EXPECT_GE(snapshots, 1u);
 }
 
-TEST_F(SnapshotAcknowledgments, OneSmallSnapshotAndItsApplicationAckFitTwelveBytes)
+TEST_F(SnapshotAcknowledgments, OneSmallSnapshotAndItsApplicationAckFitElevenBytes)
 {
 	auto &door = doors.front();
 	door.state.open = true;
@@ -1356,7 +1356,7 @@ TEST_F(SnapshotAcknowledgments, OneSmallSnapshotAndItsApplicationAckFitTwelveByt
 	net.Step(32);
 	ASSERT_TRUE(Copy(door).state.open);
 	ASSERT_EQ(replies, 1u);
-	EXPECT_LE(snapshotBytes + saved.GetNumberOfBytesUsed(), 12u);
+	EXPECT_LE(snapshotBytes + saved.GetNumberOfBytesUsed(), 11u);
 	RunRepair();
 	EXPECT_EQ(repairs, 0u);
 }
@@ -1442,7 +1442,7 @@ TEST_F(SnapshotAcknowledgments, SplitsConfirmationMasksAtTheReversePathBudget)
 
 TEST_F(SnapshotAcknowledgments, UnsendableReplyLeavesTheSnapshotsEligibleForRepair)
 {
-	client->payloadLimit = ReplicationWire::WireHeaderBytes(Kind::SnapshotAck, 1) + 1;
+	client->payloadLimit = ReplicationWire::WireHeaderBytes(Kind::SnapshotAck, 1);
 	Publish(true);
 	EXPECT_EQ(batches, 1u);
 	EXPECT_EQ(replies, 0u);
@@ -1763,7 +1763,7 @@ TEST(BuiltinReplication, ClosingTheClientInAStateCallbackEndsBatchDelivery)
 	};
 	client->inspect = [&](const ReplicationWire::Header &header, const BitStream &, PRO, PeerGuid)
 	{
-		if (header.kind == ReplicationWire::Kind::SnapshotAck)
+		if (ReplicationWire::IsSnapshotAck(header.kind))
 			++acknowledgments;
 	};
 	for (auto &door : doors)

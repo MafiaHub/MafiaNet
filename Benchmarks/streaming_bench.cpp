@@ -297,7 +297,7 @@ public:
 			return;
 		replicationBytes += data.GetNumberOfBytesUsed();
 		const auto kind = header.kind;
-		snapshotAcks += kind == ReplicationWire::Kind::SnapshotAck;
+		snapshotAcks += ReplicationWire::IsSnapshotAck(kind);
 		repairs += kind == ReplicationWire::Kind::Snapshot && reliability == Reliability::ReliableOrdered;
 	}
 	DatagramSendResult SendDatagram(const BitStream &data, Priority priority, Reliability reliability, char channel, const AddressOrGUID target) override
