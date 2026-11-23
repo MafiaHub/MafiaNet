@@ -32,6 +32,7 @@
 #include "mafianet/simple_mutex.h"
 #include "mafianet/virtual_world.h"
 
+#include <array>
 #include <atomic>
 #include <deque>
 #include <mutex>
@@ -89,6 +90,8 @@ struct PRO
 	bool operator!=(const PRO &right) const;
 };
 
+
+static const int RM3_NUM_OUTPUT_BITSTREAM_CHANNELS = 16;
 
 /// \brief System to help automate game object construction, destruction, and serialization
 /// \details ReplicaManager3 tracks your game objects and automates the networking for replicating them across the network<BR>
@@ -482,6 +485,19 @@ private:
 	void SerializeConnectionsParallel(RM3World *world, WorldId worldId, MafiaNet::Time time);
 	// Serializes a replica that broadcasts identically once for the current pass; see Replica3::BroadcastsIdentically().
 	void PrepareBroadcast(Replica3 *replica, MafiaNet::Time time);
+	// Bodies are shared for one world pass. Each connection writes its own wire header.
+	struct BroadcastBody
+	{
+		size_t offset;
+		BitSize_t bits;
+		PRO pro;
+		std::array<BitSize_t, RM3_NUM_OUTPUT_BITSTREAM_CHANNELS> channelBits;
+		bool primaryOnly, last;
+	};
+	bool shareBroadcastBodies = false;
+	std::vector<BroadcastBody> broadcastBodies;
+	std::vector<unsigned char> broadcastBytes;
+	void CacheBroadcastBodies(Replica3 &replica);
 	// One connection's prepared broadcasts, from serializeExecutor's threads.
 	static void ServePreparedBroadcasts(void *context, unsigned int index);
 
@@ -497,8 +513,6 @@ private:
 	friend class Connection_RM3;
 	friend class Replica3;
 };
-
-static const int RM3_NUM_OUTPUT_BITSTREAM_CHANNELS = 16;
 
 /// \ingroup REPLICA_MANAGER_GROUP3
 struct LastSerializationResultBS
@@ -836,6 +850,14 @@ protected:
 	// Objects that this system has constructed are added at the same time to queryToSerializeReplicaList
 	// This list is used to serialize all objects that this system has to this connection
 	std::vector<LastSerializationResult *> queryToSerializeReplicaList;
+
+	// Worker result is valid only for this pass/world and the exact serialization membership.
+	uint64_t serializationListRevision = 0;
+	uint64_t restSummaryRevision = 0;
+	uint32_t restSummaryPass = 0;
+	uint32_t restSkippedPass = 0;
+	WorldId restSummaryWorld = 0;
+	bool restPending = true;
 
 	// Objects that are constructed on this system are also queried if they should be destroyed to this system
 	std::vector<LastSerializationResult *> queryToDestructReplicaList;
@@ -1286,6 +1308,8 @@ public:
 	friend class ReplicationManager;
 	uint32_t registeredType = 0;
 	bool replaceableSnapshot = false;
+	// The pre-serialize pass visits this flag and the virtual hook on every replica.
+	bool forceSendUntilNextUpdate;
 	bool CheckStateSize(const SerializeParameters &parameters);
 	std::atomic<uint64_t> rejectedStateCount{0};
 	bool staticBinding = false;
@@ -1298,7 +1322,6 @@ public:
 	ReplicaManager3 *replicaManager;
 
 	LastSerializationResultBS lastSentSerialization;
-	bool forceSendUntilNextUpdate;
 	/// \deprecated Not maintained: shared by every connection, it could only ever name one of them, and
 	/// that connection's record is freed when the replica leaves it. Look records up per connection.
 	LastSerializationResult *lsr;
@@ -1321,6 +1344,8 @@ public:
 	uint32_t parallelPass;
 	uint32_t neededPass;
 	PreparedBroadcast prepared;
+	/// \internal Index into the current world pass's shared channel bodies.
+	uint32_t firstBroadcastBody = UINT32_MAX;
 	MafiaNet::Time preparedTimestamp;
 	PRO preparedPro[RM3_NUM_OUTPUT_BITSTREAM_CHANNELS]{};
 	uint64_t broadcastRevision = 0;

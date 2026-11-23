@@ -330,7 +330,7 @@ private:
 
 // A warmed world. One iteration measures one server tick
 // after construction has been emitted for every client and the serializer is warm.
-template <bool useDirtyList, bool bulkFallback = false>
+template <bool useDirtyList, bool bulkFallback = false, bool scattered = false>
 void MeasureLargeWorld(benchmark::State &state)
 {
 	const int clients = static_cast<int>(state.range(0));
@@ -351,9 +351,12 @@ void MeasureLargeWorld(benchmark::State &state)
 			candidates.changed.clear();
 		for (int i = 0; i < changed; ++i)
 		{
-			world.replicas[i].x += 1.0f;
+			// 7919 is coprime to the world size, so the scattered order visits each replica once.
+			const int index = scattered ? (i * 7919) % 50000 : i;
+			auto &replica = world.replicas[index];
+			replica.x += 1.0f;
 			if constexpr (useDirtyList && !bulkFallback)
-				candidates.changed.push_back(&world.replicas[i]);
+				candidates.changed.push_back(&replica);
 		}
 		world.Tick();
 	}
@@ -364,6 +367,7 @@ void MeasureLargeWorld(benchmark::State &state)
 }
 BENCHMARK_TEMPLATE(MeasureLargeWorld, false)->Name("ReplicaManager3_LargeWorld")->ArgsProduct({{1, 20}, {0, 500, 50000}})->ArgNames({"clients", "changed_of_50000"})->Iterations(20);
 BENCHMARK_TEMPLATE(MeasureLargeWorld, true)->Name("ReplicaManager3_LargeWorldDirtyList")->ArgsProduct({{1, 20}, {0, 500, 50000}})->ArgNames({"clients", "changed_of_50000"})->Iterations(20);
+BENCHMARK_TEMPLATE(MeasureLargeWorld, true, false, true)->Name("ReplicaManager3_ScatteredDirtyList")->Args({1, 500})->Args({20, 500})->Args({1, 50000})->ArgNames({"clients", "changed_of_50000"})->Iterations(20);
 BENCHMARK_TEMPLATE(MeasureLargeWorld, true, true)->Name("ReplicaManager3_LargeWorldBulkFallback")->ArgsProduct({{1, 20}, {50000}})->ArgNames({"clients", "changed_of_50000"})->Iterations(20);
 
 }
