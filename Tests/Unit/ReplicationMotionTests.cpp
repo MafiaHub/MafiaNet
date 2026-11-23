@@ -257,3 +257,14 @@ TEST_F(ReplicationMotion, PredictionReplaysPendingInputAndHandoffIsolatesGrants)
 	                         { return cars[0].state.value == 13; }, 3000));
 }
 }
+
+TEST(ReplicationMotionCodec, InvalidSampleLeavesTheReceiveChannelUnapplied)
+{
+	Car car;
+	DeserializeParameters params{};
+	params.bitstreamWrittenTo[0] = true;
+	params.serializationBitstream[0].Write(uint32_t{1});
+	car.Deserialize(&params);
+	EXPECT_FALSE(params.bitstreamWrittenTo[0]);
+	EXPECT_EQ(car.state.value, 0);
+}

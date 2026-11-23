@@ -54,3 +54,32 @@ TEST(ReplicationWire, BatchFramingChecksAllBoundariesBeforeDelivery)
 	StateBatchView view;
 	EXPECT_FALSE(view.Read(wire));
 }
+
+TEST(ReplicationWire, SnapshotAcksRequireCompleteNonzeroSequencesWithinTheRecordLimit)
+{
+	using namespace ReplicationWire;
+	BitStream body;
+	SnapshotAcks acks;
+	EXPECT_FALSE(acks.Read(body));
+	for (unsigned n = 1; n <= MaxBatchRecords + 1; ++n)
+	{
+		body.Write(static_cast<NetworkID>(n));
+		body.Write(static_cast<uint64_t>(n * 7));
+		body.ResetReadPointer();
+		ASSERT_EQ(acks.Read(body), n <= MaxBatchRecords);
+		if (n <= MaxBatchRecords)
+		{
+			EXPECT_EQ(acks.count, n);
+			EXPECT_EQ(acks.records[n - 1].id, n);
+			EXPECT_EQ(acks.records[n - 1].seq, n * 7);
+		}
+	}
+	EXPECT_EQ(acks.count, 0u);
+	body.Reset();
+	body.Write(NetworkID{1});
+	body.Write(uint64_t{2});
+	body.Write(NetworkID{3});
+	body.Write(uint64_t{0});
+	EXPECT_FALSE(acks.Read(body));
+	EXPECT_EQ(acks.count, 0u);
+}

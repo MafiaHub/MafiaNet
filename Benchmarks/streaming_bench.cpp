@@ -1,6 +1,7 @@
 // Copyright (c) 2026, MafiaHub. MIT license.
 #include <benchmark/benchmark.h>
 #include "SimulatedNetwork.h"
+#include "../Source/src/replication_wire.h"
 #include "mafianet/message_identifiers.h"
 #include "mafianet/snapshot_replica.h"
 #include <algorithm>
@@ -282,6 +283,127 @@ void BM_StreamingObserverCadence(benchmark::State &state)
 		state.counters[i ? "far_p95_age_ticks" : "near_p95_age_ticks"] = values[values.size() - values.size() / 20 - 1];
 	}
 }
+class FeedbackPeer final : public RakPeer
+{
+public:
+	using RakPeer::Send;
+	using RakPeer::SendDatagram;
+	uint64_t snapshotAcks = 0, repairs = 0;
+	void CountSnapshotMessage(const BitStream &data, Reliability reliability)
+	{
+		BitStream in(data.GetData(), data.GetNumberOfBytesUsed(), false);
+		ReplicationWire::Header header;
+		if (!ReplicationWire::ReadHeader(in, header))
+			return;
+		const auto kind = header.kind;
+		snapshotAcks += kind == ReplicationWire::Kind::SnapshotAck;
+		repairs += kind == ReplicationWire::Kind::Snapshot && reliability == Reliability::ReliableOrdered;
+	}
+	DatagramSendResult SendDatagram(const BitStream &data, Priority priority, Reliability reliability, char channel, const AddressOrGUID target) override
+	{
+		auto result = RakPeer::SendDatagram(data, priority, reliability, channel, target);
+		if (result.status == DatagramSendStatus::Queued)
+			CountSnapshotMessage(data, reliability);
+		return result;
+	}
+	uint32_t Send(const BitStream *data, Priority priority, Reliability reliability, char channel, const AddressOrGUID target, bool broadcast, uint32_t receipt) override
+	{
+		const auto result = RakPeer::Send(data, priority, reliability, channel, target, broadcast, receipt);
+		if (result)
+			CountSnapshotMessage(*data, reliability);
+		return result;
+	}
+};
+
+// One update per simulated second leaves time for the 250 ms reliable repair.
+// Count UDP payload bytes at the socket, including control traffic in both directions.
+void BM_SnapshotFeedback(benchmark::State &state)
+{
+	const auto count = static_cast<unsigned>(state.range(0));
+	std::vector<Actor> actors(count);
+	uint64_t forwardBytes = 0, reverseBytes = 0, reversePackets = 0, convergence = 0;
+	SimulatedNetwork net(19);
+	auto *server = static_cast<FeedbackPeer *>(net.AddCustomPeer(std::make_unique<FeedbackPeer>(), 1, 1));
+	auto *client = static_cast<FeedbackPeer *>(net.AddCustomPeer(std::make_unique<FeedbackPeer>(), 1));
+	auto &host = server->GetReplication(), &view = client->GetReplication();
+	for (auto *peer : {server, client})
+	{
+		auto &side = peer->GetReplication();
+		if (!side.SetRole(peer == server ? ReplicationRole::Server : ReplicationRole::Client) ||
+		    !side.RegisterReplica<Actor>(actorType, 1) ||
+		    !side.SetSnapshotPolicy(actorType, ChangeDetection::Explicit, SnapshotDelivery::Replaceable))
+		{
+			state.SkipWithError("snapshot configuration failed");
+			return;
+		}
+	}
+	for (auto &actor : actors)
+		if (!host.Reference(&actor))
+		{
+			state.SkipWithError("reference failed");
+			return;
+		}
+	if (!net.Connect(client, server) || !net.RunUntil([&]
+	                                                  { return view.GetReplicaCount() == count; }, 5000))
+	{
+		state.SkipWithError("snapshot baseline missing");
+		return;
+	}
+	net.Step(500);
+	host.SetTickMode(ReplicationTickMode::Manual);
+	host.SetSerializeInterval(0);
+	SimulatedNetwork::LinkRule rule;
+	rule.lossPercent = static_cast<int>(state.range(1));
+	net.SetLinkBothWays(client, server, rule);
+	const auto reverse = net.AddressOf(client);
+	net.SetTap([&, reverse](const SystemAddress &from, const SystemAddress &, const char *, int length)
+	           {
+		if (from == reverse)
+		{
+			reverseBytes += length;
+			++reversePackets;
+		}
+		else
+			forwardBytes += length; });
+	client->snapshotAcks = server->repairs = 0;
+	for (auto _ : state)
+	{
+		for (auto &actor : actors)
+		{
+			++actor.state.x;
+			if (!host.MarkDirty(actor))
+			{
+				state.SkipWithError("failed to schedule snapshot");
+				return;
+			}
+		}
+		bool delivered = false;
+		for (unsigned ms = 10; ms <= 1000; ms += 10)
+		{
+			host.Tick();
+			net.Step(10);
+			if (!delivered && std::all_of(actors.begin(), actors.end(), [&](Actor &actor)
+			                              {auto *copy = static_cast<Actor *>(view.FindReplica(actor.GetNetworkID())); return copy && copy->state.x == actor.state.x; }))
+			{
+				delivered = true;
+				convergence += ms;
+			}
+		}
+		if (!delivered)
+		{
+			state.SkipWithError("snapshot failed to converge during observation window");
+			return;
+		}
+	}
+	const double n = static_cast<double>(state.iterations());
+	state.counters["reverse_ack_messages"] = client->snapshotAcks / n;
+	state.counters["reverse_udp_datagrams"] = reversePackets / n;
+	state.counters["reverse_udp_bytes"] = reverseBytes / n;
+	state.counters["total_udp_bytes"] = (forwardBytes + reverseBytes) / n;
+	state.counters["repair_messages"] = server->repairs / n;
+	state.counters["convergence_ms"] = convergence / n;
+}
+BENCHMARK(BM_SnapshotFeedback)->Args({1, 0})->Args({32, 0})->Args({1, 5})->Args({32, 5})->Iterations(64);
 BENCHMARK(BM_StreamingObserverCadence)->Arg(0)->Arg(768)->UseManualTime()->Iterations(100)->Unit(benchmark::kMicrosecond);
 BENCHMARK(BM_StreamingDenseMutations)->UseManualTime()->Iterations(100)->Unit(benchmark::kMicrosecond);
 BENCHMARK(BM_StreamingRoomCrossing)->UseManualTime()->Iterations(50)->Unit(benchmark::kMicrosecond);

@@ -6,7 +6,7 @@
 
 namespace MafiaNet::ReplicationWire
 {
-constexpr uint8_t Version = 4;
+constexpr uint8_t Version = 5;
 constexpr BitSize_t MaxPayloadBits = 8 * 1024 * 1024;
 enum class Kind : uint8_t
 {
@@ -32,6 +32,36 @@ enum class Kind : uint8_t
 constexpr unsigned HeaderBytes = 3 + 2 * sizeof(uint64_t);
 constexpr unsigned MaxBatchBytes = 1200;
 constexpr unsigned MaxBatchRecords = 32;
+
+struct SnapshotAckRecord
+{
+	NetworkID id;
+	uint64_t seq;
+	static constexpr unsigned WireBytes = sizeof(NetworkID) + sizeof(uint64_t);
+};
+
+struct SnapshotAcks
+{
+	std::array<SnapshotAckRecord, MaxBatchRecords> records;
+	unsigned count = 0;
+
+	bool Read(BitStream &in)
+	{
+		constexpr unsigned recordBits = SnapshotAckRecord::WireBytes * 8;
+		const auto bits = in.GetNumberOfUnreadBits();
+		count = 0;
+		if (!bits || bits % recordBits || bits / recordBits > records.size())
+			return false;
+		for (unsigned i = 0; i < bits / recordBits; ++i)
+		{
+			auto &record = records[i];
+			if (!in.Read(record.id) || !in.Read(record.seq) || !record.seq)
+				return false;
+		}
+		count = bits / recordBits;
+		return true;
+	}
+};
 
 struct ClockSample
 {

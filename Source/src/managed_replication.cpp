@@ -325,13 +325,27 @@ public:
 				++it;
 		}
 	}
-	void Acknowledge(NetworkID id, uint64_t seq)
+	void Acknowledge(const SnapshotAcks &acks)
 	{
-		BitStream ack;
-		ReplicationWire::WriteHeader(ack, Kind::SnapshotAck, clientToken, serverToken);
-		ack.Write(id);
-		ack.Write(seq);
-		runtime.GetRakPeerInterface()->Send(&ack, Priority::High, Reliability::Unreliable, 0, guid, false);
+		auto &peer = *runtime.GetRakPeerInterface();
+		const auto limit = peer.GetMaxUnfragmentedPayload(guid, Reliability::Unreliable);
+		if (limit < HeaderBytes + SnapshotAckRecord::WireBytes)
+			return;
+		const unsigned perMessage = (limit - HeaderBytes) / SnapshotAckRecord::WireBytes;
+		for (unsigned first = 0; first < acks.count;)
+		{
+			BitStream out;
+			ReplicationWire::WriteHeader(out, Kind::SnapshotAck, clientToken, serverToken);
+			const unsigned end = std::min(acks.count, first + perMessage);
+			while (first < end)
+			{
+				const auto &record = acks.records[first++];
+				out.Write(record.id);
+				out.Write(record.seq);
+			}
+			if (peer.SendDatagram(out, Priority::High, Reliability::Unreliable, 0, guid).status != DatagramSendStatus::Queued)
+				return; // The sender repairs any confirmation lost to a path change.
+		}
 	}
 
 private:
@@ -875,7 +889,7 @@ void ManagedReplication::Receive(Packet &packet)
 	const bool batched = kind == Kind::StateBatch || kind == Kind::SnapshotBatch;
 	if (batched || kind == Kind::State || kind == Kind::Snapshot || kind == Kind::SnapshotAck)
 	{
-		if (version != Version || (kind != Kind::SnapshotAck && owner.GetRole() == ReplicationRole::Server))
+		if (version != Version || owner.GetRole() == (kind == Kind::SnapshotAck ? ReplicationRole::Client : ReplicationRole::Server))
 			return;
 		ReplicationReceiveScope receive(*GetRakPeerInterface());
 		StateDelivery delivery(*this, packet.guid);
@@ -884,15 +898,22 @@ void ManagedReplication::Receive(Packet &packet)
 			return;
 		if (kind == Kind::SnapshotAck)
 		{
-			NetworkID id;
-			uint64_t seq;
-			if (!in.Read(id) || !in.Read(seq) || in.GetNumberOfUnreadBits())
+			SnapshotAcks acks;
+			if (!acks.Read(in))
 				return;
-			auto it = connection->unconfirmed.find(id);
-			if (it != connection->unconfirmed.end() && it->second.seq == seq)
-				connection->unconfirmed.erase(it);
+			for (unsigned i = 0; i < acks.count; ++i)
+			{
+				const auto &record = acks.records[i];
+				auto it = connection->unconfirmed.find(record.id);
+				if (it != connection->unconfirmed.end() && it->second.seq == record.seq)
+					connection->unconfirmed.erase(it);
+			}
+			return;
 		}
-		else if (batched)
+		// Scoped to one envelope so manual ticks never hold up confirmations.
+		SnapshotAcks applied;
+		auto *acks = (kind == Kind::Snapshot || kind == Kind::SnapshotBatch) ? &applied : nullptr;
+		if (batched)
 		{
 			StateBatchView view;
 			if (!view.Read(in))
@@ -902,11 +923,13 @@ void ManagedReplication::Receive(Packet &packet)
 				const auto record = view.records[i];
 				BitStream body(record.data, BITS_TO_BYTES(record.bits), false);
 				body.SetWriteOffset(record.bits);
-				ReadState(*connection, delivery, body, kind == Kind::SnapshotBatch);
+				ReadState(*connection, delivery, body, acks);
 			}
 		}
 		else
-			ReadState(*connection, delivery, in, kind == Kind::Snapshot);
+			ReadState(*connection, delivery, in, acks);
+		if (applied.count && !receive.IsClosing() && delivery.GetConnection())
+			connection->Acknowledge(applied);
 		return;
 	}
 	WorldGuard guard(*this);
@@ -1260,7 +1283,7 @@ void ManagedReplication::Apply(Connection &connection, Kind kind, BitStream &in)
 	}
 }
 
-void ManagedReplication::ReadState(Connection &connection, StateDelivery &delivery, BitStream &in, bool acknowledge)
+void ManagedReplication::ReadState(Connection &connection, StateDelivery &delivery, BitStream &in, SnapshotAcks *acks)
 {
 	NetworkID id;
 	uint64_t incarnation, seq;
@@ -1275,6 +1298,8 @@ void ManagedReplication::ReadState(Connection &connection, StateDelivery &delive
 			return;
 	if (in.GetNumberOfUnreadBits())
 		return;
+	// Reserve the sequence before the callback, which may reenter Receive().
+	const auto previousSnapshot = it->second.lastState[0];
 	bool changed = false;
 	for (unsigned i = 0; i < RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; ++i)
 	{
@@ -1288,7 +1313,20 @@ void ManagedReplication::ReadState(Connection &connection, StateDelivery &delive
 		it->second.lastState[i] = seq;
 		changed = true;
 	}
-	if (changed && delivery.Deserialize(id, &params, it->second.referenceIndex) && acknowledge && delivery.GetConnection() && !ReplicationReceiveScope::IsClosing(*GetRakPeerInterface()))
-		connection.Acknowledge(id, seq);
+	const bool hasSnapshot = params.bitstreamWrittenTo[0];
+	if (!changed || !delivery.Deserialize(id, &params, it->second.referenceIndex) || !acks)
+		return;
+	// The built-in snapshot codecs clear channel zero when they reject its payload.
+	if (hasSnapshot && !params.bitstreamWrittenTo[0])
+	{
+		if (delivery.GetConnection())
+		{
+			auto current = connection.incoming.find(id);
+			if (current != connection.incoming.end() && current->second.incarnation == incarnation && current->second.lastState[0] == seq)
+				current->second.lastState[0] = previousSnapshot;
+		}
+		return;
+	}
+	acks->records[acks->count++] = {id, seq};
 }
 }

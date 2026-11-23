@@ -13,6 +13,7 @@
 
 #include <algorithm>
 #include <array>
+#include <limits>
 #include <type_traits>
 
 using namespace MafiaNet;
@@ -277,9 +278,28 @@ class RefusingPeer final : public RakPeer
 {
 public:
 	using RakPeer::Send;
+	using RakPeer::SendDatagram;
+	unsigned payloadLimit = std::numeric_limits<unsigned>::max();
+	unsigned GetMaxUnfragmentedPayload(const AddressOrGUID target, Reliability reliability) const override
+	{
+		return std::min(payloadLimit, RakPeer::GetMaxUnfragmentedPayload(target, reliability));
+	}
 	std::set<ReplicationWire::Kind> refuseOnce;
 	bool refuseState = false;
 	std::function<void(const ReplicationWire::Header &, const BitStream &, PRO, PeerGuid)> inspect;
+	DatagramSendResult SendDatagram(const BitStream &data, Priority priority, Reliability reliability, char channel, const AddressOrGUID target) override
+	{
+		BitStream input(data.GetData(), data.GetNumberOfBytesUsed(), false);
+		ReplicationWire::Header header{};
+		if (ReplicationWire::ReadHeader(input, header))
+		{
+			if (inspect)
+				inspect(header, data, {priority, reliability, channel, 0}, ToPeerGuid(target.rakNetGuid));
+			if (refuseOnce.erase(header.kind))
+				return {DatagramSendStatus::TooLarge};
+		}
+		return RakPeer::SendDatagram(data, priority, reliability, channel, target);
+	}
 	bool delayGrant = false, otherVersion = false;
 	BitStream delayedGrant;
 	uint32_t Send(const BitStream *data, Priority priority, Reliability reliability, char channel, const AddressOrGUID destination, bool broadcast, uint32_t receipt) override
@@ -1103,6 +1123,191 @@ TEST(BuiltinReplication, LostBatchRepairsEveryReplaceableSnapshot)
 	                         { return std::all_of(doors.begin(), doors.end(), openOnClient); }, 5000));
 }
 
+namespace
+{
+struct AckDoor : Door
+{
+	bool truncateNext = false;
+	void Deserialize(DeserializeParameters *params) override
+	{
+		if (truncateNext)
+		{
+			truncateNext = false;
+			params->serializationBitstream[0].SetWriteOffset(0);
+		}
+		Door::Deserialize(params);
+	}
+};
+
+class SnapshotAcknowledgments : public ::testing::Test
+{
+protected:
+	using Kind = ReplicationWire::Kind;
+	std::array<AckDoor, 3> doors;
+	unsigned batches = 0, repairs = 0, replies = 0;
+	BitStream saved;
+	std::set<NetworkID> confirmed;
+	SimulatedNetwork net;
+	RefusingPeer *server = static_cast<RefusingPeer *>(net.AddCustomPeer(std::make_unique<RefusingPeer>(), 1, 1));
+	RefusingPeer *client = static_cast<RefusingPeer *>(net.AddCustomPeer(std::make_unique<RefusingPeer>(), 1));
+	ReplicationManager &host = server->GetReplication(), &view = client->GetReplication();
+
+	void SetUp() override
+	{
+		ASSERT_TRUE(host.SetRole(ReplicationRole::Server));
+		ASSERT_TRUE(view.SetRole(ReplicationRole::Client));
+		for (auto *side : {&host, &view})
+		{
+			ASSERT_TRUE(side->RegisterReplica<AckDoor>(doorType, 1));
+			ASSERT_TRUE(side->SetSnapshotPolicy(doorType, ChangeDetection::Explicit, SnapshotDelivery::Replaceable));
+		}
+		for (auto &door : doors)
+			ASSERT_TRUE(host.Reference(&door));
+		ASSERT_TRUE(net.Connect(client, server));
+		ASSERT_TRUE(net.RunUntil([&]
+		                         { return view.GetReplicaCount() == doors.size(); }, 5000));
+		net.Step(300);
+		host.SetTickMode(ReplicationTickMode::Manual);
+		view.SetTickMode(ReplicationTickMode::Manual);
+		host.SetSerializeInterval(0);
+		server->inspect = [&](const ReplicationWire::Header &header, const BitStream &, PRO pro, PeerGuid)
+		{
+			batches += header.kind == Kind::SnapshotBatch;
+			repairs += header.kind == Kind::Snapshot && pro.reliability == Reliability::ReliableOrdered;
+		};
+		client->inspect = [&](const ReplicationWire::Header &header, const BitStream &data, PRO pro, PeerGuid)
+		{
+			if (header.kind != Kind::SnapshotAck)
+				return;
+			EXPECT_EQ(pro.reliability, Reliability::Unreliable);
+			ASSERT_LE(data.GetNumberOfBytesUsed(), client->payloadLimit);
+			if (++replies == 1)
+				saved.WriteBits(data.GetData(), data.GetNumberOfBitsUsed(), false);
+			BitStream input(data.GetData(), data.GetNumberOfBytesUsed(), false);
+			input.IgnoreBits(ReplicationWire::HeaderBytes * 8);
+			ReplicationWire::SnapshotAcks acks;
+			ASSERT_TRUE(acks.Read(input));
+			for (unsigned i = 0; i < acks.count; ++i)
+				confirmed.insert(acks.records[i].id);
+		};
+	}
+	AckDoor &Copy(AckDoor &door)
+	{
+		return *static_cast<AckDoor *>(view.FindReplica(door.GetNetworkID()));
+	}
+	void Publish(bool open)
+	{
+		for (auto &door : doors)
+		{
+			door.state.open = open;
+			ASSERT_TRUE(host.MarkDirty(door));
+		}
+		host.Tick();
+		net.Step(32);
+	}
+	void ReplayFirstAck()
+	{
+		ASSERT_GT(saved.GetNumberOfBitsUsed(), ReplicationWire::HeaderBytes * 8);
+		ASSERT_NE(client->RakPeer::Send(&saved, Priority::High, Reliability::Unreliable, 0, server->GetMyGUID(), false), 0u);
+	}
+	void RunRepair()
+	{
+		net.Step(300);
+		host.Tick();
+		net.Step(32);
+	}
+};
+}
+
+TEST_F(SnapshotAcknowledgments, OneBatchConfirmsEveryDeliveredObjectWithoutAClientTick)
+{
+	Publish(true);
+	ASSERT_EQ(batches, 1u);
+	EXPECT_EQ(replies, 1u);
+	EXPECT_EQ(confirmed.size(), doors.size());
+	for (auto &door : doors)
+	{
+		EXPECT_TRUE(Copy(door).state.open);
+		EXPECT_EQ(confirmed.count(door.GetNetworkID()), 1u);
+	}
+	ReplayFirstAck();
+	RunRepair();
+	EXPECT_EQ(repairs, 0u);
+}
+
+TEST_F(SnapshotAcknowledgments, SplitsRepliesAtTheReversePathBudget)
+{
+	client->payloadLimit = ReplicationWire::HeaderBytes + 2 * ReplicationWire::SnapshotAckRecord::WireBytes;
+	Publish(true);
+	EXPECT_EQ(batches, 1u);
+	EXPECT_EQ(replies, 2u);
+	EXPECT_EQ(confirmed.size(), doors.size());
+	RunRepair();
+	EXPECT_EQ(repairs, 0u);
+}
+
+TEST_F(SnapshotAcknowledgments, LosingOneReplyRepairsEveryObject)
+{
+	SimulatedNetwork::LinkRule drop;
+	drop.dark = true;
+	net.SetLink(client, server, drop);
+	Publish(true);
+	EXPECT_EQ(replies, 1u);
+	net.SetLink(client, server, {});
+	RunRepair();
+	EXPECT_EQ(repairs, doors.size());
+	for (auto &door : doors)
+		EXPECT_TRUE(Copy(door).state.open);
+}
+
+TEST_F(SnapshotAcknowledgments, TruncatedReplyCannotConfirmItsValidPrefix)
+{
+	client->refuseOnce.insert(Kind::SnapshotAck);
+	Publish(true);
+	ASSERT_GT(saved.GetNumberOfBitsUsed(), ReplicationWire::HeaderBytes * 8);
+	saved.SetWriteOffset(saved.GetNumberOfBitsUsed() - 1);
+	ReplayFirstAck();
+	RunRepair();
+	EXPECT_EQ(repairs, doors.size());
+}
+
+TEST_F(SnapshotAcknowledgments, OldSessionCannotConfirmCurrentSnapshots)
+{
+	client->refuseOnce.insert(Kind::SnapshotAck);
+	Publish(true);
+	ASSERT_GT(saved.GetNumberOfBytesUsed(), ReplicationWire::HeaderBytes);
+	saved.GetData()[ReplicationWire::HeaderBytes - 1] ^= 1;
+	ReplayFirstAck();
+	RunRepair();
+	EXPECT_EQ(repairs, doors.size());
+}
+
+TEST_F(SnapshotAcknowledgments, DelayedReplyCannotConfirmNewerSequences)
+{
+	client->refuseOnce.insert(Kind::SnapshotAck);
+	Publish(true);
+	client->refuseOnce.insert(Kind::SnapshotAck);
+	Publish(false);
+	ReplayFirstAck();
+	RunRepair();
+	EXPECT_EQ(repairs, doors.size());
+}
+
+TEST_F(SnapshotAcknowledgments, RejectingOneDecodeConfirmsItsNeighborsAndAllowsSameSequenceRepair)
+{
+	Copy(doors.front()).truncateNext = true;
+	Publish(true);
+	EXPECT_EQ(replies, 1u);
+	EXPECT_FALSE(Copy(doors.front()).state.open);
+	EXPECT_EQ(confirmed.size(), doors.size() - 1);
+	EXPECT_EQ(confirmed.count(doors.front().GetNetworkID()), 0u);
+	RunRepair();
+	EXPECT_EQ(repairs, 1u);
+	EXPECT_TRUE(Copy(doors.front()).state.open);
+	EXPECT_EQ(replies, 2u);
+	EXPECT_EQ(confirmed.size(), doors.size());
+}
+
 TEST(BuiltinReplication, BatchesAdjacentCompatibleRecordsAndPreservesIndividualSendOptions)
 {
 	using namespace ReplicationWire;
@@ -1283,7 +1488,8 @@ TEST(BuiltinReplication, ClosingTheClientInAStateCallbackEndsBatchDelivery)
 			Door::Deserialize(params);
 			if (state.open)
 			{
-				++*delivered;
+				if (++*delivered == 1)
+					return;
 				client->Shutdown(0);
 				EXPECT_EQ(client->Receive(), nullptr);
 				EXPECT_TRUE(state.open);
@@ -1291,7 +1497,7 @@ TEST(BuiltinReplication, ClosingTheClientInAStateCallbackEndsBatchDelivery)
 		}
 	};
 	unsigned callbacks = 0, acknowledgments = 0, batches = 0;
-	std::array<ClosingDoor, 2> doors;
+	std::array<ClosingDoor, 3> doors;
 	SimulatedNetwork net;
 	auto *server = static_cast<RefusingPeer *>(net.AddCustomPeer(std::make_unique<RefusingPeer>(), 1, 1));
 	auto *client = static_cast<RefusingPeer *>(net.AddCustomPeer(std::make_unique<RefusingPeer>(), 1));
@@ -1337,7 +1543,7 @@ TEST(BuiltinReplication, ClosingTheClientInAStateCallbackEndsBatchDelivery)
 	ASSERT_EQ(batches, 1u);
 	ASSERT_TRUE(net.RunUntil([&]
 	                         { return callbacks > 0; }, 5000));
-	EXPECT_EQ(callbacks, 1u);
+	EXPECT_EQ(callbacks, 2u);
 	EXPECT_EQ(acknowledgments, 0u);
 	EXPECT_EQ(view.GetReplicaCount(), 0u);
 }
