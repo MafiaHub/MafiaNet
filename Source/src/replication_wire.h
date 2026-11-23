@@ -6,7 +6,7 @@
 
 namespace MafiaNet::ReplicationWire
 {
-constexpr uint8_t Version = 3;
+constexpr uint8_t Version = 4;
 constexpr BitSize_t MaxPayloadBits = 8 * 1024 * 1024;
 enum class Kind : uint8_t
 {
@@ -25,12 +25,23 @@ enum class Kind : uint8_t
 	SnapshotAck,
 	StateBatch,
 	SnapshotBatch,
-	OwnerCorrection
+	OwnerCorrection,
+	ClockSample
 };
 
 constexpr unsigned HeaderBytes = 3 + 2 * sizeof(uint64_t);
 constexpr unsigned MaxBatchBytes = 1200;
 constexpr unsigned MaxBatchRecords = 32;
+
+struct ClockSample
+{
+	Time tick;
+	TimeUS sent;
+	bool Read(BitStream &in)
+	{
+		return in.Read(tick) && tick && in.Read(sent) && !in.GetNumberOfUnreadBits();
+	}
+};
 
 struct StateRecord
 {

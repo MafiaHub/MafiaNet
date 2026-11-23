@@ -400,6 +400,7 @@ bool ManagedReplication::Register(ReplicaTypeId id, uint16_t version, std::type_
 		return false;
 	types.emplace(id, Type{type, version, std::move(create), std::move(release), snapshot, timed});
 	typeIds.emplace(type, id);
+	hasTimedTypes = hasTimedTypes || timed;
 	return true;
 }
 
@@ -425,6 +426,7 @@ ReplicationStatistics ManagedReplication::Statistics(PeerGuid guid)
 		sum.destroys += s.destroys;
 		sum.lifecycleBytes += s.lifecycleBytes;
 		sum.stateBytes += s.stateBytes;
+		sum.clockBytes += s.clockBytes;
 	}
 	return sum;
 }
@@ -678,6 +680,36 @@ bool ManagedReplication::Release(NetworkID id, ReplicaEventKind reason)
 	}
 	return true;
 }
+std::optional<double> ManagedReplication::RenderTick(PeerGuid source, unsigned delay) const
+{
+	std::lock_guard<std::mutex> lock(clockMutex);
+	const auto clock = clocks.find(source == UNASSIGNED_PEER_GUID ? clockServer : source);
+	if (clock == clocks.end())
+		return std::nullopt;
+	return clock->second.RenderTick(GetTimeUS(), delay);
+}
+
+void ManagedReplication::PublishClock()
+{
+	if (!hasTimedTypes || owner.GetRole() == ReplicationRole::Client || !GetConnectionCount())
+		return;
+	const auto now = GetTimeUS();
+	if (now < nextClockSample)
+		return;
+	nextClockSample = now + ReplicationClock::SampleIntervalUS;
+	for (unsigned i = 0; i < GetConnectionCount(); ++i)
+	{
+		auto *connection = static_cast<Connection *>(GetConnectionAtIndex(i));
+		const auto guid = connection->GetRakNetGUID();
+		BitStream out;
+		WriteHeader(out, Kind::ClockSample, sessions.at(ToPeerGuid(guid)));
+		out.Write(simulationTick);
+		out.Write(now);
+		if (GetRakPeerInterface()->Send(&out, Priority::High, Reliability::Unreliable, 0, guid, false))
+			connection->stats.clockBytes += out.GetNumberOfBytesUsed();
+	}
+}
+
 bool ManagedReplication::Tick(Time requested)
 {
 	if (HoldsConnectionLock())
@@ -695,6 +727,7 @@ bool ManagedReplication::Tick(Time requested)
 	RetryControl();
 	if (resetRequested)
 		return false;
+	PublishClock();
 	UpdateGrants(false);
 	Update();
 	if (resetRequested)
@@ -740,6 +773,13 @@ void ManagedReplication::Disconnected(PeerGuid guid)
 	                                        { return r.holder == guid; }),
 	                         pendingRevocations.end());
 	sessions.erase(it);
+	if (hasTimedTypes && owner.GetRole() != ReplicationRole::Server)
+	{
+		std::lock_guard<std::mutex> lock(clockMutex);
+		clocks.erase(guid);
+		if (clockServer == guid)
+			clockServer = UNASSIGNED_PEER_GUID;
+	}
 	interest.RemoveObserver(guid);
 	for (auto grant = grants.begin(); grant != grants.end();)
 	{
@@ -803,6 +843,7 @@ void ManagedReplication::Reset()
 	ordinary.clear();
 	interest.Clear();
 	simulationTick = 0;
+	nextClockSample = 0;
 	Clear(false);
 }
 void ManagedReplication::Destroy(Replica3 &replica)
@@ -917,6 +958,18 @@ void ManagedReplication::Receive(Packet &packet)
 	}
 	if (session.status != ReplicationPeerStatus::Active || session.serverToken != serverToken)
 		return;
+	if (kind == Kind::ClockSample)
+	{
+		ReplicationWire::ClockSample sample{};
+		if (hasTimedTypes && owner.GetRole() != ReplicationRole::Server && sample.Read(in))
+		{
+			std::lock_guard<std::mutex> lock(clockMutex);
+			clocks[guid].Observe(sample.tick, sample.sent, GetTimeUS());
+			if (owner.GetRole() == ReplicationRole::Client)
+				clockServer = guid;
+		}
+		return;
+	}
 	{
 		StateDelivery delivery(*this, packet.guid);
 		auto *conn = static_cast<Connection *>(delivery.GetConnection());

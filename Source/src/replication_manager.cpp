@@ -271,6 +271,12 @@ bool ReplicationManager::Tick(Time simulationTick)
 {
 	return managed && simulationTick && managed->Tick(simulationTick);
 }
+std::optional<double> ReplicationManager::GetRenderTick(PeerGuid source, unsigned delay) const
+{
+	if (!managed)
+		return std::nullopt;
+	return managed->RenderTick(source, delay);
+}
 bool ReplicationManager::SetObserverStateBudget(PeerGuid observer, uint32_t bytesPerTick)
 {
 	WorldGuard guard(*this);

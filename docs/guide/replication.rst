@@ -153,7 +153,7 @@ recipient, priority, reliability and ordering channel. A batch holds up to
 Each record retains its own object ID, visit, sequence and exact payload bit
 length. Immediate, sequenced and receipt-bearing sends keep individual
 message boundaries, as do oversized records. A single pending update goes
-out in the same tick. Replication wire version 3 carries grant-scoped input feedback and supports state batches.
+out in the same tick. Replication wire version 4 adds session-scoped clock samples.
 
 After registering a snapshot type, use
 ``SetSnapshotPolicy(type, ChangeDetection::Explicit, SnapshotDelivery::Replaceable)``
@@ -217,13 +217,32 @@ false for a zero, repeated or decreasing tick. The parameterless tick advances
 the counter by one. Automatic mode advances it as the receive loop drives
 replication.
 
-On the spectator, sample a slightly delayed server tick with
-``vehicle.SampleAt(renderTick, interpolate)``. Supply the interpolation
-function for your state type; the library clamps outside the available range.
-``LatestSnapshotTick()`` gives a reference in the server's simulation
-timeline. Advance the render tick using your game's estimate of server time
-and choose the delay for its update rate and jitter. Sample on the same
-thread as delivery or synchronize reads with the game's receive thread.
+On the spectator, ask the replication manager for a fractional render tick
+and pass it to the vehicle's interpolator. During warmup, display its current
+state. All objects from the same source share the clock.
+
+.. code-block:: cpp
+
+   auto tick = replication.GetRenderTick(3);
+   auto pose = tick ? vehicle.SampleAt(*tick, interpolate) : vehicle.state;
+
+A client defaults to its server. In peer mode, specify the source with
+``GetRenderTick(sourceGuid, 3)``. The delay is in simulation ticks (default
+two). Choose at least the update interval of the objects you want to blend.
+The clock anchors ticks at local arrival, so delivery latency is already
+included. It estimates the simulation rate and adds a buffer based on
+observed jitter. The cursor advances between arrivals and never moves
+backward for the same delay within a session. After a prolonged gap it holds
+its position until fresh samples arrive. ``SampleAt`` clamps at the ends of
+each object's history.
+
+Servers and symmetric peers with a history-enabled type send at most one
+unreliable clock sample per connection every 100 ms while ticking, including
+when every replica is idle. At least two samples are needed. Disconnect and
+reconnect start a fresh clock. ``GetStatistics().clockBytes`` counts outgoing
+replication clock payload bytes. Sample on the same thread as snapshot
+delivery or synchronize reads of the object's state and history.
+
 For a teleport, change the canonical state and call ``MarkTeleport()`` on
 the server. Explicitly tracked types also need ``MarkDirty(vehicle)``.
 The next received sample snaps to the new position even if the first

@@ -178,8 +178,10 @@ int main(int argc, char **argv)
 		else
 			continue;
 		frame();
-		auto rendered = copy(1 - driver)->SampleAt(static_cast<double>(tick) - 4.0, [](VehicleState a, VehicleState b, double t)
-		                                           {
+		auto *spectator = copy(1 - driver);
+		auto renderTick = view(1 - driver).GetRenderTick(4);
+		auto rendered = spectator->SampleAt(renderTick.value_or(static_cast<double>(spectator->LatestSnapshotTick())), [](VehicleState a, VehicleState b, double t)
+		                                    {
 			a.position+=static_cast<float>(t)*(b.position-a.position);
 			return a; });
 		std::printf("tick %llu  driver %u  predicted %.2f  server %.2f  spectator %.2f\n",
