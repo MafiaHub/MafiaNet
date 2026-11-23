@@ -47,7 +47,9 @@ TEST(ReplicationClock, TracksDriftAndJitterWithoutReversingOnPacketArrival)
 			const auto before = clock.RenderTick(arrived, 3);
 			clock.Observe(1000 + 6 * i, sent, arrived);
 			if (before)
+			{
 				EXPECT_GE(*clock.RenderTick(arrived, 3), *before);
+			}
 		}
 		const auto rendered = clock.RenderTick(arrived + 8000, 3);
 		if (!rendered)
