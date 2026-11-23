@@ -8,6 +8,7 @@
 #include "mafianet/get_time.h"
 #include <algorithm>
 #include <array>
+#include <bitset>
 #include <limits>
 #include <sodium.h>
 
@@ -212,22 +213,97 @@ public:
 			++stats.leaves;
 	}
 	std::set<NetworkID> dirty, polled;
+	using ChannelMask = std::bitset<RM3_NUM_OUTPUT_BITSTREAM_CHANNELS>;
+	// Both indexing and filtering use the same extended snapshot framing. The
+	// visitor sees only validated payload ranges; the common primary-only form skips this walk.
+	template <class VisitBlock>
+	static bool VisitChannelBlocks(BitStream &in, VisitBlock visitBlock)
+	{
+		for (unsigned channel = 0; channel < RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; ++channel)
+		{
+			bool present;
+			BitSize_t bits = 0;
+			if (!in.Read(present) || (present && (!in.Read(bits) || !bits || bits > MaxPayloadBits || bits > in.GetNumberOfUnreadBits())))
+				return false;
+			const auto end = in.GetReadOffset() + bits;
+			visitBlock(channel, bits);
+			in.SetReadOffset(end);
+		}
+		return !in.GetNumberOfUnreadBits();
+	}
+	struct StateRecordInfo
+	{
+		uint64_t sequence = 0;
+		BitSize_t payloadOffset = 0;
+		ChannelMask channels;
+		bool Read(const BitStream &packet, unsigned &bodyOffset, Time &timestamp)
+		{
+			BitStream in(packet.GetData(), packet.GetNumberOfBytesUsed(), false);
+			in.SetWriteOffset(packet.GetNumberOfBitsUsed());
+			in.SetReadOffset(bodyOffset * 8);
+			if (!ReadVar(in, sequence) || !sequence || !ReadVar(in, timestamp))
+				return false;
+			bodyOffset = in.GetReadOffset() / 8;
+			uint64_t visit;
+			if (!ReadVar(in, visit))
+				return false;
+			if (visit)
+			{
+				channels.set(0);
+				return in.GetNumberOfUnreadBits() != 0;
+			}
+			if (!ReadVar(in, visit) || !visit)
+				return false;
+			payloadOffset = in.GetReadOffset();
+			return VisitChannelBlocks(in, [&](unsigned channel, BitSize_t bits)
+			                          { channels.set(channel, bits != 0); }) &&
+			       channels.any();
+		}
+	};
 	struct Unconfirmed
 	{
-		uint64_t seq;
+		StateRecordInfo record;
+		ChannelMask pending;
 		TimeMS sent;
 		BitSize_t bits;
 		std::vector<unsigned char> bytes;
 	};
-	std::map<NetworkID, Unconfirmed> unconfirmed;
-	std::map<uint64_t, NetworkID> idByUnconfirmedSequence;
+	using Repairs = std::multimap<NetworkID, Unconfirmed>;
+	Repairs unconfirmed;
+	std::map<uint64_t, Repairs::iterator> repairBySequence;
+	Repairs::iterator EraseRepair(Repairs::iterator it)
+	{
+		repairBySequence.erase(it->second.record.sequence);
+		return unconfirmed.erase(it);
+	}
 	void Confirm(uint64_t seq)
 	{
-		auto it = idByUnconfirmedSequence.find(seq);
-		if (it != idByUnconfirmedSequence.end())
+		auto it = repairBySequence.find(seq);
+		if (it != repairBySequence.end())
+			EraseRepair(it->second);
+	}
+	void TrackSnapshot(NetworkID id, const BitStream &out, const StateRecordInfo &record)
+	{
+		// Pending masks for one object are disjoint. Even with lost ACKs, each
+		// channel retains at most one record, including across regrouped sends.
+		auto channels = record.channels;
+		auto [it, end] = unconfirmed.equal_range(id);
+		while (it != end)
 		{
-			unconfirmed.erase(it->second);
-			idByUnconfirmedSequence.erase(it);
+			auto &previous = it->second;
+			if (previous.record.sequence < record.sequence)
+				previous.pending &= ~channels;
+			else
+				channels &= ~previous.pending;
+			if (previous.pending.none())
+				it = EraseRepair(it);
+			else
+				++it;
+		}
+		if (channels.any())
+		{
+			auto added = unconfirmed.emplace_hint(end, id, Unconfirmed{record, channels, GetTimeMS(), out.GetNumberOfBitsUsed(), {out.GetData(), out.GetData() + out.GetNumberOfBytesUsed()}});
+			repairBySequence.emplace(record.sequence, added);
 		}
 	}
 	void Forget(NetworkID id)
@@ -239,11 +315,9 @@ public:
 			                    refusedStates.end());
 		dirty.erase(id);
 		polled.erase(id);
-		if (auto it = unconfirmed.find(id); it != unconfirmed.end())
-		{
-			idByUnconfirmedSequence.erase(it->second.seq);
-			unconfirmed.erase(it);
-		}
+		auto [it, end] = unconfirmed.equal_range(id);
+		while (it != end)
+			it = EraseRepair(it);
 		pending.erase(id);
 	}
 	void TransmitState(Replica3 &object, BitStream &out, PRO pro, RakPeerInterface &peer) override
@@ -263,48 +337,33 @@ public:
 		if (byteBudget)
 			debt += out.GetNumberOfBytesUsed();
 		const Kind kind = object.replaceableSnapshot ? Kind::Snapshot : Kind::State;
-		if (object.replaceableSnapshot)
+		const bool snapshot = kind == Kind::Snapshot;
+		unsigned bodyOffset = WireHeaderBytes(kind, outgoingSnapshotContext);
+		StateRecordInfo record;
+		Time timestamp = 0;
+		if (snapshot)
 		{
-			auto [it, inserted] = unconfirmed.try_emplace(id);
-			auto &item = it->second;
-			if (!inserted)
-				idByUnconfirmedSequence.erase(item.seq);
-			idByUnconfirmedSequence.emplace(nextState, id);
-			item.seq = nextState;
-			item.sent = GetTimeMS();
-			item.bits = out.GetNumberOfBitsUsed();
-			item.bytes.assign(out.GetData(), out.GetData() + out.GetNumberOfBytesUsed());
 			pro = {pro.priority, Reliability::Unreliable, 0, 0};
+			if (!record.Read(out, bodyOffset, timestamp))
+			{
+				FlushBatch();
+				SendSingle(id, kind, out, pro, peer);
+				return;
+			}
+			TrackSnapshot(id, out, record);
 		}
 		// Receipt and sequenced modes have per-message semantics. Preserve those
 		// boundaries, as well as immediate priority and oversized single records.
 		const bool share = !pro.sendReceipt && pro.priority != Priority::Immediate &&
 		                   (pro.reliability == Reliability::ReliableOrdered || pro.reliability == Reliability::Reliable || pro.reliability == Reliability::Unreliable);
 		const auto bytes = out.GetNumberOfBytesUsed();
-		const auto headerBytes = WireHeaderBytes(kind, outgoingSnapshotContext);
-		if (!share || bytes <= headerBytes || bytes > batchLimit)
+		if (!share || bytes <= bodyOffset || bytes > batchLimit)
 		{
 			FlushBatch();
 			SendSingle(id, kind, out, pro, peer);
 			return;
 		}
-		unsigned bodyOffset = headerBytes;
-		uint64_t sequence = 0;
-		Time timestamp = 0;
-		const bool snapshot = kind == Kind::Snapshot;
-		if (snapshot)
-		{
-			BitStream header(out.GetData(), bytes, false);
-			header.SetWriteOffset(out.GetNumberOfBitsUsed());
-			header.SetReadOffset(headerBytes * 8);
-			if (!ReadVar(header, sequence) || !sequence || !ReadVar(header, timestamp) || !header.GetNumberOfUnreadBits())
-			{
-				FlushBatch();
-				SendSingle(id, kind, out, pro, peer);
-				return;
-			}
-			bodyOffset = header.GetReadOffset() / 8;
-		}
+		const auto sequence = record.sequence;
 		const auto bodyBits = out.GetNumberOfBitsUsed() - bodyOffset * 8;
 		const unsigned recordBytes = bytes - bodyOffset + (snapshot ? VarBytes(bodyBits) : static_cast<unsigned>(sizeof(uint16_t)));
 		const bool contiguous = !snapshot || (sequence >= firstSequence && sequence - firstSequence == recordCount && timestamp == batchTimestamp);
@@ -371,6 +430,22 @@ public:
 		}
 		recordCount = 0;
 	}
+	// Only a multi-channel record can be partially superseded. Keep its original
+	// sequence and visit, but never send obsolete values during a repair.
+	static bool WritePendingChannels(BitStream &out, BitStream &original, const Unconfirmed &item)
+	{
+		if (!original.Read(out, item.record.payloadOffset))
+			return false;
+		return VisitChannelBlocks(original, [&](unsigned channel, BitSize_t bits)
+		                          {
+			const bool keep = item.pending.test(channel);
+			out.Write(keep);
+			if (keep)
+			{
+				out.Write(bits);
+				out.Write(original, bits);
+			} });
+	}
 	void FlushUnconfirmed()
 	{
 		const auto now = GetTimeMS();
@@ -384,11 +459,18 @@ public:
 			}
 			BitStream retry(item.bytes.data(), static_cast<unsigned>(item.bytes.size()), false);
 			retry.SetWriteOffset(item.bits);
-			if (runtime.GetRakPeerInterface()->Send(&retry, Priority::High, Reliability::ReliableOrdered, 0, guid, false))
+			BitStream filtered;
+			const bool partial = item.pending != item.record.channels;
+			if (partial && !WritePendingChannels(filtered, retry, item))
 			{
-				stats.stateBytes += retry.GetNumberOfBytesUsed();
-				idByUnconfirmedSequence.erase(item.seq);
-				it = unconfirmed.erase(it);
+				it = EraseRepair(it);
+				continue;
+			}
+			auto &packet = partial ? filtered : retry;
+			if (runtime.GetRakPeerInterface()->Send(&packet, Priority::High, Reliability::ReliableOrdered, 0, guid, false))
+			{
+				stats.stateBytes += packet.GetNumberOfBytesUsed();
+				it = EraseRepair(it);
 			}
 			else
 				++it;

@@ -316,6 +316,39 @@ public:
 	}
 };
 
+template <class Replica>
+bool StartFeedbackSession(benchmark::State &state, SimulatedNetwork &net, FeedbackPeer *server, FeedbackPeer *client, std::vector<Replica> &actors)
+{
+	auto &host = server->GetReplication(), &view = client->GetReplication();
+	for (auto *peer : {server, client})
+	{
+		auto &side = peer->GetReplication();
+		if (!side.SetRole(peer == server ? ReplicationRole::Server : ReplicationRole::Client) ||
+		    !side.RegisterReplica<Replica>(actorType, 1) ||
+		    !side.SetSnapshotPolicy(actorType, ChangeDetection::Explicit, SnapshotDelivery::Replaceable))
+		{
+			state.SkipWithError("snapshot configuration failed");
+			return false;
+		}
+	}
+	for (auto &actor : actors)
+		if (!host.Reference(&actor))
+		{
+			state.SkipWithError("reference failed");
+			return false;
+		}
+	if (!net.Connect(client, server) || !net.RunUntil([&]
+	                                                  { return view.GetReplicaCount() == actors.size(); }, 5000))
+	{
+		state.SkipWithError("snapshot baseline missing");
+		return false;
+	}
+	net.Step(500);
+	host.SetTickMode(ReplicationTickMode::Manual);
+	host.SetSerializeInterval(0);
+	return true;
+}
+
 // One update per simulated second leaves time for the 250 ms reliable repair.
 // Count UDP payload bytes at the socket, including control traffic in both directions.
 void BM_SnapshotFeedback(benchmark::State &state)
@@ -327,32 +360,8 @@ void BM_SnapshotFeedback(benchmark::State &state)
 	auto *server = static_cast<FeedbackPeer *>(net.AddCustomPeer(std::make_unique<FeedbackPeer>(), 1, 1));
 	auto *client = static_cast<FeedbackPeer *>(net.AddCustomPeer(std::make_unique<FeedbackPeer>(), 1));
 	auto &host = server->GetReplication(), &view = client->GetReplication();
-	for (auto *peer : {server, client})
-	{
-		auto &side = peer->GetReplication();
-		if (!side.SetRole(peer == server ? ReplicationRole::Server : ReplicationRole::Client) ||
-		    !side.RegisterReplica<Actor>(actorType, 1) ||
-		    !side.SetSnapshotPolicy(actorType, ChangeDetection::Explicit, SnapshotDelivery::Replaceable))
-		{
-			state.SkipWithError("snapshot configuration failed");
-			return;
-		}
-	}
-	for (auto &actor : actors)
-		if (!host.Reference(&actor))
-		{
-			state.SkipWithError("reference failed");
-			return;
-		}
-	if (!net.Connect(client, server) || !net.RunUntil([&]
-	                                                  { return view.GetReplicaCount() == count; }, 5000))
-	{
-		state.SkipWithError("snapshot baseline missing");
+	if (!StartFeedbackSession(state, net, server, client, actors))
 		return;
-	}
-	net.Step(500);
-	host.SetTickMode(ReplicationTickMode::Manual);
-	host.SetSerializeInterval(0);
 	SimulatedNetwork::LinkRule rule;
 	rule.lossPercent = static_cast<int>(state.range(1));
 	net.SetLinkBothWays(client, server, rule);
@@ -417,6 +426,125 @@ void SnapshotFeedbackCases(benchmark::Benchmark *bench)
 	}
 }
 BENCHMARK(BM_SnapshotFeedback)->Apply(SnapshotFeedbackCases)->Iterations(64);
+
+// Same three floats as Actor, with the last two on a separate priority.
+struct SplitActor : Actor
+{
+	RM3SerializationResult Serialize(SerializeParameters *params) override
+	{
+		params->outputBitstream[0].Write(state.x);
+		params->pro[2].priority = Priority::Medium;
+		params->outputBitstream[2].Write(state.y);
+		params->outputBitstream[2].Write(state.z);
+		return RM3SR_BROADCAST_IDENTICALLY;
+	}
+	void Deserialize(DeserializeParameters *params) override
+	{
+		if (params->bitstreamWrittenTo[0])
+			params->bitstreamWrittenTo[0] = params->serializationBitstream[0].Read(state.x);
+		if (params->bitstreamWrittenTo[2])
+		{
+			auto &in = params->serializationBitstream[2];
+			float y, z;
+			if (in.Read(y) && in.Read(z))
+			{
+				state.y = y;
+				state.z = z;
+			}
+		}
+	}
+};
+
+// Sample the age of the oldest applied coordinate every virtual millisecond.
+// Forward blackouts cover the last 100 ms of each second, including the final update.
+// Keep ticking after publishing stops so the sender can repair that final loss.
+template <class Replica>
+void BM_SnapshotFreshness(benchmark::State &state)
+{
+	const auto hz = static_cast<unsigned>(state.range(0));
+	const auto blackoutMs = static_cast<unsigned>(state.range(1));
+	constexpr unsigned duration = 8000, deadline = 2000;
+	for (auto _ : state)
+	{
+		std::vector<Replica> actors(1);
+		SimulatedNetwork net(19);
+		auto *server = static_cast<FeedbackPeer *>(net.AddCustomPeer(std::make_unique<FeedbackPeer>(), 1, 1));
+		auto *client = static_cast<FeedbackPeer *>(net.AddCustomPeer(std::make_unique<FeedbackPeer>(), 1));
+		if (!StartFeedbackSession(state, net, server, client, actors))
+			return;
+		SimulatedNetwork::LinkRule link;
+		link.delayMs = 20;
+		net.SetLinkBothWays(server, client, link);
+		auto &host = server->GetReplication();
+		auto &actor = actors.front();
+		const auto *copy = static_cast<const Replica *>(client->GetReplication().FindReplica(actor.GetNetworkID()));
+		if (!copy)
+		{
+			state.SkipWithError("missing client replica");
+			return;
+		}
+		std::vector<unsigned> ages, blackoutAges;
+		ages.reserve(duration);
+		unsigned tick = 1;
+		unsigned finalMs = 0;
+		server->repairs = 0;
+		for (unsigned ms = 1; ms <= duration + deadline; ++ms)
+		{
+			const bool dark = ms <= duration && (ms - 1) % 1000 >= 1000 - blackoutMs;
+			// Let the final packet leave the send queue while the link is still dark.
+			const bool finalBlackout = blackoutMs && ms > duration && ms <= duration + 25;
+			if (link.dark != (dark || finalBlackout))
+			{
+				link.dark = dark || finalBlackout;
+				net.SetLink(server, client, link);
+			}
+			net.Step(1);
+			if (ms == tick * 1000 / hz)
+			{
+				if (ms <= duration)
+				{
+					const auto stamp = static_cast<float>(ms);
+					actor.state = {stamp, stamp, stamp};
+					if (!host.MarkDirty(actor))
+					{
+						state.SkipWithError("failed to mark snapshot dirty");
+						return;
+					}
+				}
+				host.Tick();
+				++tick;
+			}
+			const auto &value = copy->state;
+			const auto oldest = static_cast<unsigned>(std::min({value.x, value.y, value.z}));
+			if (ms <= duration)
+			{
+				ages.push_back(ms - oldest);
+				if (dark)
+					blackoutAges.push_back(ms - oldest);
+			}
+			if (oldest == duration)
+			{
+				finalMs = ms - duration;
+				break;
+			}
+		}
+		auto p95 = [](std::vector<unsigned> &values)
+		{
+			std::sort(values.begin(), values.end());
+			return values[values.size() - values.size() / 20 - 1];
+		};
+		state.counters["p95_age_ms"] = p95(ages);
+		if (!blackoutAges.empty())
+			state.counters["p95_blackout_age_ms"] = p95(blackoutAges);
+		const bool converged = copy->state.x == duration && copy->state.y == duration && copy->state.z == duration;
+		state.counters["final_converged"] = converged;
+		if (converged)
+			state.counters["final_convergence_ms"] = finalMs;
+		state.counters["repair_messages"] = static_cast<double>(server->repairs);
+	}
+}
+BENCHMARK_TEMPLATE(BM_SnapshotFreshness, Actor)->ArgsProduct({{30, 60}, {0, 100}})->Iterations(1);
+BENCHMARK_TEMPLATE(BM_SnapshotFreshness, SplitActor)->ArgsProduct({{30, 60}, {0, 100}})->Iterations(1);
 BENCHMARK(BM_StreamingObserverCadence)->Arg(0)->Arg(768)->UseManualTime()->Iterations(100)->Unit(benchmark::kMicrosecond);
 BENCHMARK(BM_StreamingDenseMutations)->UseManualTime()->Iterations(100)->Unit(benchmark::kMicrosecond);
 BENCHMARK(BM_StreamingRoomCrossing)->UseManualTime()->Iterations(50)->Unit(benchmark::kMicrosecond);
