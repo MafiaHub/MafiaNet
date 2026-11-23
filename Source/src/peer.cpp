@@ -1345,6 +1345,57 @@ uint32_t RakPeer::Send(const char *data, const int length, MafiaNet::Priority pr
 	return usedSendReceipt;
 }
 
+RakPeer::ConnectedSystem RakPeer::FindDatagramTarget(const AddressOrGUID target) const
+{
+	const auto systems = std::atomic_load(&connectedSystems);
+	if (systems && !target.IsUndefined())
+	{
+		const auto matches = [&](const ConnectedSystem &entry)
+		{ return target.rakNetGuid != UNASSIGNED_RAKNET_GUID ? entry.guid == target.rakNetGuid : entry.address == target.systemAddress; };
+		// The dense list commonly retains slot order. Validate the hint after removals or reuse.
+		const auto hint = target.GetSystemIndex();
+		if (hint < systems->size() && matches((*systems)[hint]))
+			return (*systems)[hint];
+		const auto found = std::find_if(systems->begin(), systems->end(), matches);
+		if (found != systems->end())
+			return *found;
+	}
+	return {UNASSIGNED_SYSTEM_ADDRESS, UNASSIGNED_RAKNET_GUID, 0};
+}
+
+unsigned RakPeer::GetMaxUnfragmentedPayload(const AddressOrGUID target, Reliability reliability) const
+{
+	return ReliabilityLayer::MaxUnfragmentedPayload(FindDatagramTarget(target).mtu, encryptionMode, reliability);
+}
+
+DatagramSendResult RakPeer::SendDatagram(const char *data, int length, Priority priority, Reliability reliability, char orderingChannel, const AddressOrGUID target)
+{
+	if (!data || length <= 0)
+		return {DatagramSendStatus::InvalidArgument};
+	return QueueDatagram(data, BYTES_TO_BITS(static_cast<uint64_t>(length)), priority, reliability, orderingChannel, target);
+}
+
+DatagramSendResult RakPeer::SendDatagram(const BitStream &data, Priority priority, Reliability reliability, char orderingChannel, const AddressOrGUID target)
+{
+	return QueueDatagram(reinterpret_cast<const char *>(data.GetData()), data.GetNumberOfBitsUsed(), priority, reliability, orderingChannel, target);
+}
+
+DatagramSendResult RakPeer::QueueDatagram(const char *data, uint64_t bits, Priority priority, Reliability reliability, char orderingChannel, const AddressOrGUID target)
+{
+	if (!bits || static_cast<unsigned>(priority) >= NUMBER_OF_PRIORITIES || static_cast<unsigned char>(orderingChannel) >= NUMBER_OF_ORDERED_STREAMS ||
+	    (reliability != Reliability::Unreliable && reliability != Reliability::UnreliableSequenced && reliability != Reliability::UnreliableWithAckReceipt))
+		return {DatagramSendStatus::InvalidArgument};
+	const auto remote = FindDatagramTarget(target);
+	if (!remote.mtu)
+		return {DatagramSendStatus::NotConnected};
+	if (bits > BYTES_TO_BITS(ReliabilityLayer::MaxUnfragmentedPayload(remote.mtu, encryptionMode, reliability)))
+		return {DatagramSendStatus::TooLarge};
+	const auto receipt = IncrementNextSendReceipt();
+	if (!SendBuffered(data, static_cast<BitSize_t>(bits), priority, reliability, orderingChannel, remote.guid, false, RemoteSystemStruct::NO_ACTION, receipt, false))
+		return {DatagramSendStatus::OutOfMemory};
+	return {DatagramSendStatus::Queued, receipt};
+}
+
 void RakPeer::SendLoopback(const char *data, const int length)
 {
 	if (data == 0 || length < 0)
@@ -2021,8 +2072,8 @@ void RakPeer::GetSystemList(std::vector<SystemAddress> &addresses, std::vector<R
 	guids.reserve(snapshot->size());
 	for (const auto &entry : *snapshot)
 	{
-		addresses.push_back(entry.first);
-		guids.push_back(entry.second);
+		addresses.push_back(entry.address);
+		guids.push_back(entry.guid);
 	}
 }
 
@@ -4400,8 +4451,9 @@ void RakPeer::PublishConnectedSystems()
 		if (system.isActive && system.connectMode == RemoteSystemStruct::CONNECTED)
 		{
 			// Other getters lazily set guid.systemIndex. Take the hint from the slot itself.
-			auto &entry = snapshot->emplace_back(system.systemAddress, RakNetGUID(system.guid.g));
-			entry.second.systemIndex = system.remoteSystemIndex;
+			RakNetGUID guid(system.guid.g);
+			guid.systemIndex = system.remoteSystemIndex;
+			snapshot->push_back({system.systemAddress, guid, system.MTUSize.load(std::memory_order_relaxed)});
 		}
 	}
 	std::atomic_store(&connectedSystems, std::shared_ptr<const ConnectedSystems>(std::move(snapshot)));
@@ -4743,12 +4795,12 @@ void RakPeer::CloseConnectionInternal2(const AddressOrGUID &systemIdentifier, bo
 	}
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-void RakPeer::SendBuffered(const char *data, BitSize_t numberOfBitsToSend, MafiaNet::Priority priority, MafiaNet::Reliability reliability, char orderingChannel, const AddressOrGUID systemIdentifier, bool broadcast, RemoteSystemStruct::ConnectMode connectionMode, uint32_t receipt)
+bool RakPeer::SendBuffered(const char *data, BitSize_t numberOfBitsToSend, MafiaNet::Priority priority, MafiaNet::Reliability reliability, char orderingChannel, const AddressOrGUID systemIdentifier, bool broadcast, RemoteSystemStruct::ConnectMode connectionMode, uint32_t receipt, bool allowFragmentation)
 {
 	auto bcs = std::make_unique<BufferedCommandStruct>();
 	bcs->data = (char *) std::malloc((size_t) BITS_TO_BYTES(numberOfBitsToSend)); // Making a copy doesn't lose efficiency because I tell the reliability layer to use this allocation for its own copy
 	if (bcs->data == 0)
-		return;
+		return false;
 
 	RakAssert(!((unsigned int) reliability >= MafiaNet::NUMBER_OF_RELIABILITIES || (int) reliability < 0));
 	RakAssert(!((int) priority > (int) MafiaNet::NUMBER_OF_PRIORITIES || (int) priority < 0));
@@ -4761,6 +4813,7 @@ void RakPeer::SendBuffered(const char *data, BitSize_t numberOfBitsToSend, Mafia
 	bcs->orderingChannel = orderingChannel;
 	bcs->systemIdentifier = systemIdentifier;
 	bcs->broadcast = broadcast;
+	bcs->allowFragmentation = allowFragmentation;
 	bcs->connectionMode = connectionMode;
 	bcs->receipt = receipt;
 	bcs->command = BufferedCommandStruct::BCS_SEND;
@@ -4771,6 +4824,7 @@ void RakPeer::SendBuffered(const char *data, BitSize_t numberOfBitsToSend, Mafia
 		// Forces pending sends to go out now, rather than waiting to the next update interval
 		quitAndDataEvents.SetEvent();
 	}
+	return true;
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void RakPeer::SendBufferedList(const char **data, const int *lengths, const int numParameters, MafiaNet::Priority priority, MafiaNet::Reliability reliability, char orderingChannel, const AddressOrGUID systemIdentifier, bool broadcast, RemoteSystemStruct::ConnectMode connectionMode, uint32_t receipt)
@@ -4832,7 +4886,7 @@ void RakPeer::SendBufferedList(const char **data, const int *lengths, const int 
 	}
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-bool RakPeer::SendImmediate(char *data, BitSize_t numberOfBitsToSend, MafiaNet::Priority priority, MafiaNet::Reliability reliability, char orderingChannel, const AddressOrGUID systemIdentifier, bool broadcast, bool useCallerDataAllocation, MafiaNet::TimeUS currentTime, uint32_t receipt)
+bool RakPeer::SendImmediate(char *data, BitSize_t numberOfBitsToSend, MafiaNet::Priority priority, MafiaNet::Reliability reliability, char orderingChannel, const AddressOrGUID systemIdentifier, bool broadcast, bool useCallerDataAllocation, MafiaNet::TimeUS currentTime, uint32_t receipt, bool allowFragmentation)
 {
 	unsigned unicastTarget = 0;          // unicast sends must not allocate
 	std::vector<unsigned> broadcastList; // only filled for broadcasts
@@ -4865,6 +4919,7 @@ bool RakPeer::SendImmediate(char *data, BitSize_t numberOfBitsToSend, MafiaNet::
 
 
 		if (remoteSystemList[remoteSystemIndex].isActive &&
+		    (allowFragmentation || remoteSystemList[remoteSystemIndex].connectMode == RemoteSystemStruct::CONNECTED) &&
 		    remoteSystemList[remoteSystemIndex].connectMode != RemoteSystemStruct::DISCONNECT_ASAP &&
 		    remoteSystemList[remoteSystemIndex].connectMode != RemoteSystemStruct::DISCONNECT_ASAP_SILENTLY &&
 		    remoteSystemList[remoteSystemIndex].connectMode != RemoteSystemStruct::DISCONNECT_ON_NO_ACK)
@@ -4904,8 +4959,8 @@ bool RakPeer::SendImmediate(char *data, BitSize_t numberOfBitsToSend, MafiaNet::
 	{
 		// Send may split the packet and thus deallocate data.  Don't assume data is valid if we use the callerAllocationData
 		bool useData = useCallerDataAllocation && callerDataAllocationUsed == false && sendListIndex + 1 == sendListSize;
-		remoteSystemList[sendList[sendListIndex]].reliabilityLayer.Send(data, numberOfBitsToSend, priority, reliability, orderingChannel, useData == false, remoteSystemList[sendList[sendListIndex]].MTUSize, currentTime, receipt);
-		if (useData)
+		const bool accepted = remoteSystemList[sendList[sendListIndex]].reliabilityLayer.Send(data, numberOfBitsToSend, priority, reliability, orderingChannel, useData == false, remoteSystemList[sendList[sendListIndex]].MTUSize, currentTime, receipt, allowFragmentation);
+		if (accepted && useData)
 			callerDataAllocationUsed = true;
 
 		if (reliability == MafiaNet::Reliability::Reliable ||
@@ -6212,7 +6267,7 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 				timeMS = (MafiaNet::TimeMS)(timeNS / (MafiaNet::TimeUS) 1000);
 			}
 
-			callerDataAllocationUsed = SendImmediate((char *) bcs->data, bcs->numberOfBitsToSend, bcs->priority, bcs->reliability, bcs->orderingChannel, bcs->systemIdentifier, bcs->broadcast, true, timeNS, bcs->receipt);
+			callerDataAllocationUsed = SendImmediate((char *) bcs->data, bcs->numberOfBitsToSend, bcs->priority, bcs->reliability, bcs->orderingChannel, bcs->systemIdentifier, bcs->broadcast, true, timeNS, bcs->receipt, bcs->allowFragmentation);
 			if (callerDataAllocationUsed)
 				bcs->data = nullptr; // The reliability layer took the allocation over and frees it
 
@@ -6532,7 +6587,10 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 		// Publish changes for application-thread queries and replication batch sizing.
 		const int reliabilityMtu = remoteSystem->reliabilityLayer.GetCurrentMtuBytes();
 		if (remoteSystem->MTUSize != reliabilityMtu)
+		{
 			remoteSystem->MTUSize = reliabilityMtu;
+			PublishConnectedSystems();
+		}
 
 		// Check for failure conditions
 		if (remoteSystem->reliabilityLayer.IsDeadConnection() ||

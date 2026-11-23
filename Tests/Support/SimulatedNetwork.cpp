@@ -217,6 +217,16 @@ RakPeer *SimulatedNetwork::RestartPeer(RakPeer *peer, unsigned int maxConnection
 	                 address.GetPort(), Family::V4, hostNumber);
 }
 
+bool SimulatedNetwork::StepDownMtu(RakPeer *sender, const SystemAddress &destination)
+{
+	auto *remote = sender->GetRemoteSystemFromSystemAddress(destination, true, true);
+	if (!remote)
+		return false;
+	const int old = remote->reliabilityLayer.GetCurrentMtuBytes();
+	remote->reliabilityLayer.StepDownMtuAfterBlackHole();
+	return remote->reliabilityLayer.GetCurrentMtuBytes() < old;
+}
+
 bool SimulatedNetwork::ReadSendBudget(const RakPeer *sender, const SystemAddress &destination, SendBudget &budget, const std::function<void(const InternalPacket &)> &visitQueued) const
 {
 	const auto *remote = sender->GetRemoteSystemFromSystemAddress(destination, true, true);

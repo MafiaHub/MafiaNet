@@ -168,6 +168,8 @@ public:
 		uint32_t nakRetryWindowCuts, rtoRetryWindowCuts;
 		bool capBlocked;
 	};
+	// Force the same reliability-layer transition as a black hole between manual updates.
+	bool StepDownMtu(RakPeer *sender, const SystemAddress &destination);
 	// An optional visitor sees only live fragments still waiting for a first send.
 	bool ReadSendBudget(const RakPeer *sender, const SystemAddress &destination, SendBudget &budget, const std::function<void(const InternalPacket &)> &visitQueued = {}) const;
 

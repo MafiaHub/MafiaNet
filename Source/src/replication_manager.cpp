@@ -16,11 +16,13 @@ ReplicationManager::ReplicationManager(RakPeer &peer)
 
 ReplicationManager::~ReplicationManager() = default;
 
-int ReplicationManager::PathMTU(SystemIndex index) const
+unsigned ReplicationManager::BatchPayloadLimit(SystemIndex index) const
 {
 	// The connection event captured this slot. Its MTU is only a sizing hint;
 	// the GUID remains the destination even when the transport recycles a slot.
-	return index < peer.maximumNumberOfPeers && peer.remoteSystemList ? peer.remoteSystemList[index].MTUSize.load(std::memory_order_relaxed) : 0;
+	const int mtu = index < peer.maximumNumberOfPeers && peer.remoteSystemList ? peer.remoteSystemList[index].MTUSize.load(std::memory_order_relaxed) : 0;
+	// ReliableOrdered has the largest unsplit header among the batchable modes.
+	return ReliabilityLayer::MaxUnfragmentedPayload(mtu, peer.GetEncryptionMode(), Reliability::ReliableOrdered);
 }
 
 bool ReplicationManager::SetRole(ReplicationRole requested)

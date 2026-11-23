@@ -213,7 +213,7 @@ private:
 	friend class RakPeer;
 	friend class ManagedReplication;
 	explicit ReplicationManager(RakPeer &peer);
-	int PathMTU(SystemIndex index) const;
+	unsigned BatchPayloadLimit(SystemIndex index) const;
 	void Shutdown();
 
 	bool RegisterType(ReplicaTypeId id, uint16_t version, std::type_index type, bool snapshot, bool timed, std::function<Replica3 *()> create, std::function<void(Replica3 *)> release);

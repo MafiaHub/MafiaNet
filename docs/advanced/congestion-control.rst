@@ -153,3 +153,35 @@ See Also
 * :doc:`debugging-disconnects` - Timeout issues
 * :doc:`preprocessor-directives` - Build options
 * :doc:`../basics/bitstreams` - Efficient serialization
+
+Sending an unreliable message in one datagram
+--------------------------------------------
+
+Use ``GetMaxUnfragmentedPayload(target, reliability)`` to size a message for
+a connected peer. The result is in application bytes, including your message
+ID. It accounts for the negotiated transport MTU, cipher overhead and the
+header for the requested delivery mode. An unknown target or invalid mode
+returns zero. The value can change during a connection.
+
+.. code-block:: cpp
+
+   auto result = peer->SendDatagram(snapshot, MafiaNet::Priority::High,
+                                    MafiaNet::Reliability::UnreliableSequenced, 0, target);
+   if (result.status == MafiaNet::DatagramSendStatus::TooLarge) {
+       // Rebuild the next snapshot with fewer records.
+   }
+
+``SendDatagram`` accepts a ``BitStream`` or a byte buffer for one remote peer.
+It checks the current ceiling at submission and the transport checks again
+on the network thread. ``TooLarge`` queues zero bytes. ``Queued`` means the
+message was accepted for unreliable delivery. If the path shrinks before
+transmission, the transport can discard the queued message. Use
+``UnreliableWithAckReceipt`` and the returned receipt number to observe a
+size-related discard or an expired queue entry as ``ID_SND_RECEIPT_LOSS``
+on an active connection.
+The other supported modes are ``Unreliable`` and ``UnreliableSequenced``.
+
+Ordinary ``Send`` supports larger messages through fragmentation. Oversized
+unreliable messages on that path use reliable fragments for reassembly.
+The single-datagram guarantee concerns MafiaNet fragmentation. Encapsulation
+and IP fragmentation elsewhere on the network depend on the actual path.
