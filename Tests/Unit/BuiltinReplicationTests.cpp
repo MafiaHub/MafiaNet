@@ -1249,6 +1249,59 @@ protected:
 };
 }
 
+TEST(BuiltinReplication, EachObserverAcknowledgesInTheContextAssignedByItsReceiver)
+{
+	using namespace ReplicationWire;
+	SimulatedNetwork net;
+	auto *server = static_cast<RefusingPeer *>(net.AddCustomPeer(std::make_unique<RefusingPeer>(), 2, 2));
+	auto *alice = static_cast<RefusingPeer *>(net.AddCustomPeer(std::make_unique<RefusingPeer>(), 1));
+	auto *bob = static_cast<RefusingPeer *>(net.AddCustomPeer(std::make_unique<RefusingPeer>(), 1));
+	for (auto *peer : {server, alice, bob})
+	{
+		auto &service = peer->GetReplication();
+		ASSERT_TRUE(service.SetRole(peer == server ? ReplicationRole::Server : ReplicationRole::Client));
+		ASSERT_TRUE(service.RegisterReplica<Door>(doorType, 1));
+		ASSERT_TRUE(service.SetSnapshotPolicy(doorType, ChangeDetection::Explicit, SnapshotDelivery::Replaceable));
+	}
+	Door door;
+	auto &host = server->GetReplication();
+	ASSERT_TRUE(host.Reference(&door));
+	for (auto *observer : {alice, bob})
+	{
+		ASSERT_TRUE(net.Connect(observer, server));
+		ASSERT_TRUE(net.RunUntil([&]
+		                         { return observer->GetReplication().FindReplica(door.GetNetworkID()) != nullptr; }, 5000));
+	}
+	net.Step(300);
+	std::map<PeerGuid, uint64_t> forward, reverse;
+	unsigned repairs = 0;
+	server->inspect = [&](const Header &header, const BitStream &, PRO pro, PeerGuid recipient)
+	{
+		if (header.kind == Kind::Snapshot)
+		{
+			forward[recipient] = header.snapshotContext;
+			repairs += pro.reliability == Reliability::ReliableOrdered;
+		}
+	};
+	for (auto *observer : {alice, bob})
+		observer->inspect = [&, observer](const Header &header, const BitStream &, PRO, PeerGuid)
+		{
+			if (header.kind == Kind::SnapshotAck)
+				reverse[ToPeerGuid(observer->GetMyGUID())] = header.snapshotContext;
+		};
+	door.state.open = true;
+	ASSERT_TRUE(host.MarkDirty(door));
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return reverse.size() == 2; }, 5000));
+	const auto a = ToPeerGuid(alice->GetMyGUID()), b = ToPeerGuid(bob->GetMyGUID());
+	ASSERT_EQ(forward.size(), 2u);
+	EXPECT_NE(forward.at(a), 0u);
+	EXPECT_EQ(forward.at(a), forward.at(b));
+	EXPECT_NE(reverse.at(a), reverse.at(b));
+	net.Step(500);
+	EXPECT_EQ(repairs, 0u);
+}
+
 TEST(BuiltinReplication, PlaintextSnapshotsAndRepliesUseBothHandshakeTokens)
 {
 	using namespace ReplicationWire;
