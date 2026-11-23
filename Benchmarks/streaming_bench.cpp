@@ -323,7 +323,7 @@ void BM_SnapshotFeedback(benchmark::State &state)
 	const auto count = static_cast<unsigned>(state.range(0));
 	std::vector<Actor> actors(count);
 	uint64_t forwardBytes = 0, reverseBytes = 0, reversePackets = 0, convergence = 0;
-	SimulatedNetwork net(19);
+	SimulatedNetwork net(static_cast<uint32_t>(state.range(2)));
 	auto *server = static_cast<FeedbackPeer *>(net.AddCustomPeer(std::make_unique<FeedbackPeer>(), 1, 1));
 	auto *client = static_cast<FeedbackPeer *>(net.AddCustomPeer(std::make_unique<FeedbackPeer>(), 1));
 	auto &host = server->GetReplication(), &view = client->GetReplication();
@@ -407,7 +407,16 @@ void BM_SnapshotFeedback(benchmark::State &state)
 	state.counters["repair_messages"] = server->repairs / n;
 	state.counters["convergence_ms"] = convergence / n;
 }
-BENCHMARK(BM_SnapshotFeedback)->Args({1, 0})->Args({32, 0})->Args({1, 5})->Args({32, 5})->Iterations(64);
+void SnapshotFeedbackCases(benchmark::Benchmark *bench)
+{
+	for (int objects : {1, 32})
+	{
+		bench->Args({objects, 0, 19});
+		for (int seed = 19; seed <= 26; ++seed)
+			bench->Args({objects, 5, seed});
+	}
+}
+BENCHMARK(BM_SnapshotFeedback)->Apply(SnapshotFeedbackCases)->Iterations(64);
 BENCHMARK(BM_StreamingObserverCadence)->Arg(0)->Arg(768)->UseManualTime()->Iterations(100)->Unit(benchmark::kMicrosecond);
 BENCHMARK(BM_StreamingDenseMutations)->UseManualTime()->Iterations(100)->Unit(benchmark::kMicrosecond);
 BENCHMARK(BM_StreamingRoomCrossing)->UseManualTime()->Iterations(50)->Unit(benchmark::kMicrosecond);
