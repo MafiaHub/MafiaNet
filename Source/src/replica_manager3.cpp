@@ -1744,14 +1744,26 @@ void Connection_RM3::TransmitState(Replica3 &, BitStream &out, PRO pro, RakPeerI
 {
 	peer.Send(&out, pro.priority, pro.reliability, pro.orderingChannel, guid, false, pro.sendReceipt);
 }
-void Connection_RM3::SendSerializeHeader(MafiaNet::Replica3 *replica, MafiaNet::Time timestamp, MafiaNet::BitStream *bs)
+void Connection_RM3::SendSerializeHeader(MafiaNet::Replica3 *replica, MafiaNet::Time timestamp, MafiaNet::BitStream *bs, bool primaryOnly)
 {
 	bs->Reset();
-	ReplicationWire::WriteHeader(*bs, replica->replaceableSnapshot ? ReplicationWire::Kind::Snapshot : ReplicationWire::Kind::State, clientToken, serverToken);
-	bs->Write(replica->GetNetworkID());
+	ReplicationWire::WriteHeader(*bs, replica->replaceableSnapshot ? ReplicationWire::Kind::Snapshot : ReplicationWire::Kind::State, clientToken, serverToken, outgoingSnapshotContext);
 	const auto visit = outgoingVisits.find(replica->GetNetworkID());
-	bs->Write(visit == outgoingVisits.end() ? uint64_t{0} : visit->second);
-	bs->Write(++nextState);
+	const uint64_t incarnation = visit == outgoingVisits.end() ? 0 : visit->second;
+	++nextState;
+	if (replica->replaceableSnapshot)
+	{
+		ReplicationWire::WriteVar(*bs, nextState);
+		ReplicationWire::WriteVar(*bs, timestamp);
+		// Zero is reserved for the extended, multi-channel layout.
+		if (!primaryOnly)
+			ReplicationWire::WriteVar(*bs, 0);
+		ReplicationWire::WriteVar(*bs, incarnation);
+		return;
+	}
+	bs->Write(replica->GetNetworkID());
+	bs->Write(incarnation);
+	bs->Write(nextState);
 	bs->Write(timestamp);
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -1789,15 +1801,21 @@ SendSerializeIfChangedResult Connection_RM3::SendSerialize(MafiaNet::Replica3 *r
 			continue;
 
 		const PRO pro = sendParameters[first];
-		SendSerializeHeader(replica, timestamp, &out);
+		bool primaryOnly = replica->replaceableSnapshot && first == 0;
+		for (int channel = 1; primaryOnly && channel < RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; ++channel)
+			if (pending[channel] && sendParameters[channel] == pro)
+				primaryOnly = false;
+		SendSerializeHeader(replica, timestamp, &out, primaryOnly);
 		for (int z = 0; z < RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; z++)
 		{
 			const bool channelHasData = pending[z] && sendParameters[z] == pro;
-			out.Write(channelHasData);
+			if (!primaryOnly)
+				out.Write(channelHasData);
 			if (channelHasData)
 			{
 				bitsPerChannel[z] = serializationData[z].GetNumberOfBitsUsed();
-				out.Write(bitsPerChannel[z]);
+				if (!primaryOnly)
+					out.Write(bitsPerChannel[z]);
 				// Copied from its bytes, leaving the source untouched: a parallel serialize pass has several
 				// connections send the same replica's bitstream at once.
 				out.WriteBits(serializationData[z].GetData(), bitsPerChannel[z], false);

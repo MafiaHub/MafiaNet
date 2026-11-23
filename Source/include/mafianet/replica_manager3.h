@@ -743,7 +743,7 @@ public:
 
 protected:
 	bool independentStateCache = false;
-	uint64_t clientToken = 0, serverToken = 0;
+	uint64_t clientToken = 0, serverToken = 0, outgoingSnapshotContext = 0;
 	virtual void ConstructionFailed(NetworkID) {}
 	virtual void RecordScopeMessage(unsigned int, bool, bool) {}
 	virtual void TransmitState(Replica3 &object, BitStream &out, PRO pro, RakPeerInterface &peer);
@@ -820,7 +820,7 @@ protected:
 	void OnSendDestructionFromQuery(unsigned int queryToDestructIdx, ReplicaManager3 *replicaManager);
 	void OnDoNotQueryDestruction(unsigned int queryToDestructIdx, ReplicaManager3 *replicaManager);
 	void ValidateLists(ReplicaManager3 *replicaManager) const;
-	void SendSerializeHeader(MafiaNet::Replica3 *replica, MafiaNet::Time timestamp, MafiaNet::BitStream *bs);
+	void SendSerializeHeader(MafiaNet::Replica3 *replica, MafiaNet::Time timestamp, MafiaNet::BitStream *bs, bool primaryOnly);
 
 	// The list of objects that our local system and this remote system both have
 	// Either we sent this object to them, or they sent this object to us

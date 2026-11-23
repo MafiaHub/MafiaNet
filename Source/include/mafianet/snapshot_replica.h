@@ -38,7 +38,7 @@ public:
 	void Deserialize(DeserializeParameters *parameters) override
 	{
 		if (parameters->bitstreamWrittenTo[0])
-			ReadSnapshot(parameters->serializationBitstream[0]);
+			parameters->bitstreamWrittenTo[0] = ReadSnapshot(parameters->serializationBitstream[0]);
 	}
 
 private:
@@ -130,7 +130,7 @@ public:
 	void Deserialize(DeserializeParameters *params) override
 	{
 		if (params->bitstreamWrittenTo[0])
-			ReceiveSample(params->serializationBitstream[0], params->timeStamp, false);
+			params->bitstreamWrittenTo[0] = ReceiveSample(params->serializationBitstream[0], params->timeStamp, false);
 	}
 };
 
