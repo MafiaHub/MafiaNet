@@ -1306,6 +1306,54 @@ TEST(BuiltinReplication, EachObserverAcknowledgesInTheContextAssignedByItsReceiv
 	EXPECT_EQ(repairs, 0u);
 }
 
+TEST(BuiltinReplication, ChannelFiveOnlySnapshotReachesBothObserversOnChannelFive)
+{
+	struct SideChannelDoor : Door
+	{
+		RM3SerializationResult Serialize(SerializeParameters *params) override
+		{
+			state.Write(params->outputBitstream[5]);
+			return RM3SR_BROADCAST_IDENTICALLY;
+		}
+		void Deserialize(DeserializeParameters *params) override
+		{
+			EXPECT_FALSE(params->bitstreamWrittenTo[0]);
+			ASSERT_TRUE(params->bitstreamWrittenTo[5]);
+			EXPECT_TRUE(state.Read(params->serializationBitstream[5]));
+		}
+	};
+
+	SideChannelDoor door;
+	SimulatedNetwork net;
+	auto *server = net.AddPeer(2, 2);
+	auto *alice = net.AddPeer(1);
+	auto *bob = net.AddPeer(1);
+	for (auto *peer : {server, alice, bob})
+	{
+		auto &service = peer->GetReplication();
+		ASSERT_TRUE(service.SetRole(peer == server ? ReplicationRole::Server : ReplicationRole::Client));
+		ASSERT_TRUE(service.RegisterReplica<SideChannelDoor>(doorType, 1));
+		ASSERT_TRUE(service.SetSnapshotPolicy(doorType, ChangeDetection::Explicit, SnapshotDelivery::Replaceable));
+	}
+	auto &host = server->GetReplication();
+	ASSERT_TRUE(host.Reference(&door));
+	for (auto *observer : {alice, bob})
+	{
+		ASSERT_TRUE(net.Connect(observer, server));
+		ASSERT_TRUE(net.RunUntil([&]
+		                         { return observer->GetReplication().FindReplica(door.GetNetworkID()) != nullptr; }, 5000));
+	}
+	door.state.open = true;
+	ASSERT_TRUE(host.MarkDirty(door));
+	auto isOpen = [&](RakPeerInterface *peer)
+	{
+		auto *copy = static_cast<SideChannelDoor *>(peer->GetReplication().FindReplica(door.GetNetworkID()));
+		return copy && copy->state.open;
+	};
+	EXPECT_TRUE(net.RunUntil([&]
+	                         { return isOpen(alice) && isOpen(bob); }, 5000));
+}
+
 TEST(BuiltinReplication, PlaintextSnapshotsAndRepliesUseBothHandshakeTokens)
 {
 	using namespace ReplicationWire;

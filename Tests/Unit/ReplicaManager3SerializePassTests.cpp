@@ -10,6 +10,8 @@
 
 #include <gtest/gtest.h>
 
+#include "../../Source/src/replication_wire.h"
+
 #include "mafianet/bit_stream.h"
 #include "mafianet/get_time.h"
 #include "mafianet/message_identifiers.h"
@@ -24,6 +26,7 @@
 #include <cstdlib>
 #include <functional>
 #include <future>
+#include <map>
 #include <mutex>
 #include <set>
 #include <string>
@@ -150,6 +153,9 @@ public:
 		threads.insert(std::this_thread::get_id());
 		return Connection_RM3::SendSerialize(replica, indicesToSend, serializationData, timestamp, sendParameters, rakPeer, worldId, curTime);
 	}
+
+	bool LastPassSkippedRest() const { return restSkippedPass != 0 && restSkippedPass == restSummaryPass; }
+	void ConstructDuringPass(Replica3 *replica, ReplicaManager3 *replicaManager) { OnConstructToThisConnection(replica, replicaManager); }
 
 	std::vector<Replica3 *> wanted;
 	int sendCalls = 0;
@@ -1000,4 +1006,159 @@ TEST_F(ReplicaManager3SerializePass, ReplacementRecordStartsWithFreshSerializati
 	EXPECT_EQ(record->lastSerializationResultBS, nullptr);
 	EXPECT_EQ(record->servedPass, 0u);
 	EXPECT_EQ(record->whenLastSerialized, MafiaNet::GetTime());
+}
+
+TEST_F(ReplicaManager3SerializePass, OwnListRetainsOrderAcrossGapsDuplicatesAndMembershipChanges)
+{
+	auto *first = AddReplica(true);
+	auto *removed = AddReplica(true);
+	auto *third = AddReplica(true);
+	auto *missing = AddReplica(true);
+	auto *observer = AddConnections(1, {first, removed, third}).front();
+	Tick();
+	Tick();
+	first->value = 11;
+	third->value = 3;
+	observer->received.clear();
+	observer->candidates = &candidates;
+	candidates = {first, removed, missing, third, third, first};
+	first->onSerialize = [&]
+	{ manager.Dereference(removed); };
+	Tick();
+	EXPECT_EQ(observer->received, (std::vector<int>{11, 3, 3, 11}));
+}
+
+TEST_F(ReplicaManager3SerializePass, SharedBodiesKeepRecipientHeadersAndExactChannelBits)
+{
+	class SplitReplica : public PassReplica
+	{
+	public:
+		SplitReplica()
+		    : PassReplica(true) {}
+		bool inspect = false;
+		std::map<Connection_RM3 *, std::vector<uint64_t>> sequences;
+		RM3SerializationResult Serialize(SerializeParameters *params) override
+		{
+			params->outputBitstream[0].Write(value);
+			params->outputBitstream[7].Write(true);
+			params->outputBitstream[15].Write(false);
+			params->outputBitstream[15].Write(true);
+			params->pro[7].priority = Priority::Immediate;
+			params->messageTimestamp = 39;
+			return RM3SR_BROADCAST_IDENTICALLY_FORCE_SERIALIZATION;
+		}
+		void OnSerializeTransmission(BitStream *packet, Connection_RM3 *observer, BitSize_t *lengths, Time) override
+		{
+			if (!inspect)
+				return;
+			ReplicationWire::Header header{};
+			ASSERT_TRUE(ReplicationWire::ReadHeader(*packet, header));
+			ASSERT_EQ(header.kind, ReplicationWire::Kind::State);
+			NetworkID id;
+			uint64_t visit, seq;
+			Time stamp;
+			ASSERT_TRUE(packet->Read(id) && packet->Read(visit) && packet->Read(seq) && packet->Read(stamp));
+			EXPECT_EQ(id, GetNetworkID());
+			EXPECT_EQ(stamp, 39u);
+			auto &seen = sequences[observer];
+			const bool first = seen.empty();
+			seen.push_back(seq);
+			std::array<BitSize_t, RM3_NUM_OUTPUT_BITSTREAM_CHANNELS> expectedLengths{};
+			if (first)
+			{
+				expectedLengths[0] = sizeof(value) * 8;
+				expectedLengths[15] = 2;
+			}
+			else
+				expectedLengths[7] = 1;
+			for (unsigned i = 0; i < RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; ++i)
+			{
+				const auto expected = expectedLengths[i];
+				bool present;
+				ASSERT_TRUE(packet->Read(present));
+				ASSERT_EQ(present, expected != 0);
+				ASSERT_EQ(lengths[i], expected);
+				if (!present)
+					continue;
+				BitSize_t bits;
+				ASSERT_TRUE(packet->Read(bits));
+				ASSERT_EQ(bits, expected);
+				if (i == 0)
+				{
+					int decoded;
+					ASSERT_TRUE(packet->Read(decoded));
+					EXPECT_EQ(decoded, value);
+				}
+				else
+				{
+					if (i == 15)
+					{
+						EXPECT_FALSE(packet->ReadBit());
+					}
+					EXPECT_TRUE(packet->ReadBit());
+				}
+			}
+			ASSERT_EQ(packet->GetNumberOfUnreadBits(), 0u);
+			// A mutable transmission callback must only edit this recipient's copy.
+			packet->GetData()[packet->GetNumberOfBytesUsed() - 1] ^= 0x80;
+			lengths[0] = 0;
+		}
+	};
+	auto *split = new SplitReplica;
+	replicas.push_back(split);
+	manager.Reference(split);
+	auto *extra = AddReplica(true);
+	const auto connections = AddConnections(3, {split});
+	connections[1]->wanted.push_back(extra);
+	Tick();
+	Tick();
+	split->inspect = true;
+	Tick();
+	for (auto *connection : connections)
+	{
+		const auto &seen = split->sequences[connection];
+		ASSERT_EQ(seen.size(), 2u);
+		EXPECT_EQ(seen[1], seen[0] + 1);
+	}
+	EXPECT_NE(split->sequences[connections[1]][0], split->sequences[connections[2]][0]);
+}
+
+TEST_F(ReplicaManager3SerializePass, EmptyRestIsSkippedWithoutLosingBroadcasts)
+{
+	ThreadExecutor executor;
+	manager.SetSerializeExecutor(&executor);
+	auto *replica = AddReplica(true);
+	auto connections = AddConnections(4, {replica});
+	Tick();
+	Tick();
+	replica->value = 19;
+	Tick();
+	for (auto *connection : connections)
+	{
+		EXPECT_TRUE(connection->LastPassSkippedRest());
+		ASSERT_FALSE(connection->received.empty());
+		EXPECT_EQ(connection->received.back(), 19);
+	}
+	manager.SetSerializeExecutor(nullptr);
+}
+
+TEST_F(ReplicaManager3SerializePass, LateConstructionInvalidatesAnEmptyRestSummary)
+{
+	ThreadExecutor executor;
+	manager.SetSerializeExecutor(&executor);
+	auto *broadcast = AddReplica(true);
+	auto *plain = AddReplica(false);
+	auto *late = AddReplica(true);
+	late->value = 37;
+	auto connections = AddConnections(2, {broadcast});
+	connections[0]->wanted.push_back(plain);
+	Tick();
+	Tick();
+	connections[1]->received.clear();
+	plain->onSerialize = [&]
+	{ connections[1]->ConstructDuringPass(late, &manager); };
+	Tick();
+	EXPECT_FALSE(connections[1]->LastPassSkippedRest());
+	EXPECT_NE(std::find(connections[1]->received.begin(), connections[1]->received.end(), 37), connections[1]->received.end());
+	manager.SetSerializeExecutor(nullptr);
 }
