@@ -150,7 +150,7 @@ enum DefaultMessageIDTypes
 	/// RakPeer - The sizeof(RakNetTime) bytes following this byte represent a value which is automatically modified by the difference
 	/// in system times between the sender and the recipient. Requires that you call SetOccasionalPing.
 	/// The message id follows the time. From a remote system it is only delivered when that id is an application id
-	/// (ID_USER_PACKET_ENUM and up), a ReplicaManager3 id or ID_NAT_CONNECT_AT_TIME: any other library id behind a
+	/// (ID_USER_PACKET_ENUM and up) or ID_NAT_CONNECT_AT_TIME. Any other library id behind a
 	/// timestamp is dropped, as is a timestamp with nothing after it.
 	ID_TIMESTAMP,
 	/// RakPeer - Pong from an unconnected system.  First byte is ID_UNCONNECTED_PONG, second sizeof(MafiaNet::TimeMS) bytes is the ping,
@@ -188,16 +188,8 @@ enum DefaultMessageIDTypes
 	/// RakNetTransport plugin - Transport provider message, used for remote console
 	ID_TRANSPORT_STRING,
 
-	/// ReplicaManager plugin - Create an object
-	ID_REPLICA_MANAGER_CONSTRUCTION,
-	/// ReplicaManager plugin - Changed scope of an object
-	ID_REPLICA_MANAGER_SCOPE_CHANGE,
-	/// ReplicaManager plugin - Serialized data of an object
-	ID_REPLICA_MANAGER_SERIALIZE,
-	/// ReplicaManager plugin - New connection, about to send all world objects
-	ID_REPLICA_MANAGER_DOWNLOAD_STARTED,
-	/// ReplicaManager plugin - Finished downloading all serialized objects
-	ID_REPLICA_MANAGER_DOWNLOAD_COMPLETE,
+	/// Built-in object replication. The envelope carries its record kind and session identity.
+	ID_REPLICATION,
 
 	/// RakVoice plugin - Open a communication channel
 	ID_RAKVOICE_OPEN_CHANNEL_REQUEST,
@@ -211,17 +203,6 @@ enum DefaultMessageIDTypes
 	/// + Opus payload. Routed through a relay host rather than peer-to-peer.
 	ID_RAKVOICE_RELAY_DATA,
 
-	// Retired Autopatcher wire IDs. Keep later message numbers stable.
-	ID_RESERVED_49,
-	ID_RESERVED_50,
-	ID_RESERVED_51,
-	ID_RESERVED_52,
-	ID_RESERVED_53,
-	ID_RESERVED_54,
-	ID_RESERVED_55,
-	ID_RESERVED_56,
-	ID_RESERVED_57,
-	ID_RESERVED_58,
 
 	/// NATPunchthrough plugin: internal
 	ID_NAT_PUNCHTHROUGH_REQUEST,
@@ -327,10 +308,6 @@ enum DefaultMessageIDTypes
 	/// UDP proxy messages. Second byte indicates type.
 	ID_UDP_PROXY_GENERAL,
 
-	// Reserved wire IDs for the retired SQLite extension.
-	ID_RESERVED_88,
-	ID_RESERVED_89,
-	ID_RESERVED_90,
 
 	/// Sent to NatTypeDetectionServer
 	ID_NAT_TYPE_DETECTION_REQUEST,
@@ -360,24 +337,10 @@ enum DefaultMessageIDTypes
 	/// Read endpointGuid and port as per ID_ROUTER_2_FORWARDING_ESTABLISHED
 	ID_ROUTER_2_REROUTED,
 
-	// Reserved wire IDs for the retired team plugins.
-	ID_RESERVED_97,
-	ID_RESERVED_98,
-	ID_RESERVED_99,
-	ID_RESERVED_100,
-	ID_RESERVED_101,
 
 	/// Gamebryo Lightspeed integration
 	ID_LIGHTSPEED_INTEGRATION,
 
-	// Reserved wire IDs for the retired cloud storage protocol.
-	ID_RESERVED_103,
-	ID_RESERVED_104,
-	ID_RESERVED_105,
-	ID_RESERVED_106,
-	ID_RESERVED_107,
-	ID_RESERVED_108,
-	ID_RESERVED_109,
 
 	ID_RELAY_PLUGIN,
 	ID_NAT_REQUEST_BOUND_ADDRESSES,

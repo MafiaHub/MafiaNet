@@ -23,7 +23,6 @@ class VWTestConnection : public Connection_RM3
 public:
 	VWTestConnection(const SystemAddress &sa, RakNetGUID g)
 	    : Connection_RM3(sa, g) {}
-	Replica3 *AllocReplica(MafiaNet::BitStream *, ReplicaManager3 *) { return 0; }
 };
 
 // Minimal concrete VirtualWorldReplica3. The within-world hooks return
@@ -32,7 +31,6 @@ public:
 class VWTestReplica : public VirtualWorldReplica3
 {
 public:
-	void WriteAllocationID(Connection_RM3 *, MafiaNet::BitStream *) const {}
 	bool QueryRemoteConstruction(Connection_RM3 *) { return true; }
 	void SerializeConstruction(MafiaNet::BitStream *, Connection_RM3 *) {}
 	bool DeserializeConstruction(MafiaNet::BitStream *, Connection_RM3 *) { return true; }
@@ -62,6 +60,7 @@ protected:
 class VWTestRM3 : public ReplicaManager3
 {
 public:
+	using ReplicaManager3::ReplicaManager3;
 	Connection_RM3 *AllocConnection(const SystemAddress &sa, RakNetGUID g) const { return new VWTestConnection(sa, g); }
 	void DeallocConnection(Connection_RM3 *c) const { delete c; }
 };
@@ -153,12 +152,10 @@ class VirtualWorldRegistry : public ::testing::Test
 protected:
 	void SetUp() override
 	{
-		peer = RakPeerInterface::GetInstance();
 		SocketDescriptor sd(0, 0);
 		ASSERT_EQ(peer->Startup(8, &sd, 1), RAKNET_STARTED) << "Peer failed to start";
 
 		rm3.SetAutoManageConnections(false, false);
-		peer->AttachPlugin(&rm3);
 
 		// Three observers: vworlds {5, 5, 7}, plus one global observer.
 		c5a = new VWTestConnection(UNASSIGNED_SYSTEM_ADDRESS, RakNetGUID(101));
@@ -190,13 +187,12 @@ protected:
 		delete c7;
 		delete cg;
 
-		peer->DetachPlugin(&rm3);
 		peer->Shutdown(100);
 		RakPeerInterface::DestroyInstance(peer);
 	}
 
-	RakPeerInterface *peer = nullptr;
-	VWTestRM3 rm3;
+	RakPeerInterface *peer = RakPeerInterface::GetInstance();
+	VWTestRM3 rm3{*peer};
 	VWTestConnection *c5a = nullptr;
 	VWTestConnection *c5b = nullptr;
 	VWTestConnection *c7 = nullptr;

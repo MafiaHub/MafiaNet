@@ -27,7 +27,9 @@
 
 #include "mafianet/get_time.h"
 
+#include "steady_time.h"
 #include <atomic>
+#include <chrono>
 
 
 #if defined(_WIN32)
@@ -160,6 +162,15 @@ std::atomic<MafiaNet::TimeSourceUS> g_timeSourceOverride{nullptr};
 void MafiaNet::SetTimeSourceOverride(TimeSourceUS source)
 {
 	g_timeSourceOverride.store(source, std::memory_order_release);
+}
+
+MafiaNet::TimeUS MafiaNet::GetSteadyTimeUS()
+{
+	if (TimeSourceUS source = g_timeSourceOverride.load(std::memory_order_acquire))
+		return source();
+	using Clock = std::chrono::steady_clock;
+	static const auto origin = Clock::now();
+	return static_cast<TimeUS>(std::chrono::duration_cast<std::chrono::microseconds>(Clock::now() - origin).count());
 }
 
 MafiaNet::TimeUS MafiaNet::GetTimeUS(void)

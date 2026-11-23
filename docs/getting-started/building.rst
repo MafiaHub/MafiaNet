@@ -58,10 +58,10 @@ Configure build options with CMake:
      - Build ``MafiaNetExtras`` (SMTP, HTTP client, telnet/console transports). Forced ON by ``MAFIANET_BUILD_SAMPLES``. See `The extras library`_.
    * - ``MAFIANET_DISABLED_FEATURES``
      - (empty)
-     - Semicolon-separated plugin names to compile out, e.g. ``"ReplicaManager3;ReadyEvent"``. See `Minimal builds`_.
+     - Semicolon-separated plugin names to compile out, e.g. ``"Router2;ReadyEvent"``. See `Minimal builds`_.
    * - ``MAFIANET_MINIMAL``
      - OFF
-     - Compile out every optional plugin, including the built-in RPC service in the core. See `Minimal builds`_.
+     - Compile out every optional plugin, keeping the built-in RPC and replication services. See `Minimal builds`_.
    * - ``MAFIANET_SANITIZER``
      - (empty)
      - Clang/GCC sanitizers, ``+``-separated: ``address+undefined`` or ``thread``. Applied to every target, dependencies included. See `Sanitizers`_.
@@ -93,11 +93,10 @@ Example with options:
 Minimal builds
 --------------
 
-Every optional plugin in the core library (``ReplicaManager3``,
-``FileListTransfer``, the NAT traversal plugins, ``TCPInterface`` and its
+Every optional plugin in the core library (``FileListTransfer``, the NAT traversal plugins, ``TCPInterface`` and its
 users, and so on) is guarded by a ``_RAKNET_SUPPORT_<Name>`` flag declared in
 ``mafianet/native_feature_includes.h``. The transport itself, ``BitStream``,
-``RakPeer``, the reliability layer, ``RPC`` and ``RakVoice`` are always built.
+``RakPeer``, the reliability layer, ``RPC``, object replication and ``RakVoice`` are always built.
 
 The supported way to compile plugins out is through CMake, not by editing the
 header:
@@ -105,9 +104,9 @@ header:
 .. code-block:: bash
 
    # Drop specific plugins
-   cmake -B build -DMAFIANET_DISABLED_FEATURES="ReplicaManager3;ReadyEvent"
+   cmake -B build -DMAFIANET_DISABLED_FEATURES="Router2;ReadyEvent"
 
-   # Core transport and RPC, with every optional plugin compiled out
+   # Core transport, RPC and replication, with every optional plugin compiled out
    cmake -B build -DMAFIANET_MINIMAL=ON
 
 The names accepted by ``MAFIANET_DISABLED_FEATURES`` are listed in
@@ -373,6 +372,25 @@ suite covers the following workloads.
   uses the ordinary scan for that tick. Each case checks one position message
   per changed replica per observer. Bytes per tick count serialized
   RM3 messages at the peer send boundary, before transport framing.
+* **Finite path capacity.** ``RakPeer_FiniteBottleneck`` runs the same application
+  workload with reliable ordered channels, no sender cap, and a shared FIFO on
+  the downstream path. Propagation is 50 ms each way from the handshake. The
+  FIFO holds 50 KiB including the packet being serialized and charges IPv4
+  and UDP headers. Steady capacity is 256 KiB/s. The step case falls to
+  64 KiB/s at 20 seconds and recovers at 40 seconds. Independent 2% loss and
+  5% reordering (25 ms extra delay) have separate steady-capacity cases.
+  Queue delay is the time an admitted packet waits to start transmission.
+  Each phase reports transmitted wire bytes, delivered application bytes,
+  drops, and queue occupancy. Cutoff counts and latency percentiles are
+  recorded at 60 seconds before checking delivery order and draining both
+  directions. ``nak_retry_B`` counts retransmission payload scheduled with a
+  deadline advanced by a NAK. Other retries count toward ``rto_retry_B``.
+  Window-cut counters count reductions performed while retransmitting each kind.
+* **Competing senders.** ``RakPeer_SharedBottleneck`` puts one or two independent
+  peers on the same 256 KiB/s FIFO. Each keeps sixteen reliable ordered 16 KiB
+  blocks outstanding. The benchmark reports per-flow and aggregate goodput,
+  Jain's fairness index, overflow drops, and drain time. The clean run is
+  deterministic. The 2% independent loss case uses five matched seeds.
 * **Mixed traffic.** ``RakPeer_MixedTraffic`` runs 60 simulated seconds with
   bidirectional gameplay traffic, urgent probes, and a backlogged download.
   Use the same seed with block sizes 0 (download off), 16 and 512 KiB at
@@ -394,7 +412,7 @@ suite covers the following workloads.
   application pacing credit, both, or neither.
 * **Construction bandwidth.** ``ReplicaManager3_Construct1000`` compares
   unconditional scalar serialization with a full construction snapshot and
-  subsequent dirty updates. See :doc:`../plugins/replica-manager-3`.
+  subsequent dirty updates. See :doc:`../guide/replication`.
 * **Real UDP loopback.** A threaded peer sends bursts of 128 reliable 900-byte
   messages at 10, 50 or 100 bursts per second. Compare offered bytes/s with
   delivered bytes/s over the send and drain interval. The CPU column covers the

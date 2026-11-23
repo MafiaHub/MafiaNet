@@ -15,10 +15,10 @@
 
 // MafiaNet version. This is the current, authoritative version of the library.
 // Keep in sync with the project() VERSION in the root CMakeLists.txt.
-#define MAFIANET_VERSION "0.26.0"
-#define MAFIANET_VERSION_NUMBER_INT 2600
+#define MAFIANET_VERSION "0.27.0"
+#define MAFIANET_VERSION_NUMBER_INT 2700
 #define MAFIANET_VERSION_MAJOR 0
-#define MAFIANET_VERSION_MINOR 26
+#define MAFIANET_VERSION_MINOR 27
 #define MAFIANET_VERSION_PATCH 0
 
 // Defines kept here for backwards compatibility with RAKNET 4.081/4.082.
@@ -35,4 +35,4 @@
 
 // What compatible protocol version RakNet is using. When this value changes, it indicates this version of RakNet cannot connection to an older version.
 // ID_INCOMPATIBLE_PROTOCOL_VERSION will be returned on connection attempt in this case
-#define RAKNET_PROTOCOL_VERSION 11
+#define RAKNET_PROTOCOL_VERSION 12

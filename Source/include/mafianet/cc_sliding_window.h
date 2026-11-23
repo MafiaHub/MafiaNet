@@ -211,6 +211,12 @@ protected:
 	bool IsInSlowStart(void) const;
 
 	double lastRtt, estimatedRTT, deviationRtt;
+	double pacingCredit;
+	CCTimeType pacingClock, baselineEpoch;
+	double previousMinRtt, currentMinRtt, recentMinimum, completedMinimum;
+	CCTimeType recentEpoch, lastDelayBackoff, lastAckAt;
+	unsigned intervalAcks, intervalGaps;
+	bool excessiveGaps;
 };
 
 }

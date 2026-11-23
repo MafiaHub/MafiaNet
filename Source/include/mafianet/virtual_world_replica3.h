@@ -9,7 +9,6 @@
 /// \brief Replica3 base class that scopes visibility by virtual world.
 
 #include "mafianet/native_feature_includes.h"
-#if _RAKNET_SUPPORT_ReplicaManager3 == 1
 
 #ifndef __VIRTUAL_WORLD_REPLICA_3_H
 #define __VIRTUAL_WORLD_REPLICA_3_H
@@ -126,5 +125,3 @@ protected:
 } // namespace MafiaNet
 
 #endif // __VIRTUAL_WORLD_REPLICA_3_H
-
-#endif // _RAKNET_SUPPORT_ReplicaManager3

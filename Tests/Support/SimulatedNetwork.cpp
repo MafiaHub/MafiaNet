@@ -217,6 +217,16 @@ RakPeer *SimulatedNetwork::RestartPeer(RakPeer *peer, unsigned int maxConnection
 	                 address.GetPort(), Family::V4, hostNumber);
 }
 
+bool SimulatedNetwork::StepDownMtu(RakPeer *sender, const SystemAddress &destination)
+{
+	auto *remote = sender->GetRemoteSystemFromSystemAddress(destination, true, true);
+	if (!remote)
+		return false;
+	const int old = remote->reliabilityLayer.GetCurrentMtuBytes();
+	remote->reliabilityLayer.StepDownMtuAfterBlackHole();
+	return remote->reliabilityLayer.GetCurrentMtuBytes() < old;
+}
+
 bool SimulatedNetwork::ReadSendBudget(const RakPeer *sender, const SystemAddress &destination, SendBudget &budget, const std::function<void(const InternalPacket &)> &visitQueued) const
 {
 	const auto *remote = sender->GetRemoteSystemFromSystemAddress(destination, true, true);
@@ -224,6 +234,10 @@ bool SimulatedNetwork::ReadSendBudget(const RakPeer *sender, const SystemAddress
 		return false;
 	const auto &layer = remote->reliabilityLayer;
 	budget.windowBytes = layer.congestionManager.GetCWNDLimit();
+	budget.nakRetryBytes = layer.nakRetryBytes;
+	budget.rtoRetryBytes = layer.rtoRetryBytes;
+	budget.nakRetryWindowCuts = layer.nakRetryWindowCuts;
+	budget.rtoRetryWindowCuts = layer.rtoRetryWindowCuts;
 	budget.inFlightBytes = layer.unacknowledgedBytes;
 	budget.queued = false;
 	for (const auto &entry : layer.outgoingPacketBuffer)
@@ -328,9 +342,19 @@ void SimulatedNetwork::Enqueue(const SystemAddress &from, const SystemAddress &t
 	if (tap)
 		tap(from, to, data, length);
 	const LinkRule &rule = RuleFor(from, to);
+	TimeUS departure = g_virtualNowUS;
+	// Charge IP and UDP headers as well as the encrypted datagram payload.
+	const auto wireBytes = static_cast<unsigned>(length) + (to.GetIPVersion() == 6 ? 48u : 28u);
 	if (rule.dark || length > rule.maxDatagramBytes ||
-	    (rule.lossPercent > 0 && (int) (NextRandom() % 100u) < rule.lossPercent))
+	    (rule.bottleneck && !rule.bottleneck->Admit(g_virtualNowUS, wireBytes, departure)))
 	{
+		++datagramsDropped;
+		return;
+	}
+	if (rule.lossPercent > 0 && (int) (NextRandom() % 100u) < rule.lossPercent)
+	{
+		if (rule.bottleneck)
+			++rule.bottleneck->randomDrops;
 		++datagramsDropped;
 		return;
 	}
@@ -341,7 +365,7 @@ void SimulatedNetwork::Enqueue(const SystemAddress &from, const SystemAddress &t
 		delayMs += NextRandom() % (rule.jitterMs + 1);
 
 	InFlight datagram;
-	datagram.deliverAt = g_virtualNowUS + (TimeUS) delayMs * 1000;
+	datagram.deliverAt = departure + (TimeUS) delayMs * 1000;
 	datagram.sequence = nextSequence++;
 	datagram.from = from;
 	datagram.to = to;

@@ -33,6 +33,7 @@
 #include <string>
 #include <vector>
 
+#include "SimulatedBottleneck.h"
 #include "mafianet/get_time.h"
 #include "mafianet/peer.h"
 #include "mafianet/session_crypto.h"
@@ -53,6 +54,7 @@ public:
 		bool dark = false;                       // drop everything
 		uint32_t reorderPerThousand = 0;         // chance of an extra delay on a surviving datagram
 		uint32_t reorderDelayMs = 0;
+		SimulatedBottleneck *bottleneck = nullptr; // caller owns the FIFO for the lifetime of this rule
 	};
 
 	// A message a peer's Receive() returned, copied so it outlives the Packet.
@@ -72,6 +74,11 @@ public:
 
 	// A started peer bound to 10.0.0.<n>:<port> (port 0 picks one).
 	RakPeer *AddPeer(unsigned int maxConnections, unsigned short maxIncoming = 0, unsigned short port = 0);
+	// Takes ownership of a peer with a custom transport enqueue implementation.
+	RakPeer *AddCustomPeer(std::unique_ptr<RakPeer> peer, unsigned int maxConnections, unsigned short maxIncoming = 0)
+	{
+		return StartPeer(peer.release(), maxConnections, maxIncoming, 0);
+	}
 	// A started peer bound to 2001:db8::<n> (RFC 3849 documentation prefix), port 0 picks one.
 	// The host counter is shared with AddPeer, so addresses never collide.
 	RakPeer *AddPeerV6(unsigned int maxConnections, unsigned short maxIncoming = 0, unsigned short port = 0);
@@ -157,8 +164,12 @@ public:
 		uint32_t windowBytes;
 		uint32_t inFlightBytes;
 		bool queued;
+		uint64_t nakRetryBytes, rtoRetryBytes;
+		uint32_t nakRetryWindowCuts, rtoRetryWindowCuts;
 		bool capBlocked;
 	};
+	// Force the same reliability-layer transition as a black hole between manual updates.
+	bool StepDownMtu(RakPeer *sender, const SystemAddress &destination);
 	// An optional visitor sees only live fragments still waiting for a first send.
 	bool ReadSendBudget(const RakPeer *sender, const SystemAddress &destination, SendBudget &budget, const std::function<void(const InternalPacket &)> &visitQueued = {}) const;
 

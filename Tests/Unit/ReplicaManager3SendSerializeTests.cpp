@@ -33,7 +33,6 @@ class SendTestConnection : public Connection_RM3
 public:
 	SendTestConnection()
 	    : Connection_RM3(UNASSIGNED_SYSTEM_ADDRESS, RakNetGUID(2)) {}
-	Replica3 *AllocReplica(MafiaNet::BitStream *, ReplicaManager3 *) { return 0; }
 };
 
 // Records every message SendSerialize builds: OnSerializeTransmission sees each one just
@@ -41,7 +40,6 @@ public:
 class SendTestReplica : public Replica3
 {
 public:
-	void WriteAllocationID(Connection_RM3 *, MafiaNet::BitStream *) const {}
 	RM3ConstructionState QueryConstruction(Connection_RM3 *, ReplicaManager3 *) { return RM3CS_NEVER_CONSTRUCT; }
 	bool QueryRemoteConstruction(Connection_RM3 *) { return false; }
 	void SerializeConstruction(MafiaNet::BitStream *, Connection_RM3 *) {}
@@ -62,11 +60,11 @@ public:
 		MafiaNet::BitStream in(bitStream->GetData(), bitStream->GetNumberOfBytesUsed(), false);
 		SentMessage message;
 		MessageID id;
-		WorldId world;
 		in.Read(id);
-		EXPECT_EQ(id, ID_REPLICA_MANAGER_SERIALIZE);
-		in.Read(world);
+		EXPECT_EQ(id, ID_REPLICATION);
+		in.IgnoreBytes(2 + 2 * sizeof(uint64_t));
 		in.Read(message.networkId);
+		in.IgnoreBytes(2 * sizeof(uint64_t) + sizeof(Time));
 		for (int z = 0; z < RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; z++)
 		{
 			in.Read(message.written[z]);
@@ -76,9 +74,8 @@ public:
 				continue;
 			}
 			BitSize_t bits;
-			in.ReadCompressed(bits);
+			in.Read(bits);
 			EXPECT_EQ(bits, bitsPerChannel[z]);
-			in.AlignReadToByteBoundary();
 			message.payload[z].resize(BITS_TO_BYTES(bits));
 			in.ReadBits(message.payload[z].data(), bits);
 		}

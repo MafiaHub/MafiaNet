@@ -3,8 +3,22 @@ Changelog
 
 All notable changes to MafiaNet are documented here.
 
-Unreleased — breaking
----------------------
+Version 0.27.0
+--------------
+
+**Built-in object replication**
+
+* Every UDP peer owns its replication service, including in minimal builds.
+  Register replica types through ``peer->GetReplication()`` and configure a
+  server, client or peer role. Protocol 12 assigns one message ID to replication
+  and removes retired message slots. Application message IDs start at 90.
+  Rebuild and deploy both endpoints together. See :doc:`guide/replication`.
+* Stream replicas by radius or explicit cells, cap the visible set and
+  budget construction per observer. Grant a client permission to submit
+  typed reports. Returning to a cell or transferring control starts with
+  a current snapshot. Full snapshots support explicit dirty notifications
+  and acknowledged replaceable delivery.
+
 
 **Built-in RPC**
 
@@ -22,10 +36,9 @@ Unreleased — breaking
 * The SQLite client, server and logging adapters have been removed.
 * CloudClient and CloudServer, including their samples and public headers, have been removed. Remove their names from ``MAFIANET_DISABLED_FEATURES``.
 * The ``TwoWayAuthentication`` plugin and sample have been removed. Move user authentication into your application and remove ``TwoWayAuthentication`` from ``MAFIANET_DISABLED_FEATURES``.
-* Removed ``TeamManager`` and ``TeamBalancer``. Move team membership and balancing into game code and remove both names from ``MAFIANET_DISABLED_FEATURES``. Their five wire IDs are reserved.
-* The former SQLite and cloud message ID ranges are reserved.
+* Removed ``TeamManager`` and ``TeamBalancer``. Move team membership and balancing into game code and remove both names from ``MAFIANET_DISABLED_FEATURES``.
 
-**Strings and wire protocol 11**
+**Strings**
 
 * Both ``PacketLogger::FormatLine`` overloads now require the destination capacity in bytes as the second argument. Update callers and subclass overrides, and rebuild applications using the logger because its virtual table changed.
 * Replace the pointer-returning ``SystemAddress::ToString`` and ``AddressOrGUID::ToString`` overloads with ``MafiaNet::to_string(value)`` from ``mafianet/guid_util.h``. The result owns its text. Pass ``false`` to omit the port, or use the sized buffer overload for allocation-free formatting.
@@ -66,7 +79,7 @@ Unreleased — breaking
 * **Fix: StringCompressor** leaves an empty string, not stale buffer contents, when it decodes with an unknown language id.
 * **Fix: Steam lobby room merge** no longer uses a dangling iterator when a member callback leaves the room.
 
-**Breaking (API, ABI, and wire protocol)**: rebuild clients and servers and deploy them together. Protocol 10 removes the Xbox, LibVoice, lobby, room and two-way authentication identifiers and two unused reserved slots. The out-of-band identifier ``ID_NAT_PING`` moves from 10 to 7, and application identifiers now start at 119 instead of 135. Protocol 9 peers receive ``ID_INCOMPATIBLE_PROTOCOL_VERSION`` during connection setup.
+**Breaking API, ABI and wire changes.** Protocol 12 uses the current message table on both endpoints. Old binaries must be rebuilt.
 
 Version 0.26.0
 --------------

@@ -1,3 +1,4 @@
+#include "../Source/src/replication_wire.h"
 /*
  *  Copyright (c) 2026, MafiaHub
  *
@@ -9,7 +10,6 @@
 
 #include "mafianet/replica_manager3.h"
 
-#if _RAKNET_SUPPORT_ReplicaManager3 == 1
 #include <vector>
 #include "mafianet/network_id_manager.h"
 #include "mafianet/message_identifiers.h"
@@ -42,7 +42,6 @@ class StateReplica : public Replica3
 public:
 	uint32_t value = 0;
 	bool BroadcastsIdentically() const override { return true; }
-	void WriteAllocationID(Connection_RM3 *, BitStream *out) const override { out->Write(uint8_t{1}); }
 	RM3ConstructionState QueryConstruction(Connection_RM3 *, ReplicaManager3 *) override { return RM3CS_SEND_CONSTRUCTION; }
 	bool QueryRemoteConstruction(Connection_RM3 *) override { return true; }
 	void SerializeConstruction(BitStream *out, Connection_RM3 *) override { out->Write(value); }
@@ -65,7 +64,6 @@ class Connection : public Connection_RM3
 public:
 	explicit Connection(RakNetGUID guid)
 	    : Connection_RM3(UNASSIGNED_SYSTEM_ADDRESS, guid) { isValidated = true; }
-	Replica3 *AllocReplica(BitStream *, ReplicaManager3 *) override { return nullptr; }
 };
 struct SerializationCandidates
 {
@@ -94,6 +92,7 @@ private:
 class Manager : public ReplicaManager3
 {
 public:
+	using ReplicaManager3::ReplicaManager3;
 	Connection_RM3 *AllocConnection(const SystemAddress &, RakNetGUID guid) const override { return new Connection(guid); }
 	void DeallocConnection(Connection_RM3 *connection) const override { delete connection; }
 };
@@ -107,16 +106,15 @@ TimeUS TickClock()
 template <typename Replica = StateReplica, typename Peer = CountingPeer>
 struct World
 {
-	Peer peer;
 	NetworkIDManager ids;
-	Manager manager;
+	Peer peer;
+	Manager manager{peer};
 	std::vector<Replica> replicas;
 	explicit World(int clients, size_t replicaCount = 100, const SerializationCandidates *candidates = nullptr)
 	    : replicas(replicaCount)
 	{
 		tickUS = 1000000;
 		SetTimeSourceOverride(TickClock);
-		peer.AttachPlugin(&manager);
 		manager.SetNetworkIDManager(&ids);
 		manager.SetAutoSerializeInterval(0);
 		for (int i = 0; i < clients; ++i)
@@ -132,7 +130,7 @@ struct World
 	}
 	~World()
 	{
-		peer.DetachPlugin(&manager);
+		manager.Clear(false);
 		SetTimeSourceOverride(nullptr);
 	}
 	void Tick()
@@ -199,56 +197,37 @@ private:
 	bool changed = false;
 };
 
-// The download markers distinguish the eager state messages sent inside
-// SendConstruction from those produced by the regular pass in the same tick.
+// Classify native construction and state envelopes at the peer send boundary.
 struct ConstructionTraffic : CountingPeer
 {
 	using CountingPeer::Send;
-	uint32_t Send(const BitStream *data, Priority, Reliability, char, const AddressOrGUID, bool, uint32_t) override
+	uint32_t Send(const BitStream *data, Priority, Reliability, char, const AddressOrGUID destination, bool, uint32_t) override
 	{
 		const auto size = data->GetNumberOfBytesUsed();
-		switch (data->GetData()[0])
+		if (size >= 3 && data->GetData()[0] == ID_REPLICATION)
 		{
-		case ID_REPLICA_MANAGER_DOWNLOAD_STARTED:
-			downloading = true;
-			controlBytes += size;
-			break;
-		case ID_REPLICA_MANAGER_DOWNLOAD_COMPLETE:
-			downloading = false;
-			controlBytes += size;
-			break;
-		case ID_REPLICA_MANAGER_CONSTRUCTION:
-		{
-			BitStream input(data->GetData(), size, false);
-			input.IgnoreBytes(2); // message ID and world
-			uint16_t count = 0;
-			input.Read(count);
-			records += count;
-			constructionBytes += size;
-			break;
-		}
-		case ID_REPLICA_MANAGER_SERIALIZE:
-			if (downloading)
+			const auto kind = static_cast<ReplicationWire::Kind>(data->GetData()[2]);
+			if (kind == ReplicationWire::Kind::Spawn)
 			{
-				++initialMessages;
-				initialBytes += size;
+				++records;
+				constructionBytes += size;
 			}
-			else
+			else if (kind == ReplicationWire::Kind::State)
 			{
 				++regularMessages;
+				if (destination.rakNetGuid == RakNetGUID(100))
+					++originalObserverUpdates;
 				regularBytes += size;
 			}
-			break;
-		default:
-			break;
+			else
+				controlBytes += size;
 		}
 		bytes += size;
 		return 1;
 	}
 
-	bool downloading = false;
-	uint64_t controlBytes = 0, constructionBytes = 0, initialBytes = 0, regularBytes = 0;
-	unsigned records = 0, initialMessages = 0, regularMessages = 0;
+	uint64_t controlBytes = 0, constructionBytes = 0, regularBytes = 0;
+	unsigned records = 0, regularMessages = 0, originalObserverUpdates = 0;
 };
 
 // Exercise the application dirty flag outside the sample. A mutation during a
@@ -258,12 +237,12 @@ bool SnapshotUpdatesReachExistingObservers()
 	World<SnapshotReplica, ConstructionTraffic> world(1, 1);
 	auto &traffic = world.peer;
 	world.Tick();
-	if (traffic.records != 1 || traffic.initialMessages != 0 || traffic.regularMessages != 0)
+	if (traffic.records != 1 || traffic.regularMessages != 0)
 		return false;
 	world.replicas.front().SetValue(7);
 	world.manager.PushConnection(new Connection(RakNetGUID(101)));
 	world.Tick();
-	if (traffic.records != 2 || traffic.initialMessages != 0 || traffic.regularMessages != 2)
+	if (traffic.records != 2 || traffic.regularMessages != 2 || traffic.originalObserverUpdates != 1)
 		return false;
 	world.Tick();
 	return traffic.regularMessages == 2;
@@ -288,22 +267,20 @@ void ConstructionBandwidth(benchmark::State &state)
 		auto &traffic = world.peer;
 		traffic.bytes = 0; // exclude connection validation
 		world.Tick();
-		const auto stateBytes = sizeof(uint32_t) * (traffic.records + traffic.initialMessages + traffic.regularMessages);
-		const auto typeBytes = sizeof(uint8_t) * traffic.records;
-		if (traffic.records != count || traffic.bytes != traffic.constructionBytes + traffic.controlBytes + traffic.initialBytes + traffic.regularBytes || traffic.bytes < stateBytes + typeBytes)
+		const auto stateBytes = sizeof(uint32_t) * (traffic.records + traffic.regularMessages);
+		const auto typeBytes = sizeof(uint32_t) * traffic.records;
+		if (traffic.records != count || traffic.bytes != traffic.constructionBytes + traffic.controlBytes + traffic.regularBytes || traffic.bytes < stateBytes + typeBytes)
 		{
 			state.SkipWithError("incomplete construction accounting");
 			return;
 		}
 		state.counters["construction_records"] = traffic.records;
 		state.counters["construction_bytes"] = static_cast<double>(traffic.constructionBytes);
-		state.counters["initial_state_messages"] = traffic.initialMessages;
-		state.counters["initial_state_bytes"] = static_cast<double>(traffic.initialBytes);
 		state.counters["regular_state_messages"] = traffic.regularMessages;
 		state.counters["regular_state_bytes"] = static_cast<double>(traffic.regularBytes);
-		state.counters["download_control_bytes"] = static_cast<double>(traffic.controlBytes);
+		state.counters["control_bytes"] = static_cast<double>(traffic.controlBytes);
 		state.counters["scalar_bytes"] = static_cast<double>(stateBytes);
-		state.counters["allocation_id_bytes"] = static_cast<double>(typeBytes);
+		state.counters["type_id_bytes"] = static_cast<double>(typeBytes);
 		state.counters["framing_bytes"] = static_cast<double>(traffic.bytes - stateBytes - typeBytes);
 	}
 
@@ -390,4 +367,3 @@ BENCHMARK_TEMPLATE(MeasureLargeWorld, true)->Name("ReplicaManager3_LargeWorldDir
 BENCHMARK_TEMPLATE(MeasureLargeWorld, true, true)->Name("ReplicaManager3_LargeWorldBulkFallback")->ArgsProduct({{1, 20}, {50000}})->ArgNames({"clients", "changed_of_50000"})->Iterations(20);
 
 }
-#endif

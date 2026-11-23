@@ -14,9 +14,9 @@
  */
 
 #include "mafianet/native_feature_includes.h"
-#if _RAKNET_SUPPORT_ReplicaManager3 == 1
 
 #include "mafianet/replica_manager3.h"
+#include "replication_wire.h"
 #include "mafianet/virtual_world_replica3.h"
 #include "mafianet/get_time.h"
 #include "mafianet/message_identifiers.h"
@@ -51,6 +51,7 @@ public:
 			record->servedPass = 0;
 		}
 		record->replica = replica;
+		record->broadcastRevision = 0;
 		if (++nextAllocation == 0)
 			++nextAllocation; // Zero identifies records constructed outside this store.
 		record->allocationNumber = nextAllocation;
@@ -300,17 +301,18 @@ private:
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-ReplicaManager3::ReplicaManager3()
+ReplicaManager3::ReplicaManager3(RakPeerInterface &peer)
+    : rakPeerInterface(&peer)
 {
 	defaultSendParameters.orderingChannel = 0;
 	defaultSendParameters.priority = MafiaNet::Priority::High;
 	defaultSendParameters.reliability = MafiaNet::Reliability::ReliableOrdered;
 	defaultSendParameters.sendReceipt = 0;
+	nextReferenceIndex = 0;
 	autoSerializeInterval = 30;
 	lastAutoSerializeOccurance = 0;
 	autoCreateConnections = true;
 	autoDestroyConnections = true;
-	currentlyDeallocatingReplica = 0;
 	serializeExecutor = 0;
 	serializePass = 0;
 	inSerializePass = false;
@@ -373,8 +375,10 @@ void ReplicaManager3::AutoCreateConnectionList(
 			Connection_RM3 *connection = AllocConnection(rakPeerInterface->GetSystemAddressFromGuid(participantListIn[index]), participantListIn[index]);
 			if (connection)
 			{
-				PushConnection(connection);
-				participantListOut.push_back(connection);
+				if (PushConnection(connection, worldId))
+					participantListOut.push_back(connection);
+				else
+					DeallocConnection(connection);
 			}
 		}
 	}
@@ -405,8 +409,7 @@ bool ReplicaManager3::PushConnection(MafiaNet::Connection_RM3 *newConnection, Wo
 			world->connectionList.push_back(newConnection);
 		}
 
-		// Send message to validate the connection
-		newConnection->SendValidation(rakPeerInterface, worldId);
+		newConnection->isValidated = true;
 
 		Connection_RM3::ConstructionMode constructionMode = newConnection->QueryConstructionMode();
 		if (constructionMode == Connection_RM3::QUERY_REPLICA_FOR_CONSTRUCTION || constructionMode == Connection_RM3::QUERY_REPLICA_FOR_CONSTRUCTION_AND_DESTRUCTION)
@@ -417,15 +420,6 @@ bool ReplicaManager3::PushConnection(MafiaNet::Connection_RM3 *newConnection, Wo
 		}
 	}
 	return true;
-}
-
-// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
-void ReplicaManager3::DeallocReplicaNoBroadcastDestruction(MafiaNet::Connection_RM3 *connection, MafiaNet::Replica3 *replica3)
-{
-	currentlyDeallocatingReplica = replica3;
-	replica3->DeallocReplica(connection);
-	currentlyDeallocatingReplica = 0;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -449,15 +443,13 @@ MafiaNet::Connection_RM3 *ReplicaManager3::PopConnection(unsigned int index, Wor
 	// finds the connection gone, so the caller may free it on return.
 	ConnectionLockHolder connectionLock(LockConnection(connection));
 
-	// Clear out downloadGroup
-	connection->ClearDownloadGroup(rakPeerInterface);
 
 	RakNetGUID guid = connection->GetRakNetGUID();
 	// This might be wrong, I am relying on the variable creatingSystemGuid which is transmitted
 	// automatically from the first system to reference the object. However, if an object changes
 	// owners then it is not going to be returned here, and therefore QueryActionOnPopConnection()
 	// will not be called for the new owner.
-	GetReplicasCreatedByGuid(guid, replicaList);
+	GetReplicasCreatedByGuid(guid, replicaList, worldId);
 
 	for (index2 = 0; index2 < replicaList.size(); index2++)
 	{
@@ -490,7 +482,7 @@ MafiaNet::Connection_RM3 *ReplicaManager3::PopConnection(unsigned int index, Wor
 		}
 	}
 
-	BroadcastDestructionList(broadcastList, connection->GetSystemAddress());
+	BroadcastDestructionList(broadcastList, connection->GetSystemAddress(), worldId);
 	for (index2 = 0; index2 < destructionList.size(); index2++)
 	{
 		// Do lookup in case DeallocReplica destroyed one of of the later Replica3 instances in the list
@@ -567,10 +559,15 @@ unsigned int ReplicaManager3::ReferenceInternal(MafiaNet::Replica3 *replica3, Wo
 		{
 			ReplicaSetChange change(this);
 			replica3->SetNetworkIDManager(world->networkIDManager);
+			if (!replica3->referencingWorlds)
+			{
+				// Pass numbers and body indexes belong to the manager that issued them.
+				replica3->preparedPass = replica3->neededPass = replica3->parallelPass = 0;
+				replica3->firstBroadcastBody = UINT32_MAX;
+			}
 			replica3->replicaManager = this;
 			++replica3->referencingWorlds;
 		}
-		// If it crashes on rakPeerInterface==0 then you didn't call RakPeerInterface::AttachPlugin()
 		if (replica3->creatingSystemGUID == UNASSIGNED_RAKNET_GUID)
 			replica3->creatingSystemGUID = rakPeerInterface->GetGuidFromSystemAddress(UNASSIGNED_SYSTEM_ADDRESS);
 		replica3->broadcastsIdentically = replica3->BroadcastsIdentically();
@@ -607,6 +604,8 @@ void ReplicaManager3::Dereference(MafiaNet::Replica3 *replica3, WorldId worldId)
 		}
 	}
 
+	if (!wasReferenced)
+		return;
 	// Remove from all connections
 	for (index2 = 0; index2 < world->connectionList.size(); index2++)
 	{
@@ -618,12 +617,16 @@ void ReplicaManager3::Dereference(MafiaNet::Replica3 *replica3, WorldId worldId)
 		// Waits for a Deserialize() of it under way on the receive thread. Out of its last world, it leaves the
 		// table too, with its id: no state message finds it again, and it can be destroyed with no thread
 		// walking over it.
+		if (replica3->referencingWorlds == 1)
+			OnFinalDereference(*replica3);
 		ReplicaSetChange change(this);
-		if (--replica3->referencingWorlds == 0 && replica3->GetNetworkIDManager() != 0)
+		if (--replica3->referencingWorlds == 0)
 		{
 			const NetworkID networkId = replica3->GetNetworkID();
 			replica3->SetNetworkIDManager(0);
 			replica3->SetNetworkID(networkId);
+			replica3->replicaManager = nullptr;
+			replica3->referenceIndex = static_cast<uint32_t>(-1);
 		}
 	}
 }
@@ -893,19 +896,6 @@ void ReplicaManager3::GetConnectionsThatHaveReplicaConstructed(Replica3 *replica
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-bool ReplicaManager3::GetAllConnectionDownloadsCompleted(WorldId worldId) const
-{
-	RakAssert(worldsArray[worldId] != 0 && "World not in use");
-	RM3World *world = worldsArray[worldId];
-
-	unsigned int index;
-	for (index = 0; index < world->connectionList.size(); index++)
-	{
-		if (world->connectionList[index]->GetDownloadWasCompleted() == false)
-			return false;
-	}
-	return true;
-}
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -946,27 +936,27 @@ void ReplicaManager3::RM3World::Clear(ReplicaManager3 *replicaManager3)
 		ListLock listLock(replicaManager3->m_WorldListMutex);
 		connectionList.clear();
 	}
-	for (unsigned int i = 0; i < connections.size(); i++)
+	for (Connection_RM3 *connection : connections)
 	{
-		ConnectionLockHolder connectionLock(replicaManager3->LockConnection(connections[i]));
-		--connectionLock.lock->worlds;
-		// Clear out downloadGroup even if not auto destroying the connection, since the packets need to go back to RakPeer
-		if (replicaManager3->GetAutoDestroyConnections() == false)
-			connections[i]->ClearDownloadGroup(replicaManager3->GetRakPeerInterface());
-	}
-	if (replicaManager3->GetAutoDestroyConnections())
-	{
-		for (unsigned int i = 0; i < connections.size(); i++)
-			replicaManager3->DeallocConnection(connections[i]);
+		ConnectionLockHolder connectionLock(replicaManager3->LockConnection(connection));
+		if (--connectionLock.lock->worlds == 0)
+		{
+
+			if (replicaManager3->GetAutoDestroyConnections())
+				replicaManager3->DeallocConnection(connection);
+		}
 	}
 
 	{
 		ReplicaSetChange change(replicaManager3);
-		for (unsigned int i = 0; i < userReplicaList.size(); i++)
+		for (Replica3 *replica : userReplicaList)
 		{
-			userReplicaList[i]->replicaManager = 0;
-			userReplicaList[i]->referencingWorlds = 0;
-			userReplicaList[i]->SetNetworkIDManager(0);
+			if (--replica->referencingWorlds == 0)
+			{
+				replica->replicaManager = nullptr;
+				replica->referenceIndex = static_cast<uint32_t>(-1);
+				replica->SetNetworkIDManager(nullptr);
+			}
 		}
 	}
 	ListLock listLock(replicaManager3->m_WorldListMutex);
@@ -1000,6 +990,8 @@ void ReplicaManager3::RemoveWorld(WorldId worldId)
 {
 	RakAssert(worldsArray[worldId] != 0 && "World not in use");
 	std::lock_guard<std::recursive_mutex> worldLock(worldMutex);
+	++membershipGeneration;
+	worldsArray[worldId]->Clear(this);
 	ListLock listLock(m_WorldListMutex);
 	for (unsigned int i = 0; i < worldsList.size(); i++)
 	{
@@ -1050,88 +1042,15 @@ void ReplicaManager3::SetNetworkIDManager(NetworkIDManager *_networkIDManager, W
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-PluginReceiveResult ReplicaManager3::OnReceive(Packet *packet)
-{
-	if (packet->length < 2)
-		return RR_CONTINUE_PROCESSING;
-
-	WorldId incomingWorldId;
-
-	MafiaNet::Time timestamp = 0;
-	unsigned char packetIdentifier, packetDataOffset;
-	if ((unsigned char) packet->data[0] == ID_TIMESTAMP)
-	{
-		if (packet->length > sizeof(unsigned char) + sizeof(MafiaNet::Time))
-		{
-			packetIdentifier = (unsigned char) packet->data[sizeof(unsigned char) + sizeof(MafiaNet::Time)];
-			// Required for proper endian swapping
-			MafiaNet::BitStream tsBs(packet->data + sizeof(MessageID), packet->length - 1, false);
-			tsBs.Read(timestamp);
-			// Next line assumes worldId is only 1 byte
-			RakAssert(sizeof(WorldId) == 1);
-			incomingWorldId = packet->data[sizeof(unsigned char) * 2 + sizeof(MafiaNet::Time)];
-			packetDataOffset = sizeof(unsigned char) * 3 + sizeof(MafiaNet::Time);
-		}
-		else
-			return RR_STOP_PROCESSING_AND_DEALLOCATE;
-	}
-	else
-	{
-		packetIdentifier = (unsigned char) packet->data[0];
-		// Next line assumes worldId is only 1 byte
-		RakAssert(sizeof(WorldId) == 1);
-		incomingWorldId = packet->data[sizeof(unsigned char)];
-		packetDataOffset = sizeof(unsigned char) * 2;
-	}
-
-	{
-		ListLock listLock(m_WorldListMutex);
-		if (worldsArray[incomingWorldId] == 0)
-			return RR_CONTINUE_PROCESSING;
-	}
-
-	switch (packetIdentifier)
-	{
-	case ID_REPLICA_MANAGER_CONSTRUCTION:
-		return OnConstruction(packet, packet->data, packet->length, packet->guid, packetDataOffset, incomingWorldId);
-	case ID_REPLICA_MANAGER_SERIALIZE:
-		return OnSerialize(packet, packet->data, packet->length, packet->guid, timestamp, packetDataOffset, incomingWorldId);
-	case ID_REPLICA_MANAGER_DOWNLOAD_STARTED:
-		if (packet->wasGeneratedLocally == false)
-		{
-			return OnDownloadStarted(packet, packet->data, packet->length, packet->guid, packetDataOffset, incomingWorldId);
-		}
-		else
-			break;
-	case ID_REPLICA_MANAGER_DOWNLOAD_COMPLETE:
-		if (packet->wasGeneratedLocally == false)
-		{
-			return OnDownloadComplete(packet, packet->data, packet->length, packet->guid, packetDataOffset, incomingWorldId);
-		}
-		else
-			break;
-	case ID_REPLICA_MANAGER_SCOPE_CHANGE:
-	{
-		RM3ConnectionLock *lock;
-		Connection_RM3 *connection = LockConnectionByGUID(packet->guid, incomingWorldId, lock);
-		ConnectionLockHolder connectionLock(lock);
-		if (connection && connection->isValidated == false)
-		{
-			// This connection is now confirmed bidirectional
-			connection->isValidated = true;
-			// Reply back on validation
-			connection->SendValidation(rakPeerInterface, incomingWorldId);
-		}
-	}
-	}
-
-	return RR_CONTINUE_PROCESSING;
-}
-
-// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
 void Connection_RM3::AutoConstructByQuery(ReplicaManager3 *replicaManager3, WorldId worldId)
 {
+	// Preserve reliable ordering across an enqueue refusal and an immediate re-entry.
+	while (!pendingRemovals.empty())
+	{
+		if (!TryRemoval(pendingRemovals.front(), *replicaManager3->GetRakPeerInterface()))
+			return;
+		pendingRemovals.pop_front();
+	}
 	ValidateLists(replicaManager3);
 
 	ConstructionMode curConstructionMode = QueryConstructionMode();
@@ -1141,6 +1060,7 @@ void Connection_RM3::AutoConstructByQuery(ReplicaManager3 *replicaManager3, Worl
 	LastSerializationResult *lsr;
 	index = 0;
 
+	existingArrivals.clear();
 	constructedReplicasCulled.clear();
 	destroyedReplicasCulled.clear();
 
@@ -1153,56 +1073,8 @@ void Connection_RM3::AutoConstructByQuery(ReplicaManager3 *replicaManager3, Worl
 			if (constructionState == RM3CS_ALREADY_EXISTS_REMOTELY || constructionState == RM3CS_ALREADY_EXISTS_REMOTELY_DO_NOT_CONSTRUCT)
 			{
 				OnReplicaAlreadyExists(index, replicaManager3);
-				if (constructionState == RM3CS_ALREADY_EXISTS_REMOTELY)
-					constructedReplicasCulled.push_back(lsr->replica);
-
-				/*
-				if (constructionState==RM3CS_ALREADY_EXISTS_REMOTELY)
-				{
-					// Serialize construction data to this connection
-					MafiaNet::BitStream bsOut;
-					bsOut.Write((MessageID)ID_REPLICA_MANAGER_3_SERIALIZE_CONSTRUCTION_EXISTING);
-					bsOut.Write(replicaManager3->GetWorldID());
-					NetworkID networkId;
-					networkId=lsr->replica->GetNetworkID();
-					bsOut.Write(networkId);
-					BitSize_t bitsWritten = bsOut.GetNumberOfBitsUsed();
-					lsr->replica->SerializeConstructionExisting(&bsOut, this);
-					if (bsOut.GetNumberOfBitsUsed()!=bitsWritten)
-						replicaManager3->SendUnified(&bsOut,MafiaNet::Priority::High,MafiaNet::Reliability::ReliableOrdered,0,GetSystemAddress(), false);
-				}
-
-				// Serialize first serialization to this connection.
-				// This is done here, as it isn't done in PushConstruction
-				SerializeParameters sp;
-				MafiaNet::BitStream emptyBs;
-				for (index=0; index < (unsigned int) RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; index++)
-				{
-					sp.lastSentBitstream[index]=&emptyBs;
-					sp.pro[index]=replicaManager3->GetDefaultSendParameters();
-				}
-				sp.bitsWrittenSoFar=0;
-				sp.destinationConnection=this;
-				sp.messageTimestamp=0;
-				sp.whenLastSerialized=0;
-
-				MafiaNet::Replica3 *replica = lsr->replica;
-
-				RM3SerializationResult res = replica->Serialize(&sp);
-				if (res!=RM3SR_NEVER_SERIALIZE_FOR_THIS_CONNECTION &&
-					res!=RM3SR_DO_NOT_SERIALIZE &&
-					res!=RM3SR_SERIALIZED_UNIQUELY)
-				{
-					bool allIndices[RM3_NUM_OUTPUT_BITSTREAM_CHANNELS];
-					for (int z=0; z < RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; z++)
-					{
-						sp.bitsWrittenSoFar+=sp.outputBitstream[z].GetNumberOfBitsUsed();
-						allIndices[z]=true;
-					}
-					if (SendSerialize(replica, allIndices, sp.outputBitstream, sp.messageTimestamp, sp.pro, replicaManager3->GetRakPeerInterface(), replicaManager3->GetWorldID())==SSICR_SENT_DATA)
-						lsr->replica->whenLastSerialized=MafiaNet::GetTimeMS();
-				}
-				*/
+				existingArrivals.emplace(lsr->replica->GetNetworkID(), constructionState == RM3CS_ALREADY_EXISTS_REMOTELY);
+				constructedReplicasCulled.push_back(lsr->replica);
 			}
 			else if (constructionState == RM3CS_SEND_CONSTRUCTION)
 			{
@@ -1286,6 +1158,10 @@ void Connection_RM3::AutoConstructByQuery(ReplicaManager3 *replicaManager3, Worl
 
 	SendConstruction(constructedReplicasCulled, destroyedReplicasCulled, replicaManager3->defaultSendParameters, replicaManager3->rakPeerInterface, worldId, replicaManager3);
 }
+bool ReplicaManager3::HoldsConnectionLock() const
+{
+	return connectionLocksHeld > 0 && connectionLocksOwner == this;
+}
 void ReplicaManager3::Update(void)
 {
 	unsigned int index, index3;
@@ -1299,7 +1175,7 @@ void ReplicaManager3::Update(void)
 	// this pass's state. The pass already under way covers it.
 	// So would one made while this thread handles a connection's message. Another thread's Update(), or the
 	// receive thread changing the world, is waited for instead.
-	if (connectionLocksHeld > 0 && connectionLocksOwner == this)
+	if (HoldsConnectionLock())
 		return;
 	std::lock_guard<std::recursive_mutex> worldLock(worldMutex);
 	if (inUpdate)
@@ -1336,12 +1212,16 @@ void ReplicaManager3::Update(void)
 			// A new pass: whatever replicas prepared for the last one is stale. 0 is never a pass.
 			if (++serializePass == 0)
 				serializePass = 1;
+			broadcastBodies.clear();
+			broadcastBytes.clear();
+			shareBroadcastBodies = world->connectionList.size() > 1;
 			inSerializePass = true;
 			if (serializeExecutor != 0 && world->connectionList.size() > 1)
 				SerializeConnectionsParallel(world, worldId, time);
 			else
 				SerializeConnections(world, worldId, time);
 			inSerializePass = false;
+			shareBroadcastBodies = false;
 		}
 
 		lastAutoSerializeOccurance = time;
@@ -1386,14 +1266,22 @@ ReplicaManager3::StateDelivery::~StateDelivery()
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-bool ReplicaManager3::StateDelivery::Deserialize(NetworkID networkId, DeserializeParameters *parameters)
+Connection_RM3 *ReplicaManager3::StateDelivery::GetConnection() const
 {
-	if (connection == 0 || networkIDManager == 0)
+	// The held lock outlives a sender removed by a callback on this thread.
+	return lock && lock->worlds ? connection : nullptr;
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+bool ReplicaManager3::StateDelivery::Deserialize(NetworkID networkId, DeserializeParameters *parameters, uint32_t referenceIndex)
+{
+	if (!GetConnection() || networkIDManager == 0)
 		return false;
 	// From the lookup to the end of Deserialize(): the replica stays in the table and alive, see Dereference().
 	ReplicaSetDelivery delivery(&replicaManager);
 	Replica3 *replica = networkIDManager->GET_OBJECT_FROM_ID<Replica3 *>(networkId);
-	if (replica == 0 || replica->replicaManager != &replicaManager || replica->referencingWorlds == 0)
+	if (replica == 0 || replica->replicaManager != &replicaManager || replica->referencingWorlds == 0 || (referenceIndex != UINT32_MAX && referenceIndex != replica->referenceIndex))
 		return false;
 	parameters->sourceConnection = connection;
 	replica->Deserialize(parameters);
@@ -1464,89 +1352,51 @@ enum class ServeShare
 	Rest
 };
 
-void WriteSerializationHeader(Replica3 *replica, Time timestamp, BitStream &out, WorldId worldId)
+using ChannelBits = std::array<BitSize_t, RM3_NUM_OUTPUT_BITSTREAM_CHANNELS>;
+static_assert(RM3_NUM_OUTPUT_BITSTREAM_CHANNELS == 16);
+
+unsigned SelectedChannels(const bool *selected, const BitStream *streams)
 {
-	out.Reset();
-	if (timestamp != 0)
-	{
-		out.Write((MessageID) ID_TIMESTAMP);
-		out.Write(timestamp);
-	}
-	out.Write((MessageID) ID_REPLICA_MANAGER_SERIALIZE);
-	out.Write(worldId);
-	out.Write(replica->GetNetworkID());
+	unsigned mask = 0;
+	for (unsigned i = 0; i < RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; ++i)
+		if (selected[i] && streams[i].GetNumberOfBitsUsed() && streams[i].GetNumberOfBitsUsed() <= ReplicationWire::MaxPayloadBits)
+			mask |= 1u << i;
+	return mask;
 }
 
-// Encodes one PRO group, preserving all sixteen wire slots and exact partial-byte lengths.
-uint16_t EncodeSerializationPacket(Replica3 *replica, uint16_t pending, BitStream *data,
-                                   Time timestamp, const PRO *parameters, WorldId worldId,
-                                   BitStream &out, BitSize_t *channelBits, PRO &groupParameters)
+unsigned ChannelGroup(unsigned pending, unsigned first, const PRO *parameters)
 {
-	int first = 0;
-	while ((pending & (1u << first)) == 0)
-		++first;
-	groupParameters = parameters[first];
-	WriteSerializationHeader(replica, timestamp, out, worldId);
-	uint16_t group = 0;
-	for (int z = 0; z < RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; ++z)
-	{
-		const bool selected = (pending & (1u << z)) != 0 && parameters[z] == groupParameters;
-		out.Write(selected);
-		channelBits[z] = selected ? data[z].GetNumberOfBitsUsed() : 0;
-		if (selected)
-		{
-			out.WriteCompressed(channelBits[z]);
-			out.AlignWriteToByteBoundary();
-			out.WriteBits(data[z].GetData(), channelBits[z], false);
-			group |= static_cast<uint16_t>(1u << z);
-		}
-	}
+	unsigned group = 1u << first;
+	for (unsigned i = first + 1; (pending >> i) != 0; ++i)
+		if ((pending & (1u << i)) && parameters[i] == parameters[first])
+			group |= 1u << i;
 	return group;
 }
 
-void PrepareSerializationVariants(Replica3 *replica, WorldId worldId, uint32_t pass)
+// Absent channels are consecutive zero bits in the extended format. Write each run
+// in one operation and preserve the exact length of partially filled channel bytes.
+void WriteChannelBody(BitStream &out, const BitStream *streams, unsigned group, bool primaryOnly, ChannelBits &lengths)
 {
-	static_assert(RM3_NUM_OUTPUT_BITSTREAM_CHANNELS == 16, "Update prepared mask width with the channel count");
-	uint16_t active = 0;
-	for (int z = 0; z < RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; ++z)
-		if (replica->lastSentSerialization.indicesToSend[z] && replica->lastSentSerialization.bitStream[z].GetNumberOfBitsUsed() != 0)
-			active |= static_cast<uint16_t>(1u << z);
-	std::array<uint16_t, RM3_NUM_OUTPUT_BITSTREAM_CHANNELS + 1> masks{};
-	unsigned count = 0;
-	if (active)
+	const unsigned char zeros[2] = {};
+	unsigned next = 0;
+	for (unsigned i = 0; (group >> i) != 0; ++i)
 	{
-		masks[count++] = active;
-		for (int z = 0; z < RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; ++z)
+		if (!(group & (1u << i)))
+			continue;
+		const auto bits = streams[i].GetNumberOfBitsUsed();
+		lengths[i] = bits;
+		if (!primaryOnly)
 		{
-			const uint16_t bit = static_cast<uint16_t>(1u << z);
-			if ((active & bit) && active != bit)
-				masks[count++] = bit;
+			if (i != next)
+				out.WriteBits(zeros, i - next, false);
+			out.Write(true);
+			out.Write(bits);
 		}
+		out.WriteBits(streams[i].GetData(), bits, false);
+		next = i + 1;
 	}
-	replica->preparedPacketWorld = worldId;
-	replica->preparedPacketNetworkId = replica->GetNetworkID();
-	replica->preparedVariantsPass = pass;
-	replica->preparedPacketVariants.resize(count);
-	BitStream encoded;
-	for (unsigned i = 0; i < count; ++i)
-	{
-		auto &variant = replica->preparedPacketVariants[i];
-		variant.channelMask = masks[i];
-		uint16_t pending = masks[i];
-		unsigned packetIndex = 0;
-		while (pending)
-		{
-			if (packetIndex == variant.packets.size())
-				variant.packets.emplace_back();
-			auto &packet = variant.packets[packetIndex++];
-			const uint16_t group = EncodeSerializationPacket(replica, pending, replica->lastSentSerialization.bitStream,
-			                                                 replica->preparedTimestamp, replica->preparedPro, worldId, encoded, packet.channelBits.data(), packet.parameters);
-			packet.bits = encoded.GetNumberOfBitsUsed();
-			packet.bytes.assign(encoded.GetData(), encoded.GetData() + encoded.GetNumberOfBytesUsed());
-			pending &= static_cast<uint16_t>(~group);
-		}
-		variant.packets.resize(packetIndex);
-	}
+	if (!primaryOnly && next < RM3_NUM_OUTPUT_BITSTREAM_CHANNELS)
+		out.WriteBits(zeros, RM3_NUM_OUTPUT_BITSTREAM_CHANNELS - next, false);
 }
 
 // Returns false when a game callback dropped the connection, which must then not be touched again.
@@ -1736,11 +1586,15 @@ void ReplicaManager3::SerializeConnectionsParallel(RM3World *world, WorldId worl
 		if (replica->neededPass != serializePass)
 			continue;
 		if (replica->preparedPass != serializePass)
-			// Workers read variants concurrently: whenever more than one connection could share
-			// this broadcast, they must find the bytes already built here, never build them there.
-			PrepareBroadcast(replica, time, worldId, world->connectionList.size() >= 2);
+			PrepareBroadcast(replica, time);
 		if (replica->prepared != Replica3::PB_SERIALIZE_PER_CONNECTION)
+		{
 			replica->parallelPass = serializePass;
+			// Own-list recipients may already have prepared this replica on the pass thread.
+			// Finish its cache before any worker reads the shared bytes.
+			if (shareBroadcastBodies && replica->prepared == Replica3::PB_SEND && replica->firstBroadcastBody == UINT32_MAX)
+				CacheBroadcastBodies(*replica);
+		}
 		if (membershipGeneration != generation)
 		{
 			// A Serialize() changed the replica list: start over; what is prepared stays prepared.
@@ -1804,13 +1658,24 @@ void ReplicaManager3::ServePreparedBroadcasts(void *context, unsigned int index)
 	sp.bitsWrittenSoFar = 0;
 	for (int i = 0; i < RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; i++)
 		sp.pro[i] = pass.replicaManager->defaultSendParameters;
-	ServeSerializeList(connection, connection->queryToSerializeReplicaList, sp, pass.rakPeer, pass.worldId, pass.replicaManager, pass.time, pass.pass, ServeShare::Workers, &connection->restPending);
+	if (!ServeSerializeList(connection, connection->queryToSerializeReplicaList, sp, pass.rakPeer, pass.worldId, pass.replicaManager, pass.time, pass.pass, ServeShare::Workers, &connection->restPending))
+		return;
 	connection->restSummaryPass = pass.pass;
 	connection->restSummaryWorld = pass.worldId;
 	connection->restSummaryRevision = connection->serializationListRevision;
 }
 
-void ReplicaManager3::PrepareBroadcast(Replica3 *replica, MafiaNet::Time time, WorldId worldId, bool buildVariantsEagerly)
+bool Replica3::CheckStateSize(const SerializeParameters &parameters)
+{
+	for (const auto &channel : parameters.outputBitstream)
+		if (channel.GetNumberOfBitsUsed() > ReplicationWire::MaxPayloadBits)
+		{
+			rejectedStateCount.fetch_add(1, std::memory_order_relaxed);
+			return false;
+		}
+	return true;
+}
+void ReplicaManager3::PrepareBroadcast(Replica3 *replica, MafiaNet::Time time)
 {
 	replica->preparedPass = serializePass;
 	replica->prepared = Replica3::PB_SERIALIZE_PER_CONNECTION;
@@ -1828,7 +1693,7 @@ void ReplicaManager3::PrepareBroadcast(Replica3 *replica, MafiaNet::Time time, W
 	}
 
 	const RM3SerializationResult result = replica->Serialize(&sp);
-	if (result == RM3SR_DO_NOT_SERIALIZE)
+	if (result == RM3SR_DO_NOT_SERIALIZE || !replica->CheckStateSize(sp))
 	{
 		replica->prepared = Replica3::PB_NOTHING_TO_SEND;
 		return;
@@ -1852,508 +1717,77 @@ void ReplicaManager3::PrepareBroadcast(Replica3 *replica, MafiaNet::Time time, W
 			last.Reset();
 			out.ResetReadPointer();
 			last.Write(&out);
+			if (!any)
+				++replica->broadcastRevision;
+			replica->channelRevision[z] = replica->broadcastRevision;
+			replica->preparedPro[z] = sp.pro[z];
 			any = true;
 		}
 	}
 	// Anything else reaching this replica this pass (a connection's own list) sends the same bytes.
 	replica->forceSendUntilNextUpdate = true;
-	replica->prepared = any ? Replica3::PB_SEND : Replica3::PB_NOTHING_TO_SEND;
+	replica->prepared = any ? Replica3::PB_SEND : Replica3::PB_UNCHANGED;
 	if (!any)
 		return;
 	replica->preparedTimestamp = sp.messageTimestamp;
-	for (int z = 0; z < RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; z++)
-		replica->preparedPro[z] = sp.pro[z];
 	replica->lastBroadcast = time;
-	// Eagerly built variants are what executor workers find ready; a lazy build leaves any stale ones
-	// in place, unreadable this pass through preparedVariantsPass, and cheaper not to walk and free.
-	replica->preparedRecipientsThisPass = 0;
-	if (buildVariantsEagerly)
-		PrepareSerializationVariants(replica, worldId, serializePass);
+	if (shareBroadcastBodies)
+		replica->firstBroadcastBody = UINT32_MAX;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-void ReplicaManager3::OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason)
+void ReplicaManager3::CacheBroadcastBodies(Replica3 &replica)
 {
-	(void) lostConnectionReason;
-	(void) systemAddress;
-	if (autoDestroyConnections)
+	auto &data = replica.lastSentSerialization;
+	unsigned pending = SelectedChannels(data.indicesToSend, data.bitStream);
+	// The cache is optional. Bound the total logical storage even when many large
+	// objects are dirty. Each selected channel can require its own PRO group,
+	// two bytes of presence bits, a length field and its rounded-up payload.
+	constexpr size_t maxCacheBytes = 8 * 1024 * 1024;
+	size_t needed = broadcastBodies.size() * sizeof(BroadcastBody) + broadcastBytes.size();
+	for (unsigned i = 0; (pending >> i) != 0; ++i)
+		if (pending & (1u << i))
+			needed += sizeof(BroadcastBody) + 2 + sizeof(BitSize_t) + BITS_TO_BYTES(data.bitStream[i].GetNumberOfBitsUsed());
+	if (!pending || needed > maxCacheBytes)
 	{
-		Connection_RM3 *connection = PopConnection(rakNetGUID);
-		if (connection)
-			DeallocConnection(connection);
+		replica.firstBroadcastBody = UINT32_MAX - 1; // Use the direct encoder for the rest of this pass.
+		return;
 	}
-}
-
-// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
-void ReplicaManager3::OnNewConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, bool isIncoming)
-{
-	(void) isIncoming;
-	if (autoCreateConnections)
+	const auto firstBody = broadcastBodies.size();
+	BitStream encoded;
+	for (unsigned first = 0; pending; ++first)
 	{
-		Connection_RM3 *connection = AllocConnection(systemAddress, rakNetGUID);
-		if (connection)
-			PushConnection(connection);
-	}
-}
-
-// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
-void ReplicaManager3::OnRakPeerShutdown(void)
-{
-	if (autoDestroyConnections)
-	{
-		RM3World *world;
-		unsigned int index3;
-		std::lock_guard<std::recursive_mutex> worldLock(worldMutex);
-		for (index3 = 0; index3 < worldsList.size(); index3++)
-		{
-			world = worldsList[index3];
-
-			while (world->connectionList.size())
-			{
-				Connection_RM3 *connection = PopConnection((unsigned int) (world->connectionList.size() - 1), world->worldId);
-				if (connection)
-					DeallocConnection(connection);
-			}
-		}
-	}
-
-
-	Clear(false);
-}
-
-// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
-void ReplicaManager3::OnDetach(void)
-{
-	OnRakPeerShutdown();
-}
-
-// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
-PluginReceiveResult ReplicaManager3::OnConstruction(Packet *packet, unsigned char *packetData, int packetDataLength, RakNetGUID senderGuid, unsigned char packetDataOffset, WorldId worldId)
-{
-	// From nobody we know: not worth waiting for the world.
-	if (GetConnectionByGUID(senderGuid, worldId) == 0)
-	{
-		RakAssert("Got OnConstruction but no connection yet" && 0);
-		return RR_CONTINUE_PROCESSING;
-	}
-
-	// What it constructs and destroys is the world's, for every connection.
-	std::lock_guard<std::recursive_mutex> worldLock(worldMutex);
-	RM3World *world = worldsArray[worldId];
-
-	RM3ConnectionLock *lock;
-	Connection_RM3 *connection = LockConnectionByGUID(senderGuid, worldId, lock);
-	ConnectionLockHolder connectionLock(lock);
-	if (connection == 0)
-	{
-		// Almost certainly a bug
-		RakAssert("Got OnConstruction but no connection yet" && 0);
-		return RR_CONTINUE_PROCESSING;
-	}
-	if (connection->groupConstructionAndSerialize)
-	{
-		connection->downloadGroup.push_back(packet);
-		return RR_STOP_PROCESSING;
-	}
-
-	MafiaNet::BitStream bsIn(packetData, packetDataLength, false);
-	bsIn.IgnoreBytes(packetDataOffset);
-	uint16_t constructionObjectListSize, destructionObjectListSize, index, index2;
-	BitSize_t streamEnd, writeAllocationIDEnd;
-	Replica3 *replica;
-	NetworkID networkId;
-	RakNetGUID creatingSystemGuid;
-	bool actuallyCreateObject = false;
-
-	std::vector<bool> actuallyCreateObjectList;
-	std::vector<Replica3 *> constructionTickStack;
-
-	RakAssert(world->networkIDManager);
-
-	bsIn.Read(constructionObjectListSize);
-	for (index = 0; index < constructionObjectListSize; index++)
-	{
-		bsIn.Read(streamEnd);
-		bsIn.Read(networkId);
-		Replica3 *existingReplica = world->networkIDManager->GET_OBJECT_FROM_ID<Replica3 *>(networkId);
-		bsIn.Read(actuallyCreateObject);
-		actuallyCreateObjectList.push_back(actuallyCreateObject);
-		bsIn.AlignReadToByteBoundary();
-
-		if (actuallyCreateObject)
-		{
-			bsIn.Read(creatingSystemGuid);
-			bsIn.Read(writeAllocationIDEnd);
-
-			//printf("OnConstruction: %i\n",networkId.guid.g); // Removeme
-			if (existingReplica)
-			{
-				existingReplica->replicaManager = this;
-
-				// Network ID already in use
-				connection->OnDownloadExisting(existingReplica, this);
-
-				constructionTickStack.push_back(0);
-				bsIn.SetReadOffset(streamEnd);
-				continue;
-			}
-
-			bsIn.AlignReadToByteBoundary();
-			replica = connection->AllocReplica(&bsIn, this);
-			if (replica == 0)
-			{
-				constructionTickStack.push_back(0);
-				bsIn.SetReadOffset(streamEnd);
-				continue;
-			}
-
-			// Go past the bitStream written to with WriteAllocationID(). Necessary in case the user didn't read out the bitStream the same way it was written
-			// bitOffset2 is already aligned
-			bsIn.SetReadOffset(writeAllocationIDEnd);
-
-			replica->SetNetworkIDManager(world->networkIDManager);
-			replica->SetNetworkID(networkId);
-
-			replica->replicaManager = this;
-			replica->creatingSystemGUID = creatingSystemGuid;
-
-			if (!replica->QueryRemoteConstruction(connection) ||
-			    !replica->DeserializeConstruction(&bsIn, connection))
-			{
-				DeallocReplicaNoBroadcastDestruction(connection, replica);
-				bsIn.SetReadOffset(streamEnd);
-				constructionTickStack.push_back(0);
-				continue;
-			}
-
-			constructionTickStack.push_back(replica);
-
-			// Register the replica
-			ReferenceInternal(replica, worldId);
-		}
-		else
-		{
-			if (existingReplica)
-			{
-				existingReplica->DeserializeConstructionExisting(&bsIn, connection);
-				constructionTickStack.push_back(existingReplica);
-			}
-			else
-			{
-				constructionTickStack.push_back(0);
-			}
-		}
-
-
-		bsIn.SetReadOffset(streamEnd);
-		bsIn.AlignReadToByteBoundary();
-	}
-
-	RakAssert(constructionTickStack.size() == constructionObjectListSize);
-	RakAssert(actuallyCreateObjectList.size() == constructionObjectListSize);
-
-	MafiaNet::BitStream empty;
-	for (index = 0; index < constructionObjectListSize; index++)
-	{
-		bool pdcWritten = false;
-		bsIn.Read(pdcWritten);
-		if (pdcWritten)
-		{
-			bsIn.AlignReadToByteBoundary();
-			bsIn.Read(streamEnd);
-			bsIn.Read(networkId);
-			if (constructionTickStack[index] != 0)
-			{
-				bsIn.AlignReadToByteBoundary();
-				if (actuallyCreateObjectList[index])
-					constructionTickStack[index]->PostDeserializeConstruction(&bsIn, connection);
-				else
-					constructionTickStack[index]->PostDeserializeConstructionExisting(&bsIn, connection);
-			}
-			bsIn.SetReadOffset(streamEnd);
-		}
-		else
-		{
-			if (constructionTickStack[index] != 0)
-			{
-				if (actuallyCreateObjectList[index])
-					constructionTickStack[index]->PostDeserializeConstruction(&empty, connection);
-				else
-					constructionTickStack[index]->PostDeserializeConstructionExisting(&empty, connection);
-			}
-		}
-	}
-	bsIn.AlignReadToByteBoundary();
-
-	for (index = 0; index < constructionObjectListSize; index++)
-	{
-		if (constructionTickStack[index] != 0)
-		{
-			if (actuallyCreateObjectList[index])
-			{
-				// Tell the connection(s) that this object exists since they just sent it to us
-				connection->OnDownloadFromThisSystem(constructionTickStack[index], this);
-
-				for (index2 = 0; index2 < world->connectionList.size(); index2++)
-				{
-					if (world->connectionList[index2] != connection)
-						world->connectionList[index2]->OnDownloadFromOtherSystem(constructionTickStack[index], this);
-				}
-			}
-		}
-	}
-
-	// Destructions
-	bool b = bsIn.Read(destructionObjectListSize);
-	(void) b;
-	RakAssert(b);
-	for (index = 0; index < destructionObjectListSize; index++)
-	{
-		bsIn.Read(networkId);
-		bsIn.Read(streamEnd);
-		replica = world->networkIDManager->GET_OBJECT_FROM_ID<Replica3 *>(networkId);
-		if (replica == 0)
-		{
-			// Unknown object
-			bsIn.SetReadOffset(streamEnd);
+		if (!(pending & (1u << first)))
 			continue;
-		}
-		bsIn.Read(replica->deletingSystemGUID);
-		if (replica->DeserializeDestruction(&bsIn, connection))
-		{
-			// Make sure it wasn't deleted in DeserializeDestruction
-			if (world->networkIDManager->GET_OBJECT_FROM_ID<Replica3 *>(networkId))
-			{
-				replica->PreDestruction(connection);
-
-				// Forward deletion by remote system
-				if (replica->QueryRelayDestruction(connection))
-					BroadcastDestruction(replica, connection->GetSystemAddress());
-				Dereference(replica);
-				DeallocReplicaNoBroadcastDestruction(connection, replica);
-			}
-		}
-		else
-		{
-			replica->PreDestruction(connection);
-			connection->OnDereference(replica, this);
-		}
-
-		bsIn.AlignReadToByteBoundary();
+		const unsigned group = ChannelGroup(pending, first, replica.preparedPro);
+		pending &= ~group;
+		auto &body = broadcastBodies.emplace_back();
+		body.offset = broadcastBytes.size();
+		body.pro = replica.preparedPro[first];
+		body.primaryOnly = replica.replaceableSnapshot && group == 1;
+		body.last = pending == 0;
+		encoded.Reset();
+		WriteChannelBody(encoded, data.bitStream, group, body.primaryOnly, body.channelBits);
+		body.bits = encoded.GetNumberOfBitsUsed();
+		broadcastBytes.insert(broadcastBytes.end(), encoded.GetData(), encoded.GetData() + encoded.GetNumberOfBytesUsed());
 	}
-	return RR_CONTINUE_PROCESSING;
+	replica.firstBroadcastBody = static_cast<uint32_t>(firstBody);
 }
-
-// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
-PluginReceiveResult ReplicaManager3::OnSerialize(Packet *packet, unsigned char *packetData, int packetDataLength, RakNetGUID senderGuid, MafiaNet::Time timestamp, unsigned char packetDataOffset, WorldId worldId)
-{
-	RM3ConnectionLock *lock;
-	Connection_RM3 *connection = LockConnectionByGUID(senderGuid, worldId, lock);
-	ConnectionLockHolder connectionLock(lock);
-	if (connection == 0)
-		return RR_CONTINUE_PROCESSING;
-	if (connection->groupConstructionAndSerialize)
-	{
-		connection->downloadGroup.push_back(packet);
-		return RR_STOP_PROCESSING;
-	}
-
-	NetworkIDManager *networkIDManager;
-	{
-		ListLock listLock(m_WorldListMutex);
-		networkIDManager = worldsArray[worldId] ? worldsArray[worldId]->networkIDManager : 0;
-	}
-	RakAssert(networkIDManager);
-	if (networkIDManager == 0)
-		return RR_CONTINUE_PROCESSING;
-	MafiaNet::BitStream bsIn(packetData, packetDataLength, false);
-	bsIn.IgnoreBytes(packetDataOffset);
-
-	struct DeserializeParameters ds;
-	ds.timeStamp = timestamp;
-	ds.sourceConnection = connection;
-
-	Replica3 *replica;
-	NetworkID networkId;
-	BitSize_t bitsUsed;
-	bsIn.Read(networkId);
-	//printf("OnSerialize: %i\n",networkId.guid.g); // Removeme
-	// From the lookup to the end of Deserialize(): the replica stays in the table and alive, see Dereference().
-	ReplicaSetDelivery delivery(this);
-	replica = networkIDManager->GET_OBJECT_FROM_ID<Replica3 *>(networkId);
-	if (replica && replica->replicaManager == this && replica->referencingWorlds > 0)
-	{
-		for (int z = 0; z < RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; z++)
-		{
-			bsIn.Read(ds.bitstreamWrittenTo[z]);
-			if (ds.bitstreamWrittenTo[z])
-			{
-				bsIn.ReadCompressed(bitsUsed);
-				bsIn.AlignReadToByteBoundary();
-				bsIn.Read(ds.serializationBitstream[z], bitsUsed);
-			}
-		}
-		replica->Deserialize(&ds);
-	}
-	return RR_CONTINUE_PROCESSING;
-}
-// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
-PluginReceiveResult ReplicaManager3::OnDownloadStarted(Packet *packet, unsigned char *packetData, int packetDataLength, RakNetGUID senderGuid, unsigned char packetDataOffset, WorldId worldId)
-{
-	RM3ConnectionLock *lock;
-	Connection_RM3 *connection = LockConnectionByGUID(senderGuid, worldId, lock);
-	ConnectionLockHolder connectionLock(lock);
-	if (connection == 0)
-		return RR_CONTINUE_PROCESSING;
-	if (connection->QueryGroupDownloadMessages() &&
-	    // ID_DOWNLOAD_STARTED will be processed twice, being processed the second time once ID_DOWNLOAD_COMPLETE arrives.
-	    // However, the second time groupConstructionAndSerialize will be set to true so it won't be processed a third time
-	    connection->groupConstructionAndSerialize == false)
-	{
-		// These messages will be held by the plugin and returned when the download is complete
-		connection->groupConstructionAndSerialize = true;
-		RakAssert(connection->downloadGroup.size() == 0);
-		connection->downloadGroup.push_back(packet);
-		return RR_STOP_PROCESSING;
-	}
-
-	connection->groupConstructionAndSerialize = false;
-	MafiaNet::BitStream bsIn(packetData, packetDataLength, false);
-	bsIn.IgnoreBytes(packetDataOffset);
-	connection->DeserializeOnDownloadStarted(&bsIn);
-	return RR_CONTINUE_PROCESSING;
-}
-
-// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
-PluginReceiveResult ReplicaManager3::OnDownloadComplete(Packet *packet, unsigned char *packetData, int packetDataLength, RakNetGUID senderGuid, unsigned char packetDataOffset, WorldId worldId)
-{
-	RM3ConnectionLock *lock;
-	Connection_RM3 *connection = LockConnectionByGUID(senderGuid, worldId, lock);
-	ConnectionLockHolder connectionLock(lock);
-	if (connection == 0)
-		return RR_CONTINUE_PROCESSING;
-
-	if (connection->groupConstructionAndSerialize == true && connection->downloadGroup.size() > 0)
-	{
-		// Push back buffered packets in front of this one
-		unsigned int i;
-		for (i = 0; i < connection->downloadGroup.size(); i++)
-			rakPeerInterface->PushBackPacket(connection->downloadGroup[i], false);
-
-		// Push this one to be last too. It will be processed again, but the second time
-		// groupConstructionAndSerialize will be false and downloadGroup will be empty, so it will go past this block
-		connection->downloadGroup.clear();
-		rakPeerInterface->PushBackPacket(packet, false);
-
-		return RR_STOP_PROCESSING;
-	}
-
-	MafiaNet::BitStream bsIn(packetData, packetDataLength, false);
-	bsIn.IgnoreBytes(packetDataOffset);
-	connection->gotDownloadComplete = true;
-	connection->DeserializeOnDownloadComplete(&bsIn);
-	return RR_CONTINUE_PROCESSING;
-}
-
-// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
-Replica3 *ReplicaManager3::GetReplicaByNetworkID(NetworkID networkId, WorldId worldId)
-{
-	RM3World *world = worldsArray[worldId];
-
-	unsigned int i;
-	for (i = 0; i < world->userReplicaList.size(); i++)
-	{
-		if (world->userReplicaList[i]->GetNetworkID() == networkId)
-			return world->userReplicaList[i];
-	}
-	return 0;
-}
-
-
-// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
 
 void ReplicaManager3::BroadcastDestructionList(std::vector<Replica3 *> &replicaListSource, const SystemAddress &exclusionAddress, WorldId worldId)
 {
-	MafiaNet::BitStream bsOut;
-	unsigned int i, j;
-
 	std::lock_guard<std::recursive_mutex> worldLock(worldMutex);
-	RakAssert(worldsArray[worldId] != 0 && "World not in use");
-	RM3World *world = worldsArray[worldId];
-
-	std::vector<Replica3 *> replicaList;
-
-	for (i = 0; i < replicaListSource.size(); i++)
+	for (auto *replica : replicaListSource)
+		if (replica->deletingSystemGUID == UNASSIGNED_RAKNET_GUID)
+			replica->deletingSystemGUID = rakPeerInterface->GetMyGUID();
+	for (auto *connection : worldsArray[worldId]->connectionList)
 	{
-		if (replicaListSource[i] == currentlyDeallocatingReplica)
+		if (connection->GetSystemAddress() == exclusionAddress && exclusionAddress != UNASSIGNED_SYSTEM_ADDRESS)
 			continue;
-		replicaList.push_back(replicaListSource[i]);
-	}
-
-	if (replicaList.size() == 0)
-		return;
-
-	for (i = 0; i < replicaList.size(); i++)
-	{
-		if (replicaList[i]->deletingSystemGUID == UNASSIGNED_RAKNET_GUID)
-			replicaList[i]->deletingSystemGUID = GetRakPeerInterface()->GetGuidFromSystemAddress(UNASSIGNED_SYSTEM_ADDRESS);
-	}
-
-	for (j = 0; j < world->connectionList.size(); j++)
-	{
-		if (world->connectionList[j]->GetSystemAddress() == exclusionAddress)
-			continue;
-
-		bsOut.Reset();
-		bsOut.Write((MessageID) ID_REPLICA_MANAGER_CONSTRUCTION);
-		bsOut.Write(worldId);
-		uint16_t cnt = 0;
-		bsOut.Write(cnt); // No construction
-		cnt = (uint16_t) replicaList.size();
-		BitSize_t cntOffset = bsOut.GetWriteOffset();
-		;
-		bsOut.Write(cnt); // Overwritten at send call
-		cnt = 0;
-
-		for (i = 0; i < replicaList.size(); i++)
-		{
-			if (world->connectionList[j]->HasReplicaConstructed(replicaList[i]) == false)
-				continue;
-			cnt++;
-
-			NetworkID networkId;
-			networkId = replicaList[i]->GetNetworkID();
-			bsOut.Write(networkId);
-			BitSize_t offsetStart, offsetEnd;
-			offsetStart = bsOut.GetWriteOffset();
-			bsOut.Write(offsetStart);
-			bsOut.Write(replicaList[i]->deletingSystemGUID);
-			replicaList[i]->SerializeDestruction(&bsOut, world->connectionList[j]);
-			bsOut.AlignWriteToByteBoundary();
-			offsetEnd = bsOut.GetWriteOffset();
-			bsOut.SetWriteOffset(offsetStart);
-			bsOut.Write(offsetEnd);
-			bsOut.SetWriteOffset(offsetEnd);
-		}
-
-		if (cnt > 0)
-		{
-			BitSize_t curOffset = bsOut.GetWriteOffset();
-			bsOut.SetWriteOffset(cntOffset);
-			bsOut.Write(cnt);
-			bsOut.SetWriteOffset(curOffset);
-			rakPeerInterface->Send(&bsOut, defaultSendParameters.priority, defaultSendParameters.reliability, defaultSendParameters.orderingChannel, world->connectionList[j]->GetSystemAddress(), false, defaultSendParameters.sendReceipt);
-		}
+		for (auto *replica : replicaListSource)
+			if (connection->HasReplicaConstructed(replica))
+				connection->SendRemoval(*replica, true, *rakPeerInterface);
 	}
 }
 
@@ -2379,9 +1813,8 @@ Connection_RM3::Connection_RM3(const SystemAddress &_systemAddress, RakNetGUID _
 	ownSerializationListPass = 0;
 	listQueriedPass = 0;
 	servedPass = 0;
-	isFirstConstruction = true;
-	groupConstructionAndSerialize = false;
-	gotDownloadComplete = false;
+
+
 	virtualWorld = VIRTUAL_WORLD_DEFAULT;
 	lock = new RM3ConnectionLock;
 }
@@ -2425,71 +1858,79 @@ bool Connection_RM3::HasReplicaConstructed(MafiaNet::Replica3 *replica)
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-void Connection_RM3::SendSerializeHeader(MafiaNet::Replica3 *replica, MafiaNet::Time timestamp, MafiaNet::BitStream *bs, WorldId worldId)
+void Connection_RM3::TransmitState(Replica3 &, BitStream &out, PRO pro, RakPeerInterface &peer)
 {
-	WriteSerializationHeader(replica, timestamp, *bs, worldId);
+	peer.Send(&out, pro.priority, pro.reliability, pro.orderingChannel, guid, false, pro.sendReceipt);
 }
-// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-void Connection_RM3::ClearDownloadGroup(RakPeerInterface *rakPeerInterface)
+void Connection_RM3::SendSerializeHeader(MafiaNet::Replica3 *replica, MafiaNet::Time timestamp, MafiaNet::BitStream *bs, bool primaryOnly)
 {
-	unsigned int i;
-	for (i = 0; i < downloadGroup.size(); i++)
-		rakPeerInterface->DeallocatePacket(downloadGroup[i]);
-	downloadGroup.clear();
-}
-// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-SendSerializeIfChangedResult Connection_RM3::SendSerialize(MafiaNet::Replica3 *replica, bool indicesToSend[RM3_NUM_OUTPUT_BITSTREAM_CHANNELS], MafiaNet::BitStream serializationData[RM3_NUM_OUTPUT_BITSTREAM_CHANNELS], MafiaNet::Time timestamp, PRO sendParameters[RM3_NUM_OUTPUT_BITSTREAM_CHANNELS], RakPeerInterface *rakPeer, unsigned char worldId, MafiaNet::Time curTime)
-{
-	uint16_t pending = 0;
-	auto *manager = replica->replicaManager;
-	bool matchingParameters = manager && manager->inSerializePass && replica->preparedPass == manager->serializePass &&
-	                          replica->prepared == Replica3::PB_SEND && serializationData == replica->lastSentSerialization.bitStream &&
-	                          timestamp == replica->preparedTimestamp && worldId == replica->preparedPacketWorld && replica->GetNetworkID() == replica->preparedPacketNetworkId &&
-	                          replica->preparedVariantsPass == manager->serializePass;
-	for (int z = 0; z < RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; ++z)
+	bs->Reset();
+	ReplicationWire::WriteHeader(*bs, replica->replaceableSnapshot ? ReplicationWire::Kind::Snapshot : ReplicationWire::Kind::State, clientToken, serverToken, outgoingSnapshotContext);
+	const auto visit = outgoingVisits.find(replica->GetNetworkID());
+	const uint64_t incarnation = visit == outgoingVisits.end() ? 0 : visit->second;
+	++nextState;
+	if (replica->replaceableSnapshot)
 	{
-		if (indicesToSend[z] && serializationData[z].GetNumberOfBitsUsed() != 0)
-		{
-			pending |= static_cast<uint16_t>(1u << z);
-			matchingParameters = matchingParameters && sendParameters[z] == replica->preparedPro[z];
-		}
+		ReplicationWire::WriteVar(*bs, nextState);
+		ReplicationWire::WriteVar(*bs, timestamp);
+		// Zero is reserved for the extended, multi-channel layout.
+		if (!primaryOnly)
+			ReplicationWire::WriteVar(*bs, 0);
+		ReplicationWire::WriteVar(*bs, incarnation);
+		return;
 	}
-	BitSize_t bitsPerChannel[RM3_NUM_OUTPUT_BITSTREAM_CHANNELS] = {};
-	if (pending == 0)
+	bs->Write(replica->GetNetworkID());
+	bs->Write(incarnation);
+	bs->Write(nextState);
+	bs->Write(timestamp);
+}
+// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+SendSerializeIfChangedResult Connection_RM3::SendSerialize(MafiaNet::Replica3 *replica, bool indicesToSend[RM3_NUM_OUTPUT_BITSTREAM_CHANNELS], MafiaNet::BitStream serializationData[RM3_NUM_OUTPUT_BITSTREAM_CHANNELS], MafiaNet::Time timestamp, PRO sendParameters[RM3_NUM_OUTPUT_BITSTREAM_CHANNELS], RakPeerInterface *rakPeer, unsigned char, MafiaNet::Time curTime)
+{
+	BitStream out;
+	auto *manager = replica->replicaManager;
+	if (manager && manager->shareBroadcastBodies && replica->preparedPass == manager->serializePass &&
+	    replica->prepared == Replica3::PB_SEND && replica->firstBroadcastBody < manager->broadcastBodies.size() &&
+	    serializationData == replica->lastSentSerialization.bitStream && sendParameters == replica->preparedPro &&
+	    (indicesToSend == replica->lastSentSerialization.indicesToSend ||
+	     std::equal(indicesToSend, indicesToSend + RM3_NUM_OUTPUT_BITSTREAM_CHANNELS, replica->lastSentSerialization.indicesToSend)))
 	{
-		BitStream empty;
-		replica->OnSerializeTransmission(&empty, this, bitsPerChannel, curTime);
+		for (auto index = replica->firstBroadcastBody;; ++index)
+		{
+			// Copy the metadata before calling game code, which may send another replica.
+			auto body = manager->broadcastBodies[index];
+			SendSerializeHeader(replica, timestamp, &out, body.primaryOnly);
+			out.WriteBits(manager->broadcastBytes.data() + body.offset, body.bits, false);
+			replica->OnSerializeTransmission(&out, this, body.channelBits.data(), curTime);
+			TransmitState(*replica, out, body.pro, *rakPeer);
+			if (body.last)
+				break;
+		}
+		return SSICR_SENT_DATA;
+	}
+	unsigned pending = SelectedChannels(indicesToSend, serializationData);
+	if (!pending)
+	{
+		ChannelBits lengths{};
+		replica->OnSerializeTransmission(&out, this, lengths.data(), curTime);
 		return SSICR_DID_NOT_SEND_DATA;
 	}
-	if (matchingParameters)
-	{
-		for (const auto &variant : replica->preparedPacketVariants)
-		{
-			if (variant.channelMask != pending)
-				continue;
-			for (const auto &packet : variant.packets)
-			{
-				// Keep legacy mutable callbacks: editing this private copy cannot affect another recipient.
-				BitStream out(const_cast<unsigned char *>(packet.bytes.data()), static_cast<unsigned int>(packet.bytes.size()), true);
-				out.SetWriteOffset(packet.bits);
-				auto channelBits = packet.channelBits;
-				replica->OnSerializeTransmission(&out, this, channelBits.data(), curTime);
-				const PRO &pro = packet.parameters;
-				rakPeer->Send(&out, pro.priority, pro.reliability, pro.orderingChannel, systemAddress, false, pro.sendReceipt);
-			}
-			return SSICR_SENT_DATA;
-		}
-	}
+
 	RakAssert(replica->GetNetworkID() != UNASSIGNED_NETWORK_ID);
-	BitStream out;
-	while (pending)
+	for (unsigned first = 0; pending; ++first)
 	{
-		PRO pro;
-		const uint16_t group = EncodeSerializationPacket(replica, pending, serializationData, timestamp,
-		                                                 sendParameters, worldId, out, bitsPerChannel, pro);
-		replica->OnSerializeTransmission(&out, this, bitsPerChannel, curTime);
-		rakPeer->Send(&out, pro.priority, pro.reliability, pro.orderingChannel, systemAddress, false, pro.sendReceipt);
-		pending &= static_cast<uint16_t>(~group);
+		if (!(pending & (1u << first)))
+			continue;
+		const PRO pro = sendParameters[first];
+		const unsigned group = ChannelGroup(pending, first, sendParameters);
+		const bool primaryOnly = replica->replaceableSnapshot && group == 1;
+		SendSerializeHeader(replica, timestamp, &out, primaryOnly);
+		ChannelBits lengths{};
+		WriteChannelBody(out, serializationData, group, primaryOnly, lengths);
+		replica->OnSerializeTransmission(&out, this, lengths.data(), curTime);
+		TransmitState(*replica, out, pro, *rakPeer);
+		pending &= ~group;
 	}
 	return SSICR_SENT_DATA;
 }
@@ -2530,33 +1971,38 @@ SendSerializeIfChangedResult Connection_RM3::SendSerializeIfChanged(LastSerializ
 	{
 		if (replica->preparedPass != replicaManager->serializePass)
 		{
-			// This runs on the pass thread, serial pass and executor rest step alike; only an executor
-			// worker could race another on the same replica, and it builds no earlier than the eager
-			// variant build it replaces.
-			replicaManager->PrepareBroadcast(replica, curTime, worldId, false);
+			replicaManager->PrepareBroadcast(replica, curTime);
 			if (gone())
 				return SSICR_NEVER_SERIALIZE;
 		}
-		if (replica->prepared == Replica3::PB_NOTHING_TO_SEND)
+		else if (replicaManager->shareBroadcastBodies && replica->prepared == Replica3::PB_SEND &&
+		         replica->firstBroadcastBody == UINT32_MAX && replica->parallelPass != replicaManager->serializePass)
+			replicaManager->CacheBroadcastBodies(*replica);
+		if (replica->prepared == Replica3::PB_NOTHING_TO_SEND || (replica->prepared == Replica3::PB_UNCHANGED && !independentStateCache))
 			return SSICR_DID_NOT_SEND_DATA;
-		if (replica->prepared == Replica3::PB_SEND)
+		if (replica->prepared == Replica3::PB_SEND || replica->prepared == Replica3::PB_UNCHANGED)
 		{
-			// One recipient is served no cheaper from prepared bytes than by encoding directly, which
-			// is what the fallback below does; only a second one this pass proves the variant build
-			// pays for itself, so only then are the variants encoded.
-			if (replica->preparedRecipientsThisPass == 1 && replica->preparedVariantsPass != replicaManager->serializePass)
-				PrepareSerializationVariants(replica, worldId, replicaManager->serializePass);
-			++replica->preparedRecipientsThisPass;
+			bool missed[RM3_NUM_OUTPUT_BITSTREAM_CHANNELS];
+			bool *selected = replica->lastSentSerialization.indicesToSend;
+			if (independentStateCache)
+			{
+				if (lsr->broadcastRevision == replica->broadcastRevision)
+					return SSICR_DID_NOT_SEND_DATA;
+				for (int z = 0; z < RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; ++z)
+					missed[z] = replica->channelRevision[z] > lsr->broadcastRevision;
+				selected = missed;
+				lsr->broadcastRevision = replica->broadcastRevision;
+			}
 			for (int z = 0; z < RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; z++)
 			{
-				if (replica->lastSentSerialization.indicesToSend[z])
+				if (selected[z])
 					sp->bitsWrittenSoFar += replica->lastSentSerialization.bitStream[z].GetNumberOfBitsUsed();
 			}
-			return SendSerialize(replica, replica->lastSentSerialization.indicesToSend, replica->lastSentSerialization.bitStream, replica->preparedTimestamp, replica->preparedPro, rakPeer, worldId, curTime);
+			return SendSerialize(replica, selected, replica->lastSentSerialization.bitStream, replica->preparedTimestamp, replica->preparedPro, rakPeer, worldId, curTime);
 		}
 	}
 
-	if (replica->forceSendUntilNextUpdate)
+	if (!independentStateCache && replica->forceSendUntilNextUpdate)
 	{
 		for (int z = 0; z < RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; z++)
 		{
@@ -2566,6 +2012,9 @@ SendSerializeIfChangedResult Connection_RM3::SendSerializeIfChanged(LastSerializ
 		return SendSerialize(replica, replica->lastSentSerialization.indicesToSend, replica->lastSentSerialization.bitStream, sp->messageTimestamp, sp->pro, rakPeer, worldId, curTime);
 	}
 
+	// Observers served at distinct cadences compare with their own last sent value.
+	if (independentStateCache)
+		lsr->AllocBS();
 	for (int i = 0; i < RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; i++)
 	{
 		sp->outputBitstream[i].Reset();
@@ -2578,6 +2027,13 @@ SendSerializeIfChangedResult Connection_RM3::SendSerializeIfChanged(LastSerializ
 	RM3SerializationResult serializationResult = replica->Serialize(sp);
 	if (gone())
 		return SSICR_NEVER_SERIALIZE;
+	if (independentStateCache)
+	{
+		if (serializationResult == RM3SR_BROADCAST_IDENTICALLY)
+			serializationResult = RM3SR_SERIALIZED_UNIQUELY;
+		else if (serializationResult == RM3SR_BROADCAST_IDENTICALLY_FORCE_SERIALIZATION || serializationResult == RM3SR_SERIALIZED_ALWAYS_IDENTICALLY)
+			serializationResult = RM3SR_SERIALIZED_ALWAYS;
+	}
 
 	if (serializationResult == RM3SR_NEVER_SERIALIZE_FOR_THIS_CONNECTION)
 	{
@@ -2586,7 +2042,7 @@ SendSerializeIfChangedResult Connection_RM3::SendSerializeIfChanged(LastSerializ
 		return SSICR_NEVER_SERIALIZE;
 	}
 
-	if (serializationResult == RM3SR_DO_NOT_SERIALIZE)
+	if (serializationResult == RM3SR_DO_NOT_SERIALIZE || !replica->CheckStateSize(*sp))
 	{
 		// Don't serialize this tick only
 		return SSICR_DID_NOT_SEND_DATA;
@@ -2728,6 +2184,7 @@ void Connection_RM3::OnLocalReference(Replica3 *replica3, ReplicaManager3 *repli
 
 void Connection_RM3::OnDereference(Replica3 *replica3, ReplicaManager3 *replicaManager)
 {
+	outgoingVisits.erase(replica3->GetNetworkID());
 	ValidateLists(replicaManager);
 
 	if (replica3->GetNetworkIDManager() == 0)
@@ -2788,65 +2245,9 @@ void Connection_RM3::OnDereference(Replica3 *replica3, ReplicaManager3 *replicaM
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-void Connection_RM3::OnDownloadFromThisSystem(Replica3 *replica3, ReplicaManager3 *replicaManager)
-{
-	RakAssert(replica3);
-
-	ValidateLists(replicaManager);
-	LastSerializationResult *lsr = lock->records.Acquire(replica3);
-
-	ConstructionMode curConstructionMode = QueryConstructionMode();
-	if (curConstructionMode == QUERY_REPLICA_FOR_CONSTRUCTION || curConstructionMode == QUERY_REPLICA_FOR_CONSTRUCTION_AND_DESTRUCTION)
-	{
-		unsigned int j;
-		for (j = 0; j < queryToConstructReplicaList.size(); j++)
-		{
-			if (queryToConstructReplicaList[j]->replica == replica3)
-			{
-				lock->records.Release(queryToConstructReplicaList[j]);
-				queryToConstructReplicaList.erase(queryToConstructReplicaList.begin() + j);
-				break;
-			}
-		}
-	}
-
-	unsigned int insertedAt;
-	{
-		std::lock_guard<std::mutex> constructedLock(lock->constructed);
-		insertedAt = InsertConstructed(constructedReplicaList, lsr->replica, lsr);
-	}
-	if (insertedAt != (unsigned) -1)
-	{
-		if (curConstructionMode != QUERY_CONNECTION_FOR_REPLICA_LIST)
-			queryToDestructReplicaList.push_back(lsr);
-		queryToSerializeReplicaList.push_back(lsr);
-		++serializationListRevision;
-	}
-	else
-		lock->records.Release(lsr);
-
-	ValidateLists(replicaManager);
-}
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-void Connection_RM3::OnDownloadFromOtherSystem(Replica3 *replica3, ReplicaManager3 *replicaManager)
-{
-	ConstructionMode curConstructionMode = QueryConstructionMode();
-	if (curConstructionMode == QUERY_REPLICA_FOR_CONSTRUCTION || curConstructionMode == QUERY_REPLICA_FOR_CONSTRUCTION_AND_DESTRUCTION)
-	{
-		unsigned int j;
-		for (j = 0; j < queryToConstructReplicaList.size(); j++)
-		{
-			if (queryToConstructReplicaList[j]->replica == replica3)
-			{
-				return;
-			}
-		}
-
-		OnLocalReference(replica3, replicaManager);
-	}
-}
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -2950,28 +2351,6 @@ void Connection_RM3::OnReplicaAlreadyExists(unsigned int queryToConstructIdx, Re
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-void Connection_RM3::OnDownloadExisting(Replica3 *replica3, ReplicaManager3 *replicaManager)
-{
-	ValidateLists(replicaManager);
-
-	ConstructionMode curConstructionMode = QueryConstructionMode();
-	if (curConstructionMode == QUERY_REPLICA_FOR_CONSTRUCTION || curConstructionMode == QUERY_REPLICA_FOR_CONSTRUCTION_AND_DESTRUCTION)
-	{
-		unsigned int idx;
-		for (idx = 0; idx < queryToConstructReplicaList.size(); idx++)
-		{
-			if (queryToConstructReplicaList[idx]->replica == replica3)
-			{
-				OnConstructToThisConnection(idx, replicaManager);
-				return;
-			}
-		}
-	}
-	else
-	{
-		OnConstructToThisConnection(replica3, replicaManager);
-	}
-}
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 void Connection_RM3::OnSendDestructionFromQuery(unsigned int queryToDestructIdx, ReplicaManager3 *replicaManager)
@@ -3142,197 +2521,74 @@ void Connection_RM3::ValidateLists(ReplicaManager3 *replicaManager) const
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-void Connection_RM3::SendConstruction(std::vector<Replica3 *> &newObjects, std::vector<Replica3 *> &deletedObjects, PRO sendParameters, MafiaNet::RakPeerInterface *rakPeer, unsigned char worldId, ReplicaManager3 *replicaManager3)
+void Connection_RM3::SendConstruction(std::vector<Replica3 *> &enter, std::vector<Replica3 *> &leave, PRO, RakPeerInterface *peer, unsigned char world, ReplicaManager3 *manager)
 {
-	if (newObjects.size() == 0 && deletedObjects.size() == 0)
+	// Serialization callbacks may dereference other entries in the same batch.
+	std::vector<NetworkID> arrivals, departures;
+	for (auto *replica : enter)
+		arrivals.push_back(replica->GetNetworkID());
+	for (auto *replica : leave)
+		departures.push_back(replica->GetNetworkID());
+	auto *ids = manager->GetNetworkIDManager(world);
+	for (auto id : arrivals)
+	{
+		auto *replica = static_cast<Replica3 *>(ids->GET_BASE_OBJECT_FROM_ID(id));
+		if (!replica || !HasReplicaConstructed(replica))
+			continue;
+		BitStream out, snapshot;
+		const auto existing = existingArrivals.find(id);
+		const bool bind = replica->staticBinding || existing != existingArrivals.end();
+		ReplicationWire::WriteHeader(out, bind ? ReplicationWire::Kind::Bind : ReplicationWire::Kind::Spawn, clientToken, serverToken);
+		out.Write(replica->GetNetworkID());
+		outgoingVisits[replica->GetNetworkID()] = ++nextVisit;
+		out.Write(nextVisit);
+		out.Write(replica->registeredType);
+		if (bind)
+		{
+			const bool baseline = existing == existingArrivals.end() || existing->second;
+			out.Write(baseline);
+			if (baseline)
+				replica->SerializeConstructionExisting(&snapshot, this);
+		}
+		else
+			replica->SerializeConstruction(&snapshot, this);
+		if (static_cast<Replica3 *>(ids->GET_BASE_OBJECT_FROM_ID(id)) != replica || !HasReplicaConstructed(replica))
+			continue;
+		if (ReplicationWire::WriteBlock(out, snapshot) && peer->Send(&out, Priority::High, Reliability::ReliableOrdered, 0, guid, false))
+			RecordScopeMessage(out.GetNumberOfBytesUsed(), true, false);
+		else
+		{
+			// A peer that never queued the baseline has no visit to remove.
+			outgoingVisits.erase(id);
+			ConstructionFailed(id);
+		}
+	}
+	for (auto id : departures)
+		if (auto *replica = static_cast<Replica3 *>(ids->GET_BASE_OBJECT_FROM_ID(id)))
+			SendRemoval(*replica, false, *peer);
+}
+void Connection_RM3::SendRemoval(Replica3 &replica, bool destroyed, RakPeerInterface &peer)
+{
+	auto it = outgoingVisits.find(replica.GetNetworkID());
+	if (it == outgoingVisits.end())
 		return;
-
-	// All construction and destruction takes place in the same network message
-	// Otherwise, if objects rely on each other being created the same tick to be valid, this won't always be true
-	//	std::vector<LastSerializationResult* > serializedObjects;
-	BitSize_t offsetStart, offsetStart2, offsetEnd;
-	unsigned int newListIndex, oldListIndex;
-	MafiaNet::BitStream bsOut;
-	NetworkID networkId;
-	if (isFirstConstruction)
-	{
-		bsOut.Write((MessageID) ID_REPLICA_MANAGER_DOWNLOAD_STARTED);
-		bsOut.Write(worldId);
-		SerializeOnDownloadStarted(&bsOut);
-		rakPeer->Send(&bsOut, sendParameters.priority, MafiaNet::Reliability::ReliableOrdered, sendParameters.orderingChannel, systemAddress, false, sendParameters.sendReceipt);
-	}
-
-	//	LastSerializationResult* lsr;
-	bsOut.Reset();
-	bsOut.Write((MessageID) ID_REPLICA_MANAGER_CONSTRUCTION);
-	bsOut.Write(worldId);
-	uint16_t objectSize = (uint16_t) newObjects.size();
-	bsOut.Write(objectSize);
-
-	// Construction
-	for (newListIndex = 0; newListIndex < newObjects.size(); newListIndex++)
-	{
-		offsetStart = bsOut.GetWriteOffset();
-		bsOut.Write(offsetStart); // overwritten to point to the end of the stream
-		networkId = newObjects[newListIndex]->GetNetworkID();
-		bsOut.Write(networkId);
-
-		RM3ConstructionState cs = newObjects[newListIndex]->QueryConstruction(this, replicaManager3);
-		bool actuallyCreateObject = cs == RM3CS_SEND_CONSTRUCTION;
-		bsOut.Write(actuallyCreateObject);
-		bsOut.AlignWriteToByteBoundary();
-
-		if (actuallyCreateObject)
-		{
-			// Actually create the object
-			bsOut.Write(newObjects[newListIndex]->creatingSystemGUID);
-			offsetStart2 = bsOut.GetWriteOffset();
-			bsOut.Write(offsetStart2);        // overwritten to point to after the call to WriteAllocationID
-			bsOut.AlignWriteToByteBoundary(); // Give the user an aligned bitStream in case they use memcpy
-			newObjects[newListIndex]->WriteAllocationID(this, &bsOut);
-			bsOut.AlignWriteToByteBoundary(); // Give the user an aligned bitStream in case they use memcpy
-			offsetEnd = bsOut.GetWriteOffset();
-			bsOut.SetWriteOffset(offsetStart2);
-			bsOut.Write(offsetEnd);
-			bsOut.SetWriteOffset(offsetEnd);
-			newObjects[newListIndex]->SerializeConstruction(&bsOut, this);
-		}
-		else
-		{
-			newObjects[newListIndex]->SerializeConstructionExisting(&bsOut, this);
-		}
-
-		bsOut.AlignWriteToByteBoundary();
-		offsetEnd = bsOut.GetWriteOffset();
-		bsOut.SetWriteOffset(offsetStart);
-		bsOut.Write(offsetEnd);
-		bsOut.SetWriteOffset(offsetEnd);
-	}
-
-	MafiaNet::BitStream bsOut2;
-	for (newListIndex = 0; newListIndex < newObjects.size(); newListIndex++)
-	{
-		bsOut2.Reset();
-		RM3ConstructionState cs = newObjects[newListIndex]->QueryConstruction(this, replicaManager3);
-		if (cs == RM3CS_SEND_CONSTRUCTION)
-		{
-			newObjects[newListIndex]->PostSerializeConstruction(&bsOut2, this);
-		}
-		else
-		{
-			RakAssert(cs == RM3CS_ALREADY_EXISTS_REMOTELY);
-			newObjects[newListIndex]->PostSerializeConstructionExisting(&bsOut2, this);
-		}
-		if (bsOut2.GetNumberOfBitsUsed() > 0)
-		{
-			bsOut.Write(true);
-			bsOut.AlignWriteToByteBoundary();
-			offsetStart = bsOut.GetWriteOffset();
-			bsOut.Write(offsetStart); // overwritten to point to the end of the stream
-			networkId = newObjects[newListIndex]->GetNetworkID();
-			bsOut.Write(networkId);
-			bsOut.AlignWriteToByteBoundary(); // Give the user an aligned bitStream in case they use memcpy
-			bsOut.Write(&bsOut2);
-			bsOut.AlignWriteToByteBoundary(); // Give the user an aligned bitStream in case they use memcpy
-			offsetEnd = bsOut.GetWriteOffset();
-			bsOut.SetWriteOffset(offsetStart);
-			bsOut.Write(offsetEnd);
-			bsOut.SetWriteOffset(offsetEnd);
-		}
-		else
-			bsOut.Write(false);
-	}
-	bsOut.AlignWriteToByteBoundary();
-
-	// Destruction
-	objectSize = (uint16_t) deletedObjects.size();
-	bsOut.Write(objectSize);
-	for (oldListIndex = 0; oldListIndex < deletedObjects.size(); oldListIndex++)
-	{
-		networkId = deletedObjects[oldListIndex]->GetNetworkID();
-		bsOut.Write(networkId);
-		offsetStart = bsOut.GetWriteOffset();
-		bsOut.Write(offsetStart);
-		deletedObjects[oldListIndex]->deletingSystemGUID = rakPeer->GetGuidFromSystemAddress(UNASSIGNED_SYSTEM_ADDRESS);
-		bsOut.Write(deletedObjects[oldListIndex]->deletingSystemGUID);
-		deletedObjects[oldListIndex]->SerializeDestruction(&bsOut, this);
-		bsOut.AlignWriteToByteBoundary();
-		offsetEnd = bsOut.GetWriteOffset();
-		bsOut.SetWriteOffset(offsetStart);
-		bsOut.Write(offsetEnd);
-		bsOut.SetWriteOffset(offsetEnd);
-	}
-	rakPeer->Send(&bsOut, sendParameters.priority, MafiaNet::Reliability::ReliableOrdered, sendParameters.orderingChannel, systemAddress, false, sendParameters.sendReceipt);
-
-	// TODO - shouldn't this be part of construction?
-
-	// Initial Download serialize to a new system
-	// Immediately send serialize after construction if the replica object already has saved data
-	// If the object was serialized identically, and does not change later on, then the new connection never gets the data
-	SerializeParameters sp;
-	sp.whenLastSerialized = 0;
-	MafiaNet::BitStream emptyBs;
-	for (int index = 0; index < RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; index++)
-	{
-		sp.lastSentBitstream[index] = &emptyBs;
-		sp.pro[index] = sendParameters;
-		sp.pro[index].reliability = MafiaNet::Reliability::ReliableOrdered;
-	}
-
-	sp.bitsWrittenSoFar = 0;
-	//	MafiaNet::Time t = MafiaNet::GetTimeMS();
-	for (newListIndex = 0; newListIndex < newObjects.size(); newListIndex++)
-	{
-		sp.destinationConnection = this;
-		sp.messageTimestamp = 0;
-		MafiaNet::Replica3 *replica = newObjects[newListIndex];
-		// 8/22/09 Forgot ResetWritePointer
-		for (int z = 0; z < RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; z++)
-		{
-			sp.outputBitstream[z].ResetWritePointer();
-		}
-
-		RM3SerializationResult res = replica->Serialize(&sp);
-		if (res != RM3SR_NEVER_SERIALIZE_FOR_THIS_CONNECTION &&
-		    res != RM3SR_DO_NOT_SERIALIZE &&
-		    res != RM3SR_SERIALIZED_UNIQUELY)
-		{
-			bool allIndices[RM3_NUM_OUTPUT_BITSTREAM_CHANNELS];
-			for (int z = 0; z < RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; z++)
-			{
-				sp.bitsWrittenSoFar += sp.outputBitstream[z].GetNumberOfBitsUsed();
-				allIndices[z] = true;
-			}
-			SendSerialize(replica, allIndices, sp.outputBitstream, sp.messageTimestamp, sp.pro, rakPeer, worldId, GetTime());
-			///			newObjects[newListIndex]->whenLastSerialized=t;
-		}
-		// else wait for construction request accepted before serializing
-	}
-
-	if (isFirstConstruction)
-	{
-		bsOut.Reset();
-		bsOut.Write((MessageID) ID_REPLICA_MANAGER_DOWNLOAD_COMPLETE);
-		bsOut.Write(worldId);
-		SerializeOnDownloadComplete(&bsOut);
-		rakPeer->Send(&bsOut, sendParameters.priority, MafiaNet::Reliability::ReliableOrdered, sendParameters.orderingChannel, systemAddress, false, sendParameters.sendReceipt);
-	}
-
-	isFirstConstruction = false;
+	const Removal removal{it->first, it->second, destroyed};
+	outgoingVisits.erase(it);
+	if (!pendingRemovals.empty() || !TryRemoval(removal, peer))
+		pendingRemovals.push_back(removal);
 }
 
-// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
-void Connection_RM3::SendValidation(MafiaNet::RakPeerInterface *rakPeer, WorldId worldId)
+bool Connection_RM3::TryRemoval(const Removal &removal, RakPeerInterface &peer)
 {
-	// Hijack to mean sendValidation
-	MafiaNet::BitStream bsOut;
-	bsOut.Write((MessageID) ID_REPLICA_MANAGER_SCOPE_CHANGE);
-	bsOut.Write(worldId);
-	rakPeer->Send(&bsOut, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, systemAddress, false);
+	BitStream out;
+	ReplicationWire::WriteHeader(out, removal.destroyed ? ReplicationWire::Kind::Destroy : ReplicationWire::Kind::Leave, clientToken, serverToken);
+	out.Write(removal.id);
+	out.Write(removal.visit);
+	if (!peer.Send(&out, Priority::High, Reliability::ReliableOrdered, 0, guid, false))
+		return false;
+	RecordScopeMessage(out.GetNumberOfBytesUsed(), false, removal.destroyed);
+	return true;
 }
-
-// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 Replica3::Replica3()
 {
@@ -3358,7 +2614,14 @@ Replica3::~Replica3()
 {
 	if (replicaManager)
 	{
-		replicaManager->Dereference(this);
+		ReplicaManager3 *manager = replicaManager;
+		std::lock_guard<std::recursive_mutex> worldLock(manager->worldMutex);
+		for (const auto *world : manager->worldsList)
+		{
+			if (referencingWorlds == 0)
+				break;
+			manager->Dereference(this, world->worldId);
+		}
 		// Out of the table here, under the manager's locks: ~NetworkIDObject() would do it under none.
 		Replica3::SetNetworkIDManager(0);
 	}
@@ -3583,5 +2846,3 @@ RM3ActionOnPopConnection Replica3::QueryActionOnPopConnection_PeerToPeer(MafiaNe
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
-#endif // _RAKNET_SUPPORT_*

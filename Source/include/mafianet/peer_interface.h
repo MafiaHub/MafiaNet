@@ -23,6 +23,7 @@
 
 #include "mafianet/packet_priority.h"
 #include "mafianet/remote_procedure_call.h"
+#include "mafianet/replication_manager.h"
 #include "mafianet/types.h"
 #include "mafianet/session_crypto.h"
 #include "mafianet/export.h"
@@ -39,6 +40,20 @@ struct RakNetBandwidth;
 class RouterInterface;
 class NetworkIDManager;
 
+enum class DatagramSendStatus
+{
+	Queued,
+	TooLarge,
+	NotConnected,
+	InvalidArgument,
+	OutOfMemory
+};
+struct DatagramSendResult
+{
+	DatagramSendStatus status = DatagramSendStatus::InvalidArgument;
+	uint32_t receipt = 0;
+};
+
 /// The primary interface for RakNet, RakPeer contains all major functions for the library.
 /// See the individual functions for what the class can do.
 /// \brief The main interface for network communications
@@ -50,6 +65,9 @@ public:
 
 	/// Built-in named calls and signals. Registrations last for the lifetime of this peer.
 	virtual RPC &GetRPC() = 0;
+
+	/// Built-in object replication, available before and after startup.
+	virtual ReplicationManager &GetReplication() = 0;
 
 	///Destructor
 	virtual ~RakPeerInterface() {}
@@ -544,6 +562,13 @@ public:
 	/// \param[in] target Which system to get this for.  UNASSIGNED_SYSTEM_ADDRESS to get the default
 	/// \return The current MTU size
 	virtual int GetMTUSize(const SystemAddress target) const = 0;
+
+	/// Current application payload ceiling in bytes, or zero for an unknown peer or invalid reliability.
+	virtual unsigned GetMaxUnfragmentedPayload(const AddressOrGUID target, Reliability reliability) const = 0;
+	/// Queue an unreliable unicast without fragmentation or reliability promotion.
+	/// A later path shrink may drop a queued datagram; receipt mode reports loss.
+	virtual DatagramSendResult SendDatagram(const char *data, int length, Priority priority, Reliability reliability, char orderingChannel, const AddressOrGUID target) = 0;
+	virtual DatagramSendResult SendDatagram(const BitStream &data, Priority priority, Reliability reliability, char orderingChannel, const AddressOrGUID target) = 0;
 
 	/// Returns the number of IP addresses this system has internally. Get the actual addresses from GetLocalIP()
 	virtual unsigned GetNumberOfAddresses(void) = 0;

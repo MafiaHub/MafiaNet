@@ -64,7 +64,7 @@ Available generators (run `cmake --help` for full list):
 | `MAFIANET_BUILD_TESTS` | OFF | Build test suite |
 | `MAFIANET_BUILD_EXTRAS` | OFF | Build `MafiaNetExtras` (EmailSender, HTTPConnection*, Telnet/RakNet transports, ConsoleServer, command parsers, PacketConsoleLogger); forced ON by `MAFIANET_BUILD_SAMPLES` |
 | `MAFIANET_DISABLED_FEATURES` | (empty) | Semicolon list of plugins to compile out (`_RAKNET_SUPPORT_<Name>=0`); names validated against `MAFIANET_OPTIONAL_FEATURES` in `Source/CMakeLists.txt` |
-| `MAFIANET_MINIMAL` | OFF | Compile out every optional plugin (core transport only); built by the `linux-minimal` CI job |
+| `MAFIANET_MINIMAL` | OFF | Compile out every optional plugin (core transport, RPC and replication); built by the `linux-minimal` CI job |
 | `MAFIANET_SANITIZER` | (empty) | `address+undefined` or `thread`; applied to every target. Prefer the `asan` / `tsan` presets |
 | `MAFIANET_USE_COMPILER_CACHE` | ON | Use sccache/ccache as compiler launcher when found on `PATH` |
 | `MAFIANET_WARNINGS_AS_ERRORS` | OFF | `-Werror` / `/WX` on MafiaNet's own targets (on in every CI job except the oldest-toolchain Docker one) |

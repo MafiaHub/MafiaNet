@@ -10,6 +10,8 @@
 #include <array>
 #include <cstring>
 #include <map>
+#include <numeric>
+#include <optional>
 #include <random>
 #include <string>
 
@@ -22,6 +24,8 @@ using namespace MafiaNet;
 
 namespace
 {
+void RunMixedTraffic(benchmark::State &state, bool allReliable, bool finitePath = false);
+
 constexpr int gameplay = 0;
 constexpr int urgent = 1;
 constexpr int bulk = 2;
@@ -61,7 +65,17 @@ struct Traces
 	std::array<QueueDepth, 3> depth{};
 	int now = 0;
 	int bulkDelivered = 0;
+	uint64_t deliveredBytes = 0;
 	bool valid = true;
+
+	uint32_t Enqueue(int lane, unsigned bytes, Reliability reliability)
+	{
+		auto &trace = messages[lane].emplace_back();
+		trace.queued = now;
+		trace.bytes = bytes;
+		trace.requestedUnreliable = reliability == Reliability::Unreliable;
+		return static_cast<uint32_t>(messages[lane].size() - 1);
+	}
 
 	bool Identify(const unsigned char *data, size_t bytes, int &lane, uint32_t &index) const
 	{
@@ -109,6 +123,7 @@ struct Traces
 		if (trace.complete < 0 || trace.delivered >= 0)
 			valid = false;
 		trace.delivered = now;
+		deliveredBytes += trace.bytes;
 		if (lane == bulk)
 			++bulkDelivered;
 	}
@@ -196,11 +211,32 @@ private:
 	bool sender;
 };
 
+bool ConsumeOrdered(const SimulatedNetwork::Message &message, std::array<uint32_t, 3> &next)
+{
+	if (message.id < ID_USER_PACKET_ENUM)
+		return true;
+	const unsigned lane = message.id - ID_USER_PACKET_ENUM;
+	if (lane >= next.size() || message.data.size() < prefixBytes)
+		return false;
+	uint32_t index;
+	std::memcpy(&index, message.data.data() + 1, sizeof(index));
+	return index == next[lane]++;
+}
+
+template <class T>
+T Percentile(std::vector<T> &times, size_t percentile)
+{
+	const auto nth = times.begin() + (percentile * times.size() + 99) / 100 - 1;
+	std::nth_element(times.begin(), nth, times.end());
+	return *nth;
+}
+
 void Report(benchmark::State &state, const std::string &prefix, const std::vector<MessageTrace> &messages, const QueueDepth &depth, unsigned samples)
 {
 	unsigned started = 0, retried = 0, complete = 0, delivered = 0, resends = 0;
 	unsigned unreliable = 0, promoted = 0;
 	uint64_t offeredBytes = 0, firstSendBytes = 0, deliveredBytes = 0, resendBytes = 0;
+	std::vector<int> firstSendTimes, deliveryTimes;
 	double queue = 0, retry = 0, assembly = 0, delivery = 0, total = 0;
 	for (const auto &m : messages)
 	{
@@ -212,6 +248,7 @@ void Report(benchmark::State &state, const std::string &prefix, const std::vecto
 			++started;
 			unreliable += m.requestedUnreliable;
 			promoted += m.promotedToReliable;
+			firstSendTimes.push_back(m.firstSent - m.queued);
 			queue += m.firstSent - m.queued;
 		}
 		if (m.firstResent >= 0)
@@ -230,6 +267,7 @@ void Report(benchmark::State &state, const std::string &prefix, const std::vecto
 			++delivered;
 			deliveredBytes += m.bytes;
 			delivery += m.delivered - m.complete;
+			deliveryTimes.push_back(m.delivered - m.queued);
 			total += m.delivered - m.queued;
 		}
 	}
@@ -254,7 +292,10 @@ void Report(benchmark::State &state, const std::string &prefix, const std::vecto
 		state.counters[prefix + "_upgraded_to_reliable"] = promoted;
 	}
 	if (started)
+	{
 		state.counters[prefix + "_queue_ms"] = queue / started;
+		state.counters[prefix + "_queue_p95_ms"] = Percentile(firstSendTimes, 95);
+	}
 	if (retried)
 		state.counters[prefix + "_first_retry_ms"] = retry / retried;
 	if (complete)
@@ -263,19 +304,45 @@ void Report(benchmark::State &state, const std::string &prefix, const std::vecto
 	{
 		state.counters[prefix + "_complete_to_app_ms"] = delivery / delivered;
 		state.counters[prefix + "_latency_ms"] = total / delivered;
+		state.counters[prefix + "_latency_p95_ms"] = Percentile(deliveryTimes, 95);
+		state.counters[prefix + "_latency_p99_ms"] = Percentile(deliveryTimes, 99);
 	}
 }
 
+void ConfigureGameplayLink(SimulatedNetwork &net, RakPeer *server, RakPeer *client, int loss)
+{
+	SimulatedNetwork::LinkRule link;
+	link.delayMs = 50;
+	link.lossPercent = loss;
+	link.reorderPerThousand = 5;
+	link.reorderDelayMs = 25;
+	net.SetLinkBothWays(server, client, link);
+	server->SetPerConnectionOutgoingBandwidthLimit(256 * 1024 * 8);
+}
+
 void RakPeer_MixedTraffic(benchmark::State &state)
+{
+	RunMixedTraffic(state, false);
+}
+
+void RunMixedTraffic(benchmark::State &state, bool allReliable, bool finitePath)
 {
 	const auto loss = static_cast<int>(state.range(0));
 	const auto blockBytes = static_cast<int>(state.range(1)) * 1024;
 	const auto seed = static_cast<unsigned>(state.range(2));
 	Traces traces;
 	FragmentObserver sender(traces, true), receiver(traces, false);
+	std::optional<SimulatedBottleneck> pathStorage; // outlive every link that refers to the FIFO
+	uint64_t wireBytes = 0;
 	SimulatedNetwork net(seed);
 	auto *server = net.AddPeer(1, 1);
 	auto *client = net.AddPeer(1);
+	if (finitePath)
+	{
+		SimulatedNetwork::LinkRule propagation;
+		propagation.delayMs = 50;
+		net.SetLinkBothWays(server, client, propagation);
+	}
 	if (!net.Connect(client, server))
 	{
 		state.SkipWithError("handshake failed");
@@ -285,43 +352,68 @@ void RakPeer_MixedTraffic(benchmark::State &state)
 	const auto clientAddress = net.AddressOf(client);
 	server->AttachPlugin(&sender);
 	client->AttachPlugin(&receiver);
-	SimulatedNetwork::LinkRule link;
-	link.delayMs = 50;
-	link.lossPercent = loss;
-	link.reorderPerThousand = 5;
-	link.reorderDelayMs = 25;
-	net.SetLinkBothWays(server, client, link);
-	server->SetPerConnectionOutgoingBandwidthLimit(256 * 1024 * 8);
+	ConfigureGameplayLink(net, server, client, loss);
 
-	uint64_t wireBytes = 0;
 	net.SetTap([&](const SystemAddress &from, const SystemAddress &, const char *, int size)
 	           {
 		if (from == serverAddress)
 			wireBytes += size; });
+	const auto epoch = net.Now();
+	std::vector<SimulatedBottleneck::Rate> rates{{0, 256 * 1024}};
+	if (finitePath && state.range(3) == 1)
+	{
+		rates.push_back({epoch + 20000000, 64 * 1024});
+		rates.push_back({epoch + 40000000, 256 * 1024});
+	}
+	auto &bottleneck = pathStorage.emplace(51200, std::move(rates));
+	if (finitePath)
+	{
+		SimulatedNetwork::LinkRule link;
+		link.delayMs = 50;
+		link.lossPercent = loss;
+		link.reorderPerThousand = static_cast<uint32_t>(state.range(4));
+		link.reorderDelayMs = 25;
+		net.SetLink(client, server, link);
+		link.bottleneck = &bottleneck;
+		net.SetLink(server, client, link);
+		server->SetPerConnectionOutgoingBandwidthLimit(0);
+	}
+
 	std::mt19937 random(seed);
 	auto draw = [&](int min, int max)
 	{ return std::uniform_int_distribution<int>(min, max)(random); };
 	std::vector<unsigned char> payload(std::max(5000, blockBytes));
+	uint32_t upstreamOffered = 0;
+	std::array<uint32_t, 3> downstreamReceived{}, upstreamReceived{};
+	auto collect = [&]
+	{
+		for (const auto &m : net.Inbox(client))
+		{
+			traces.Deliver(m);
+			if (allReliable && !ConsumeOrdered(m, downstreamReceived))
+				traces.valid = false;
+		}
+		if (allReliable)
+			for (const auto &m : net.Inbox(server))
+				if (!ConsumeOrdered(m, upstreamReceived))
+					traces.valid = false;
+		net.Inbox(client).clear();
+		net.Inbox(server).clear();
+	};
 	auto send = [&](bool downstream, int lane, int length, Priority priority, Reliability reliability)
 	{
-		uint32_t index = 0;
-		if (downstream)
-		{
-			auto &messages = traces.messages[lane];
-			index = static_cast<uint32_t>(messages.size());
-			auto &trace = messages.emplace_back();
-			trace.queued = traces.now;
-			trace.bytes = static_cast<unsigned>(length);
-			trace.requestedUnreliable = reliability == Reliability::Unreliable;
-		}
+		const uint32_t index = downstream ? traces.Enqueue(lane, static_cast<unsigned>(length), reliability) : 0;
 		payload[0] = static_cast<unsigned char>(ID_USER_PACKET_ENUM + lane);
-		std::memcpy(payload.data() + 1, &index, sizeof(index));
+		const uint32_t sequence = downstream ? index : upstreamOffered++;
+		std::memcpy(payload.data() + 1, &sequence, sizeof(sequence));
 		auto *peer = downstream ? server : client;
 		if (!peer->Send(reinterpret_cast<const char *>(payload.data()), length, priority, reliability, static_cast<char>(lane), downstream ? clientAddress : serverAddress, false))
 			traces.valid = false;
 	};
 
 	unsigned depthSamples = 0;
+	uint64_t lastDelivered = 0, lastTransmitted = 0, lastDrops = 0, depthByteMs = 0;
+	size_t firstWait = 0;
 	const std::function<void(const InternalPacket &)> noVisit;
 	std::function<void(const InternalPacket &)> sampleQueued = [&](const InternalPacket &packet)
 	{ traces.SampleQueued(packet); };
@@ -349,7 +441,7 @@ void RakPeer_MixedTraffic(benchmark::State &state)
 				{
 					const int size = downstream ? draw(1000, 5000) : draw(100, 2000);
 					const auto reliability = draw(0, 100) < 30 ? Reliability::ReliableOrdered : Reliability::Unreliable;
-					send(downstream, gameplay, size, Priority::High, reliability);
+					send(downstream, gameplay, size, Priority::High, allReliable ? Reliability::ReliableOrdered : reliability);
 				}
 			}
 			traces.now = ms + 1;
@@ -391,10 +483,29 @@ void RakPeer_MixedTraffic(benchmark::State &state)
 					++capOnlyMs;
 			}
 #endif
-			for (const auto &m : net.Inbox(client))
-				traces.Deliver(m);
-			net.Inbox(client).clear();
-			net.Inbox(server).clear();
+			collect();
+			if (finitePath)
+			{
+				const auto depth = bottleneck.QueuedBytes(net.Now());
+				depthByteMs += depth;
+				if (traces.now % 20000 == 0)
+				{
+					const auto prefix = "phase" + std::to_string(traces.now / 20000) + "_";
+					const auto transmitted = bottleneck.admittedBytes - depth;
+					state.counters[prefix + "wire_B_per_s"] = static_cast<double>(transmitted - lastTransmitted) / 20;
+					state.counters[prefix + "delivered_B_per_s"] = static_cast<double>(traces.deliveredBytes - lastDelivered) / 20;
+					state.counters[prefix + "drops"] = static_cast<double>(bottleneck.drops - lastDrops);
+					state.counters[prefix + "mean_queue_B"] = static_cast<double>(depthByteMs) / 20000;
+					std::vector<TimeUS> waits(bottleneck.waitUs.begin() + firstWait, bottleneck.waitUs.end());
+					if (!waits.empty())
+						state.counters[prefix + "queue_p95_ms"] = static_cast<double>(Percentile(waits, 95)) / 1000.0;
+					firstWait = bottleneck.waitUs.size();
+					lastTransmitted = transmitted;
+					lastDelivered = traces.deliveredBytes;
+					lastDrops = bottleneck.drops;
+					depthByteMs = 0;
+				}
+			}
 		}
 	}
 	if (!traces.valid || client->NumberOfConnections() != 1 || server->NumberOfConnections() != 1)
@@ -403,6 +514,28 @@ void RakPeer_MixedTraffic(benchmark::State &state)
 		return;
 	}
 	net.SetTap({});
+	SimulatedNetwork::SendBudget budget;
+	if (!net.ReadSendBudget(server, clientAddress, budget))
+	{
+		state.SkipWithError("connection lost at cutoff");
+		return;
+	}
+	state.counters["nak_retry_B"] = static_cast<double>(budget.nakRetryBytes);
+	state.counters["rto_retry_B"] = static_cast<double>(budget.rtoRetryBytes);
+	state.counters["nak_retry_window_cuts"] = budget.nakRetryWindowCuts;
+	state.counters["rto_retry_window_cuts"] = budget.rtoRetryWindowCuts;
+	if (finitePath)
+	{
+		state.counters["path_random_drops"] = static_cast<double>(bottleneck.randomDrops);
+		state.counters["path_tail_drops"] = static_cast<double>(bottleneck.drops);
+		state.counters["path_tail_drop_B"] = static_cast<double>(bottleneck.droppedBytes);
+		state.counters["path_peak_queue_B"] = bottleneck.peakBytes;
+		if (!bottleneck.waitUs.empty())
+		{
+			state.counters["path_mean_queue_ms"] = static_cast<double>(std::accumulate(bottleneck.waitUs.begin(), bottleneck.waitUs.end(), uint64_t{0})) / static_cast<double>(bottleneck.waitUs.size()) / 1000;
+			state.counters["path_queue_p95_ms"] = static_cast<double>(Percentile(bottleneck.waitUs, 95)) / 1000.0;
+		}
+	}
 #if USE_SLIDING_WINDOW_CONGESTION_CONTROL == 1
 	state.counters["mean_cwnd_B"] = static_cast<double>(windowSum) / durationMs;
 	state.counters["mean_inflight_B"] = static_cast<double>(inFlightSum) / durationMs;
@@ -418,6 +551,59 @@ void RakPeer_MixedTraffic(benchmark::State &state)
 	Report(state, "urgent", traces.messages[urgent], traces.depth[urgent], depthSamples);
 	Report(state, "bulk", traces.messages[bulk], traces.depth[bulk], depthSamples);
 	state.counters["bulk_B_per_sim_s"] = static_cast<double>(traces.bulkDelivered) * blockBytes * 1000 / durationMs;
+	if (allReliable)
+	{
+		// Preserve the 60-second workload counters above. Stop offering data
+		// and keep the same link impairments while both directions drain.
+		auto drained = [&]
+		{
+			SimulatedNetwork::SendBudget down, up;
+			if (!net.ReadSendBudget(server, clientAddress, down) || !net.ReadSendBudget(client, serverAddress, up))
+				return false;
+			for (size_t lane = 0; lane < downstreamReceived.size(); ++lane)
+				if (downstreamReceived[lane] != traces.messages[lane].size())
+					return false;
+			return upstreamReceived[gameplay] == upstreamOffered && !up.queued && !down.queued && up.inFlightBytes == 0 && down.inFlightBytes == 0;
+		};
+		while (traces.valid && !drained() && traces.now < (finitePath ? 6 : 2) * durationMs)
+		{
+			++traces.now;
+			net.Step(1);
+			collect();
+		}
+		if (!traces.valid || !drained())
+		{
+			state.SkipWithError("ordered delivery or bounded drain failed");
+			return;
+		}
+		state.counters["drain_ms"] = traces.now - durationMs;
+		state.counters["game_after_drain"] = downstreamReceived[gameplay];
+		state.counters["up_game_after_drain"] = upstreamReceived[gameplay];
+		state.counters["urgent_after_drain"] = downstreamReceived[urgent];
+		state.counters["bulk_after_drain"] = downstreamReceived[bulk];
+	}
 }
+void RakPeer_MixedTrafficReliable(benchmark::State &state)
+{
+	RunMixedTraffic(state, true);
+}
+void RakPeer_FiniteBottleneck(benchmark::State &state)
+{
+	RunMixedTraffic(state, true, true);
+}
+
+void FiniteCases(benchmark::Benchmark *bench)
+{
+	for (int seed = 1; seed <= 5; ++seed)
+		for (int block : {0, 512})
+		{
+			bench->Args({0, block, seed, 0, 0});  // steady, clean
+			bench->Args({2, block, seed, 0, 0});  // independent loss only
+			bench->Args({0, block, seed, 0, 50}); // reorder only
+			bench->Args({0, block, seed, 1, 0});  // abrupt capacity drop and recovery
+		}
+}
+BENCHMARK(RakPeer_FiniteBottleneck)->Apply(FiniteCases)->ArgNames({"loss_pct", "block_KiB", "seed", "capacity_step", "reorder_per_mille"})->Iterations(1);
+BENCHMARK(RakPeer_MixedTrafficReliable)->ArgsProduct({{2, 0}, {512, 16, 0}, {1, 2, 3, 4, 5}})->ArgNames({"loss_pct", "block_KiB", "seed"})->Iterations(1);
 BENCHMARK(RakPeer_MixedTraffic)->ArgsProduct({{2, 0}, {512, 16, 0}, {1, 2, 3, 4, 5}})->ArgNames({"loss_pct", "block_KiB", "seed"})->Iterations(1);
 }

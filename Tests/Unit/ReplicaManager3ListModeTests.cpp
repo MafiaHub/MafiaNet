@@ -79,7 +79,6 @@ namespace
 class ListReplica : public Replica3
 {
 public:
-	void WriteAllocationID(Connection_RM3 *, MafiaNet::BitStream *) const {}
 	RM3ConstructionState QueryConstruction(Connection_RM3 *, ReplicaManager3 *) { return RM3CS_SEND_CONSTRUCTION; }
 	bool QueryRemoteConstruction(Connection_RM3 *) { return false; }
 	void SerializeConstruction(MafiaNet::BitStream *, Connection_RM3 *) {}
@@ -111,7 +110,6 @@ public:
 		isValidated = true;
 	}
 
-	Replica3 *AllocReplica(MafiaNet::BitStream *, ReplicaManager3 *) { return 0; }
 	ConstructionMode QueryConstructionMode() const { return QUERY_CONNECTION_FOR_REPLICA_LIST; }
 
 	void QueryReplicaList(std::vector<Replica3 *> &create, std::vector<Replica3 *> &destroy)
@@ -161,6 +159,7 @@ public:
 class ListManager : public ReplicaManager3
 {
 public:
+	using ReplicaManager3::ReplicaManager3;
 	Connection_RM3 *AllocConnection(const SystemAddress &, RakNetGUID guid) const { return new ListConnection(guid); }
 	void DeallocConnection(Connection_RM3 *connection) const { delete connection; }
 };
@@ -171,8 +170,6 @@ protected:
 	void SetUp() override
 	{
 		SetTimeSourceOverride(&FakeClock);
-		peer = RakPeerInterface::GetInstance();
-		peer->AttachPlugin(&manager);
 		manager.SetNetworkIDManager(&ids);
 		// Every Update() is a serialize pass.
 		manager.SetAutoSerializeInterval(0);
@@ -186,7 +183,7 @@ protected:
 			delete replica;
 		}
 		replicas.clear();
-		peer->DetachPlugin(&manager);
+		manager.Clear(false);
 		RakPeerInterface::DestroyInstance(peer);
 		SetTimeSourceOverride(nullptr);
 	}
@@ -214,8 +211,8 @@ protected:
 	}
 
 	NetworkIDManager ids;
-	ListManager manager;
-	RakPeerInterface *peer = nullptr;
+	RakPeerInterface *peer = RakPeerInterface::GetInstance();
+	ListManager manager{*peer};
 	std::vector<ListReplica *> replicas;
 };
 } // namespace
@@ -388,4 +385,67 @@ TEST_F(ReplicaManager3ListMode, SendConstructionGetsStreamedReplicasAsVectors)
 	Tick();
 	EXPECT_TRUE(connection->sentNew.empty());
 	EXPECT_EQ(connection->sentDeleted, (std::vector<Replica3 *>{first}));
+}
+
+TEST_F(ReplicaManager3ListMode, FinalDereferenceReleasesManagerAndPreservesIdentity)
+{
+	ListReplica replica;
+	manager.Reference(&replica);
+	const NetworkID id = replica.GetNetworkID();
+	manager.Dereference(&replica);
+	EXPECT_EQ(replica.replicaManager, nullptr);
+	EXPECT_EQ(replica.GetNetworkIDManager(), nullptr);
+	EXPECT_EQ(replica.GetNetworkID(), id);
+
+	manager.Reference(&replica);
+	EXPECT_EQ(replica.GetNetworkID(), id);
+	EXPECT_EQ(replica.replicaManager, &manager);
+}
+
+TEST_F(ReplicaManager3ListMode, AutoCreateConnectionUsesRequestedWorld)
+{
+	manager.AddWorld(255);
+	std::vector<RakNetGUID> participants{RakNetGUID(101)};
+	std::vector<Connection_RM3 *> created;
+	manager.AutoCreateConnectionList(participants, created, 255);
+	ASSERT_EQ(created.size(), 1u);
+	EXPECT_EQ(manager.GetConnectionByGUID(participants.front(), 255), created.front());
+	EXPECT_EQ(manager.GetConnectionCount(0), 0u);
+}
+
+TEST_F(ReplicaManager3ListMode, RemovingPopulatedWorldUnbindsItsReplicas)
+{
+	ListReplica replica;
+	manager.AddWorld(255);
+	manager.SetNetworkIDManager(&ids, 255);
+	manager.Reference(&replica, 255);
+	manager.RemoveWorld(255);
+	EXPECT_EQ(replica.replicaManager, nullptr);
+	EXPECT_EQ(replica.GetNetworkIDManager(), nullptr);
+}
+
+TEST_F(ReplicaManager3ListMode, RemovingOneWorldKeepsTheOtherMembership)
+{
+	ListReplica replica;
+	manager.AddWorld(255);
+	manager.SetNetworkIDManager(&ids, 255);
+	manager.Reference(&replica);
+	manager.Reference(&replica, 255);
+	manager.RemoveWorld(255);
+	EXPECT_EQ(replica.replicaManager, &manager);
+	EXPECT_EQ(replica.GetNetworkIDManager(), &ids);
+	EXPECT_EQ(replica.referencingWorlds, 1u);
+}
+
+TEST_F(ReplicaManager3ListMode, DeletingReplicaDropsItsNonzeroWorldMembership)
+{
+	manager.AddWorld(255);
+	manager.SetNetworkIDManager(&ids, 255);
+	{
+		ListReplica replica;
+		manager.Reference(&replica, 255);
+	}
+	EXPECT_EQ(manager.GetReplicaCount(255), 0u);
+	// Remove the world before fixture shutdown even if the membership was stale.
+	manager.RemoveWorld(255);
 }

@@ -34,42 +34,12 @@ Available Plugins
 
 **Game Plugins**
 
-* ``ReplicaManager3`` - Object replication and state synchronization
 * ``ReadyEvent`` - Synchronize ready state across peers
 
 **Utility Plugins**
 
 * ``MessageFilter`` - Filter messages by type
 * ``PacketLogger`` - Log all network traffic
-
-ReplicaManager3
----------------
-
-The ``ReplicaManager3`` plugin handles object replication:
-
-.. code-block:: cpp
-
-   #include "mafianet/replica_manager3.h"
-
-   class MyReplica : public MafiaNet::Replica3 {
-   public:
-       virtual void WriteAllocationID(MafiaNet::Connection_RM3* conn,
-                                      MafiaNet::BitStream* bs) const override {
-           bs->Write(std::string("MyReplica"));
-       }
-
-       virtual MafiaNet::RM3SerializationResult Serialize(
-           MafiaNet::SerializeParameters* params) override {
-           params->outputBitstream[0].Write(position);
-           params->outputBitstream[0].Write(rotation);
-           return MafiaNet::RM3SR_BROADCAST_IDENTICALLY;
-       }
-
-       virtual void Deserialize(MafiaNet::DeserializeParameters* params) override {
-           params->serializationBitstream[0].Read(position);
-           params->serializationBitstream[0].Read(rotation);
-       }
-   };
 
 Creating Custom Plugins
 -----------------------

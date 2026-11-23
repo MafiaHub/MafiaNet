@@ -14,7 +14,7 @@
  *  datagrams, each prefixed by a 16-bit little-endian length, all sent from
  *  10.0.0.2:60000 to the server at 10.0.0.1:60000 (the addresses the seeds
  *  were recorded with). The server runs in plaintext mode with an all-zero
- *  challenge secret (see below); the seeds are protocol 11 handshakes recorded
+ *  challenge secret (see below); the seeds are protocol 12 handshakes recorded
  *  under that secret.
  */
 

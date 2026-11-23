@@ -111,6 +111,39 @@ TEST(SimulatedPeer, ReliableOrderedSurvivesLossAndReordering)
 	EXPECT_GT(net.DatagramsDropped(), 0u);
 }
 
+TEST(SimulatedPeer, ReliableOrderedFragmentsDrainAfterAckBlackoutOnReorderingPath)
+{
+	SimulatedNetwork net(42);
+	auto *server = net.AddPeer(1, 1);
+	auto *client = net.AddPeer(1);
+	ASSERT_TRUE(net.Connect(client, server));
+	const auto address = net.AddressOf(server);
+	SimulatedNetwork::LinkRule link;
+	link.delayMs = 30;
+	link.reorderPerThousand = 100;
+	link.reorderDelayMs = 15;
+	net.SetLinkBothWays(client, server, link);
+	for (unsigned i = 0; i < 32; ++i)
+		SendNumbered(client, address, i, 3000);
+	net.Step(500);
+
+	SimulatedNetwork::LinkRule blackout;
+	blackout.dark = true;
+	net.SetLink(server, client, blackout);
+	for (unsigned i = 32; i < 64; ++i)
+		SendNumbered(client, address, i, 3000);
+	net.Step(2000);
+	ASSERT_GT(net.DatagramsDropped(), 0u);
+	net.SetLink(server, client, link);
+	ASSERT_TRUE(net.RunUntil([&]
+	                         {
+		SimulatedNetwork::SendBudget budget;
+		return net.ReadSendBudget(client, address, budget) && !budget.queued && budget.inFlightBytes == 0 && NumbersReceived(net, server).size() == 64; }, 20000));
+	const auto delivered = NumbersReceived(net, server);
+	for (unsigned i = 0; i < delivered.size(); ++i)
+		EXPECT_EQ(delivered[i], i);
+}
+
 TEST(SimulatedPeer, LargeMessageIsSplitAndReassembled)
 {
 	SimulatedNetwork net;
@@ -176,6 +209,81 @@ TEST(SimulatedPeer, MtuDiscoveryStopsBelowAPathCeiling)
 	EXPECT_LE(client->GetMTUSize(net.AddressOf(server)), 1200 + UDP_HEADER_SIZE);
 	SendNumbered(client, net.AddressOf(server), 5, 10 * 1200);
 	EXPECT_TRUE(net.RunUntilReceived(server, ID_TEST_PAYLOAD, 10000));
+}
+
+TEST(SimulatedPeer, DroppingLoneReliableSendCountsAnRtoRetry)
+{
+	SimulatedNetwork net(92);
+	auto *receiver = net.AddPeer(1, 1);
+	auto *sender = net.AddPeer(1);
+	ASSERT_TRUE(net.Connect(sender, receiver));
+	net.Step(200);
+	const auto address = net.AddressOf(receiver);
+	SimulatedNetwork::LinkRule dark;
+	dark.dark = true;
+	net.SetLink(sender, receiver, dark);
+	SendNumbered(sender, address, 0, 100);
+	net.Step(10);
+	net.SetLink(sender, receiver, {});
+	ASSERT_TRUE(net.RunUntilReceived(receiver, ID_TEST_PAYLOAD, 30000));
+	SimulatedNetwork::SendBudget budget;
+	ASSERT_TRUE(net.ReadSendBudget(sender, address, budget));
+	EXPECT_GT(budget.rtoRetryBytes, 0u);
+}
+
+TEST(SimulatedPeer, SplitRetryCausesAccountForEveryRetransmittedPayloadByte)
+{
+	SimulatedNetwork net(17);
+	auto *receiver = net.AddPeer(1, 1);
+	auto *sender = net.AddPeer(1);
+	ASSERT_TRUE(net.Connect(sender, receiver));
+	SimulatedNetwork::LinkRule rule;
+	rule.lossPercent = 2;
+	rule.delayMs = 50;
+	rule.reorderPerThousand = 100;
+	rule.reorderDelayMs = 60;
+	net.SetLinkBothWays(sender, receiver, rule);
+	const auto address = net.AddressOf(receiver);
+	for (unsigned i = 0; i < 100; ++i)
+		SendNumbered(sender, address, i, 1500);
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return NumbersReceived(net, receiver).size() == 100; }, 60000));
+	SimulatedNetwork::SendBudget budget;
+	ASSERT_TRUE(net.ReadSendBudget(sender, address, budget));
+	RakNetStatistics stats;
+	ASSERT_TRUE(sender->GetStatistics(address, &stats));
+	EXPECT_EQ(budget.nakRetryBytes + budget.rtoRetryBytes, stats.runningTotal[USER_MESSAGE_BYTES_RESENT]);
+	EXPECT_GT(budget.nakRetryBytes, 0u);
+#if USE_SLIDING_WINDOW_CONGESTION_CONTROL == 1
+	EXPECT_GT(budget.nakRetryWindowCuts + budget.rtoRetryWindowCuts, 0u);
+#endif
+}
+
+TEST(SimulatedPeer, TwoSendersRecoverWhenSharingOneFullLinkQueue)
+{
+	SimulatedBottleneck path(1800, {{0, 256 * 1024}});
+	SimulatedNetwork net;
+	auto *receiver = net.AddPeer(2, 2);
+	auto *first = net.AddPeer(1);
+	auto *second = net.AddPeer(1);
+	ASSERT_TRUE(net.Connect(first, receiver));
+	ASSERT_TRUE(net.Connect(second, receiver));
+	net.Step(200);
+	SimulatedNetwork::LinkRule rule;
+	rule.bottleneck = &path;
+	net.SetLink(first, receiver, rule);
+	net.SetLink(second, receiver, rule);
+	const auto address = net.AddressOf(receiver);
+	SendNumbered(first, address, 0, 1100);
+	SendNumbered(second, address, 1, 1100);
+	net.Step(1);
+	EXPECT_GT(path.drops, 0u);
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return NumbersReceived(net, receiver).size() == 2; }, 10000));
+	auto delivered = NumbersReceived(net, receiver);
+	std::sort(delivered.begin(), delivered.end());
+	EXPECT_EQ(delivered, (std::vector<uint32_t>{0, 1}));
+	EXPECT_LE(path.peakBytes, 1800u);
 }
 
 TEST(SimulatedPeer, ServerRefusesConnectionsBeyondItsLimit)

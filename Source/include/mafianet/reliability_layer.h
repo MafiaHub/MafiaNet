@@ -29,6 +29,7 @@
 #include "mafianet/internal_packet.h"
 #include "mafianet/statistics.h"
 #include "mafianet/range_list.h"
+#include "mafianet/datagram_gap_tracker.h"
 #include "mafianet/object_pool.h"
 #include "mafianet/defines.h"
 #include "mafianet/bit_stream.h"
@@ -232,6 +233,7 @@ public:
 	/// ladder in mtu_black_hole.h when an in-session path-MTU black hole is
 	/// detected. Never rises again for the life of the connection.
 	int GetCurrentMtuBytes(void) const;
+	static unsigned MaxUnfragmentedPayload(int wireMtu, EncryptionMode mode, Reliability reliability);
 
 	/// Packets are read directly from the socket layer and skip the reliability layer because unconnected players do not use the reliability layer
 	/// This function takes packet data after a player has been confirmed as connected.
@@ -262,7 +264,7 @@ public:
 	/// \param[in] currentTime Current time, as per MafiaNet::GetTimeMS()
 	/// \param[in] receipt This number will be returned back with ID_SND_RECEIPT_ACKED or ID_SND_RECEIPT_LOSS and is only returned with the reliability types that contain RECEIPT in the name
 	/// \return True or false for success or failure.
-	bool Send(char *data, BitSize_t numberOfBitsToSend, MafiaNet::Priority priority, MafiaNet::Reliability reliability, unsigned char orderingChannel, bool makeDataCopy, int MTUSize, CCTimeType currentTime, uint32_t receipt);
+	bool Send(char *data, BitSize_t numberOfBitsToSend, MafiaNet::Priority priority, MafiaNet::Reliability reliability, unsigned char orderingChannel, bool makeDataCopy, int MTUSize, CCTimeType currentTime, uint32_t receipt, bool allowFragmentation = true);
 
 	/// Call once per game cycle.  Handles internal lists and actually does the send.
 	/// \param[in] s the communication  end point
@@ -359,6 +361,9 @@ public:
 
 private:
 	friend class SimulatedNetwork; // samples the sender budget between simulated ticks
+	// Freshly reset per connection. Distinguish deadlines shortened by NAK from ordinary RTO.
+	uint64_t nakRetryBytes, rtoRetryBytes;
+	uint32_t nakRetryWindowCuts, rtoRetryWindowCuts;
 	/// Send the contents of a bitstream to the socket
 	/// \param[in] s The socket used for sending data
 	/// \param[in] systemAddress The address and port to send to
@@ -395,7 +400,9 @@ private:
 
 	/// Parse an internalPacket and figure out how many header bits would be written.  Returns that number
 	BitSize_t GetMaxMessageHeaderLengthBits(void);
-	BitSize_t GetMessageHeaderLengthBits(const InternalPacket *const internalPacket);
+	static BitSize_t GetMessageHeaderLengthBits(Reliability reliability, bool split);
+	static BitSize_t GetMessageHeaderLengthBits(const InternalPacket *packet) { return GetMessageHeaderLengthBits(packet->reliability, packet->splitPacketCount != 0); }
+	void ReportReceiptLoss(uint32_t receipt);
 
 	/// Returns true if newPacketOrderingIndex is older than the waitingForPacketOrderingIndex
 	bool IsOlderOrderedPacket(OrderingIndexType newPacketOrderingIndex, OrderingIndexType waitingForPacketOrderingIndex);
@@ -774,6 +781,7 @@ private:
 
 	RangeList<DatagramSequenceNumberType> acknowlegements;
 	RangeList<DatagramSequenceNumberType> NAKs;
+	DatagramGapTracker datagramGaps;
 	bool remoteSystemNeedsBAndAS;
 
 	unsigned int GetMaxDatagramSizeExcludingMessageHeaderBytes(void);
