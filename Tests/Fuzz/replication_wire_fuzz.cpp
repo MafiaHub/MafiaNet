@@ -17,6 +17,12 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *bytes, size_t size)
 		batch.Read(in);
 		return 0;
 	}
+	if (header.kind == ReplicationWire::Kind::ClockSample)
+	{
+		ReplicationWire::ClockSample sample{};
+		sample.Read(in);
+		return 0;
+	}
 	NetworkID id;
 	uint64_t visit;
 	uint32_t type;

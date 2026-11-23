@@ -3,8 +3,10 @@
 #include "mafianet/replica_manager3.h"
 #include "mafianet/replication_manager.h"
 #include <map>
+#include <mutex>
 #include <set>
 #include "replication_wire.h"
+#include "replication_clock.h"
 
 namespace MafiaNet
 {
@@ -38,6 +40,7 @@ public:
 	std::function<void()> beforeTick, afterTick;
 	std::function<void(PeerGuid, bool)> connectionChanged;
 	bool Tick(Time requested = 0);
+	std::optional<double> RenderTick(PeerGuid source, unsigned delay) const;
 	bool ConfigureObserver(PeerGuid observer, Replica3 *object, unsigned value);
 	struct Report
 	{
@@ -84,6 +87,13 @@ private:
 	uint64_t Schema() const;
 	void Handshake(PeerGuid guid, Session &session, Kind kind);
 	void RetryControl();
+	void PublishClock();
+	bool hasTimedTypes = false;
+	TimeUS nextClockSample = 0;
+	// Render and serialization callbacks may query the clock while holding a connection lock.
+	mutable std::mutex clockMutex;
+	std::map<PeerGuid, ReplicationClock> clocks;
+	PeerGuid clockServer = UNASSIGNED_PEER_GUID;
 	std::map<PeerGuid, Kind> pendingHandshakes;
 	struct Revocation
 	{

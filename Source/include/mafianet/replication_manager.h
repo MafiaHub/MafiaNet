@@ -10,6 +10,7 @@
 
 #include <functional>
 #include <memory>
+#include <optional>
 #include <mutex>
 #include <typeindex>
 #include <vector>
@@ -82,7 +83,7 @@ struct ReplicationStatistics
 	uint64_t desired = 0, constructed = 0, deferred = 0;
 	uint64_t deferredState = 0;
 	uint64_t enters = 0, leaves = 0, destroys = 0;
-	uint64_t lifecycleBytes = 0, stateBytes = 0;
+	uint64_t lifecycleBytes = 0, stateBytes = 0, clockBytes = 0;
 };
 
 enum class ReplicationTickMode
@@ -112,6 +113,10 @@ public:
 	void Tick();
 	/// Drive replication at a strictly increasing authoritative simulation tick.
 	bool Tick(Time simulationTick);
+	/// Fractional tick for sampling a remote timeline. A client defaults to its server.
+	/// Empty until two clock samples arrive. Delay is in addition to the measured jitter buffer.
+	std::optional<double> GetRenderTick(unsigned interpolationDelayTicks = 2) const { return GetRenderTick(UNASSIGNED_PEER_GUID, interpolationDelayTicks); }
+	std::optional<double> GetRenderTick(PeerGuid source, unsigned interpolationDelayTicks = 2) const;
 	bool SetObserverStateBudget(PeerGuid observer, uint32_t bytesPerTick);
 	bool SetUpdateInterval(PeerGuid observer, Replica3 &replica, unsigned ticks);
 

@@ -79,7 +79,7 @@ public:
 	uint64_t Bytes() const
 	{
 		const auto stats = host.GetStatistics();
-		return stats.lifecycleBytes + stats.stateBytes;
+		return stats.lifecycleBytes + stats.stateBytes + stats.clockBytes;
 	}
 	// Verify identity, count and decoded values for every client outside the timed region.
 	template <typename Visible>
