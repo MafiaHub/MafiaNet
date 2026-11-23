@@ -410,6 +410,12 @@ suite covers the following workloads.
   counters are means sampled over the complete run. The four queue-time buckets
   partition the ticks ending with queued data by exhausted window, exhausted
   application pacing credit, both, or neither.
+* **Fragmentation threshold.** ``RakPeer_FragmentationThreshold`` compares ordinary
+  unreliable sends at the peer's ``GetMaxUnfragmentedPayload`` limit and one byte
+  above it. Both arms offer the same application bytes over 60 simulated seconds.
+  Five seeds cover 0%, 1% and 2% bidirectional packet loss at 100 ms RTT. Read
+  delivery counts and p95 latency at the cutoff alongside retry bytes and window
+  cuts. A reliable fragment still in flight at the cutoff may arrive later.
 * **Construction bandwidth.** ``ReplicaManager3_Construct1000`` compares
   unconditional scalar serialization with a full construction snapshot and
   subsequent dirty updates. See :doc:`../guide/replication`.
