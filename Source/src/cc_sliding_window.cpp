@@ -184,27 +184,21 @@ bool CCRakNetSlidingWindow::OnGotPacket(DatagramSequenceNumberType datagramSeque
 // ----------------------------------------------------------------------------------------------------------------------------
 void CCRakNetSlidingWindow::OnResend(CCTimeType curTime, MafiaNet::TimeUS nextActionTime)
 {
-	(void) curTime;
 	(void) nextActionTime;
-
-	if (estimatedRTT > 0 && curTime - lastAckAt < 2 * estimatedRTT + 2 * SYN && !excessiveGaps)
+	const double minimumWindow = MAXIMUM_MTU_INCLUDING_UDP_HEADER;
+	if (!_isContinuousSend || cwnd <= minimumWindow)
 		return;
-	if (_isContinuousSend && backoffThisBlock == false && cwnd > MAXIMUM_MTU_INCLUDING_UDP_HEADER * 2)
-	{
-		// Spec says 1/2 cwnd, but it never recovers because cwnd increases too slowly
-		//ssThresh=cwnd-8.0 * (MAXIMUM_MTU_INCLUDING_UDP_HEADER*MAXIMUM_MTU_INCLUDING_UDP_HEADER/cwnd);
-		ssThresh = cwnd / 2;
-		if (ssThresh < MAXIMUM_MTU_INCLUDING_UDP_HEADER)
-			ssThresh = MAXIMUM_MTU_INCLUDING_UDP_HEADER;
-		cwnd = MAXIMUM_MTU_INCLUDING_UDP_HEADER;
 
-		// Only backoff once per period
-		nextCongestionControlBlock = nextDatagramSequenceNumber;
-		backoffThisBlock = true;
+	const bool recentAck = estimatedRTT > 0 && curTime - lastAckAt < 2 * estimatedRTT + 2 * SYN;
+	if (recentAck && (!excessiveGaps || backoffThisBlock || cwnd <= 2 * minimumWindow))
+		return;
 
-		// CC PRINTF
-		//printf("-- %.0f (Resend) Enter slow start.\n", cwnd);
-	}
+	// While ACKs advance, halve the window at most once per flight. If feedback
+	// then stops, a retry can still restart slow start within that same flight.
+	ssThresh = std::max(minimumWindow, cwnd / 2);
+	cwnd = recentAck ? ssThresh : minimumWindow;
+	nextCongestionControlBlock = nextDatagramSequenceNumber;
+	backoffThisBlock = true;
 }
 // ----------------------------------------------------------------------------------------------------------------------------
 void CCRakNetSlidingWindow::OnNAK(CCTimeType curTime, DatagramSequenceNumberType nakSequenceNumber)
