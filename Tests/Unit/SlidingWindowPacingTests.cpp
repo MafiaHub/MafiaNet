@@ -61,13 +61,15 @@ TEST(SlidingWindow, FrequentGapsWithRecentAcksHalveTheWindowOncePerFlight)
 	EXPECT_EQ(window.GetCWNDLimit(), before / 2);
 }
 
-TEST(SlidingWindow, AckBlackoutAfterGapBackoffRestartsAtOneDatagram)
+TEST(SlidingWindow, AckBlackoutAfterGapBackoffRestartsTheNextFlightAtOneDatagram)
 {
 	MafiaNet::CCRakNetSlidingWindow window;
 	ReportFrequentGaps(window);
 	window.OnResend(131000, 131000);
 	ASSERT_GT(window.GetCWNDLimit(), 1000u);
-	// No new flight has been acknowledged since the loss response.
+	// A later flight has made progress, then ACK feedback stops entirely.
+	window.GetAndIncrementNextDatagramSequenceNumber();
+	window.OnAck(140000, 100000, false, 0, 0, 0, true, window.GetAndIncrementNextDatagramSequenceNumber());
 	window.OnResend(600000, 600000);
 	EXPECT_EQ(window.GetCWNDLimit(), 1000u);
 }

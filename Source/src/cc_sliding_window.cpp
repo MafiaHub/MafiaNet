@@ -186,16 +186,16 @@ void CCRakNetSlidingWindow::OnResend(CCTimeType curTime, MafiaNet::TimeUS nextAc
 {
 	(void) nextActionTime;
 	const double minimumWindow = MAXIMUM_MTU_INCLUDING_UDP_HEADER;
-	if (!_isContinuousSend || cwnd <= minimumWindow)
+	if (!_isContinuousSend || backoffThisBlock || cwnd <= 2 * minimumWindow)
 		return;
 
 	const bool recentAck = estimatedRTT > 0 && curTime - lastAckAt < 2 * estimatedRTT + 2 * SYN;
-	if (recentAck && (!excessiveGaps || backoffThisBlock || cwnd <= 2 * minimumWindow))
+	if (recentAck && !excessiveGaps)
 		return;
 
-	// While ACKs advance, halve the window at most once per flight. If feedback
-	// then stops, a retry can still restart slow start within that same flight.
-	ssThresh = std::max(minimumWindow, cwnd / 2);
+	// Frequent gaps with continuing ACKs still leave a working path. Reserve
+	// the one-datagram restart for a flight without recent ACK feedback.
+	ssThresh = cwnd / 2;
 	cwnd = recentAck ? ssThresh : minimumWindow;
 	nextCongestionControlBlock = nextDatagramSequenceNumber;
 	backoffThisBlock = true;
