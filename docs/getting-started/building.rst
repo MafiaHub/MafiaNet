@@ -416,6 +416,33 @@ suite covers the following workloads.
   Five seeds cover 0%, 1% and 2% bidirectional packet loss at 100 ms RTT. Read
   delivery counts and p95 latency at the cutoff alongside retry bytes and window
   cuts. A reliable fragment still in flight at the cutoff may arrive later.
+* **Two-fragment snapshot freshness.** ``TwoFragmentSnapshot`` compares ordinary
+  unreliable sends that promote to reliable fragments with a test-only pair of
+  strict datagrams carrying one generation of a single 1,800-byte state stream.
+  A newer generation supersedes an incomplete one. Each millisecond, the
+  receiver samples age once it has a complete state. Queue delay runs from
+  publication to the first transmission of its first piece. Completion and
+  application rates count measured publications received by the cutoff.
+  ``peak_partial_B`` counts payload retained by incomplete assemblies.
+  ``peak_assembly_B`` includes admitted fragment payloads and the simultaneous
+  output copy, excluding allocator overhead and bookkeeping. UDP bytes include
+  both directions. Compare the 12-second startup and warmed measurement windows
+  separately.
+* **Snapshot recovery after burst loss.** ``BurstRecovery`` publishes four staggered
+  1,800-byte streams at 30 or 60 Hz per stream, plus a 96-byte reliable ordered
+  message every 20 ms at the same priority on the same encrypted connection.
+  The forward FIFO has capacity for 100 ms of traffic and a service rate 20%
+  or 60% above the offered application payload. Both directions have 50 ms
+  propagation delay and 0.5% reordering with 25 ms extra delay. At six seconds
+  the forward link drops new transmissions for 0, 100 or 300 ms. Already
+  admitted packets continue in flight. The zero-duration run is the control.
+  ``first_fresh_ms`` and ``all_fresh_ms`` measure time from reopening until
+  one or all four streams apply state published at or after reopening.
+  ``reliable_p99_ms`` measures delivery latency for controls published from
+  100 ms before the outage until two seconds after reopening. Publication
+  continues for four seconds after reopening, followed by a ten-second drain.
+  Every reliable control must arrive in sequence. ``peak_peer_assembly_B``
+  counts concurrent reassembly payload across streams, including output copies.
 * **Construction bandwidth.** ``ReplicaManager3_Construct1000`` compares
   unconditional scalar serialization with a full construction snapshot and
   subsequent dirty updates. See :doc:`../guide/replication`.

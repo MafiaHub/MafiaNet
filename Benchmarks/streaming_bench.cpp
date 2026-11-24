@@ -324,7 +324,7 @@ bool StartFeedbackSession(benchmark::State &state, SimulatedNetwork &net, Feedba
 	{
 		auto &side = peer->GetReplication();
 		if (!side.SetRole(peer == server ? ReplicationRole::Server : ReplicationRole::Client) ||
-		    !side.RegisterReplica<Replica>(actorType, 1) ||
+		    !side.template RegisterReplica<Replica>(actorType, 1) ||
 		    !side.SetSnapshotPolicy(actorType, ChangeDetection::Explicit, SnapshotDelivery::Replaceable))
 		{
 			state.SkipWithError("snapshot configuration failed");
