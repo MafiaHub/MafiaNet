@@ -700,7 +700,6 @@ private:
 
 	unsigned receivePacketCount;
 
-#ifdef _DEBUG
 	struct DataAndTime //<InternalPacket>
 	{
 		RakNetSocket2 *s;
@@ -715,7 +714,6 @@ private:
 	// Internet simulator
 	double packetloss;
 	MafiaNet::TimeMS minExtraPing, extraPingVariance;
-#endif
 
 	int64_t outgoingCreditBitMicros; // One bit of new payload costs one million units.
 

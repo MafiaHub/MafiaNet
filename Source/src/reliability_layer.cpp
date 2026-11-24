@@ -334,10 +334,8 @@ ReliabilityLayer::ReliabilityLayer()
 	timeoutTime = 10000;
 #endif
 
-#ifdef _DEBUG
 	minExtraPing = extraPingVariance = 0;
 	packetloss = (double) minExtraPing;
-#endif
 
 
 #ifdef PRINT_TO_FILE_RELIABLE_ORDERED_TEST
@@ -640,11 +638,9 @@ void ReliabilityLayer::FreeThreadSafeMemory(void)
 
 	outgoingPacketBuffer.clear();
 
-#ifdef _DEBUG
 	for (DataAndTime *delayed : delayList)
 		delete delayed;
 	delayList.clear();
-#endif
 
 	unreliableWithAckReceiptHistory.clear();
 
@@ -1782,7 +1778,6 @@ void ReliabilityLayer::UpdateInternal(RakNetSocket2 *s, SystemAddress &systemAdd
 	timeMs = (MafiaNet::TimeMS)(time / (CCTimeType) 1000);
 #endif
 
-#ifdef _DEBUG
 	while (!delayList.empty())
 	{
 		if (delayList.front()->sendTime <= timeMs)
@@ -1804,7 +1799,6 @@ void ReliabilityLayer::UpdateInternal(RakNetSocket2 *s, SystemAddress &systemAdd
 			break;
 		}
 	}
-#endif
 
 	// This line is necessary because the timer isn't accurate
 	if ((!forceSendACKs) && (time <= lastUpdateTime))
@@ -2427,7 +2421,6 @@ void ReliabilityLayer::SendBitStream(RakNetSocket2 *s, SystemAddress &systemAddr
 		length = (unsigned int) sealed;
 	}
 
-#ifdef _DEBUG
 	if (packetloss > 0.0)
 	{
 		if (frandomMT() < packetloss)
@@ -2471,7 +2464,6 @@ void ReliabilityLayer::SendBitStream(RakNetSocket2 *s, SystemAddress &systemAddr
 		}
 #endif
 	}
-#endif
 
 	bpsMetrics[(int) ACTUAL_BYTES_SENT].Push1(currentTime, length);
 
@@ -2533,20 +2525,11 @@ bool ReliabilityLayer::AreAcksWaiting(void)
 //-------------------------------------------------------------------------------------------------------
 void ReliabilityLayer::ApplyNetworkSimulator(double _packetloss, MafiaNet::TimeMS _minExtraPing, MafiaNet::TimeMS _extraPingVariance)
 {
-#ifndef _DEBUG
-	// unused parameters
-	(void) _packetloss;
-	(void) _minExtraPing;
-	(void) _extraPingVariance;
-#endif
-
-#ifdef _DEBUG
 	packetloss = _packetloss;
 	minExtraPing = _minExtraPing;
 	extraPingVariance = _extraPingVariance;
 	//	if (ping < (unsigned int)(minExtraPing+extraPingVariance)*2)
 	//		ping=(minExtraPing+extraPingVariance)*2;
-#endif
 }
 //-------------------------------------------------------------------------------------------------------
 void ReliabilityLayer::SetSplitMessageProgressInterval(int interval)
