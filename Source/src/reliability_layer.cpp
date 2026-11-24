@@ -869,7 +869,12 @@ bool ReliabilityLayer::HandleSocketReceiveFromConnectedPlayer(
 #else
 				const CCTimeType ping = timeRead > datagram.timeSent ? timeRead - datagram.timeSent : 0;
 #endif
-				congestionManager.OnAck(timeRead, ping, dhf.hasBAndAS, 0, dhf.AS, totalUserDataBytesAcked, bandwidthExceededStatistic, datagramNumber);
+#if USE_SLIDING_WINDOW_CONGESTION_CONTROL == 1
+				const auto ackedBytes = datagram.wireBytes;
+#else
+				const auto ackedBytes = totalUserDataBytesAcked;
+#endif
+				congestionManager.OnAck(timeRead, ping, dhf.hasBAndAS, 0, dhf.AS, ackedBytes, bandwidthExceededStatistic, datagramNumber);
 
 				if (datagram.head)
 				{

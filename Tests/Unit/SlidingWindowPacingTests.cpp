@@ -74,6 +74,49 @@ TEST(SlidingWindow, AckBlackoutAfterGapBackoffRestartsTheNextFlightAtOneDatagram
 	EXPECT_EQ(window.GetCWNDLimit(), 1000u);
 }
 
+TEST(SlidingWindow, TimeoutRecoveryCreditsFreshDatagramBytesUpToHalfThePreviousWindow)
+{
+	MafiaNet::CCRakNetSlidingWindow window;
+	window.Init(0, 1000);
+	for (unsigned i = 0; i < 10; ++i)
+		window.OnAck(100000, 100000, false, 0, 0, 1000, true, window.GetAndIncrementNextDatagramSequenceNumber());
+	const auto oldDatagram = window.GetAndIncrementNextDatagramSequenceNumber();
+	const auto probe = window.GetAndIncrementNextDatagramSequenceNumber();
+	const auto ceiling = window.GetCWNDLimit() / 2;
+	window.OnResend(400000, 400000);
+	ASSERT_EQ(window.GetCWNDLimit(), 1000u);
+	window.OnAck(410000, 320000, false, 0, 0, 1000, true, oldDatagram);
+	EXPECT_EQ(window.GetCWNDLimit(), 1000u);
+
+	// A probe sent during the silence supplies its own bytes of credit.
+	window.OnAck(420000, 100000, false, 0, 0, 200, true, probe);
+	ASSERT_EQ(window.GetCWNDLimit(), 1200u);
+	for (unsigned i = 0; i < 3; ++i)
+		window.OnNAK(430000, oldDatagram);
+	for (unsigned i = 0; i < 4; ++i)
+		window.OnAck(440000, 100000, false, 0, 0, 1500, true, window.GetAndIncrementNextDatagramSequenceNumber());
+	ASSERT_EQ(window.GetCWNDLimit(), 5200u);
+	window.OnAck(445000, 100000, false, 0, 0, 300, true, window.GetAndIncrementNextDatagramSequenceNumber());
+	EXPECT_EQ(window.GetCWNDLimit(), ceiling);
+}
+
+TEST(SlidingWindow, FreshLossDuringTimeoutRecoveryStillReducesTheWindow)
+{
+	MafiaNet::CCRakNetSlidingWindow window;
+	window.Init(0, 1000);
+	for (unsigned i = 0; i < 20; ++i)
+		window.OnAck(100000, 100000, false, 0, 0, 1000, true, window.GetAndIncrementNextDatagramSequenceNumber());
+	window.OnResend(400000, 400000);
+	for (unsigned i = 0; i < 5; ++i)
+		window.OnAck(510000, 100000, false, 0, 0, 1000, true, window.GetAndIncrementNextDatagramSequenceNumber());
+	for (unsigned i = 0; i < 3; ++i)
+		window.OnNAK(515000, window.GetAndIncrementNextDatagramSequenceNumber());
+	window.OnAck(530000, 100000, false, 0, 0, 1000, true, window.GetAndIncrementNextDatagramSequenceNumber());
+	const auto before = window.GetCWNDLimit();
+	window.OnResend(531000, 531000);
+	EXPECT_EQ(window.GetCWNDLimit(), before / 2);
+}
+
 TEST(SlidingWindow, StandingDelayReducesTheWindowAndItGrowsAfterTheQueueDrains)
 {
 	MafiaNet::CCRakNetSlidingWindow window;

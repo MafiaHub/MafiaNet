@@ -60,7 +60,7 @@ void BurstRecovery(benchmark::State &state)
 }
 void BurstCases(benchmark::Benchmark *bench)
 {
-	bench->ArgsProduct({{30, 60}, {0, 100, 300}, {1, 2, 3, 4, 5}, {20, 60}})->ArgNames({"hz", "outage_ms", "seed", "headroom_pct"})->Iterations(1);
+	bench->ArgsProduct({{30, 60}, {0, 100, 300, 1000}, {1, 2, 3, 4, 5}, {20, 60}})->ArgNames({"hz", "outage_ms", "seed", "headroom_pct"})->Iterations(1);
 }
 BENCHMARK_TEMPLATE(BurstRecovery, FragmentSnapshotStudy::Policy::Promoted)->Name("BurstRecovery/Promoted")->Apply(BurstCases);
 BENCHMARK_TEMPLATE(BurstRecovery, FragmentSnapshotStudy::Policy::Replaceable)->Name("BurstRecovery/Replaceable")->Apply(BurstCases);
