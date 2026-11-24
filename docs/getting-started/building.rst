@@ -420,7 +420,7 @@ suite covers the following workloads.
   unreliable sends that promote to reliable fragments with a test-only pair of
   strict datagrams carrying one generation of a single 1,800-byte state stream.
   A newer generation supersedes an incomplete one. Each millisecond, the
-  receiver samples the age of its newest complete state. Queue delay runs from
+  receiver samples age once it has a complete state. Queue delay runs from
   publication to the first transmission of its first piece. Completion and
   application rates count measured publications received by the cutoff.
   ``peak_partial_B`` counts payload retained by incomplete assemblies.

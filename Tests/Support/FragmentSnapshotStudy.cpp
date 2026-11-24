@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <array>
 #include <cstring>
+#include <limits>
 #include <map>
 #include <vector>
 
@@ -83,10 +84,21 @@ public:
 			valid = false;
 			return;
 		}
-		auto &sizes = received[p->splitPacketId];
+		auto &assembly = received[p->splitPacketId];
+		auto &last = assembly.lastMessage[p->splitPacketIndex];
+		const unsigned message = p->reliableMessageNumber.val;
+		// Retries keep their 24-bit message number. A reused 16-bit split ID carries newer numbers.
+		const unsigned distance = (message - last) & 0xffffffu;
+		if (last != unseen && (distance == 0 || distance >= 0x800000u))
+			return;
+		last = message;
+		auto &sizes = assembly.sizes;
 		auto &part = sizes[p->splitPacketIndex];
 		if (part)
+		{
+			valid = false;
 			return;
+		}
 		part = BITS_TO_BYTES(p->dataBitLength);
 		if (p->splitPacketIndex == 0)
 			firstFragmentBytes = static_cast<unsigned>(part);
@@ -97,6 +109,7 @@ public:
 			valid = valid && total == stateBytes + headerBytes;
 			peak = std::max(peak, held + total);
 			held -= total;
+			sizes = {};
 		}
 		else
 		{
@@ -109,7 +122,13 @@ public:
 	size_t held = 0, peak = 0, peakPartial = 0;
 
 private:
-	std::map<SplitPacketIdType, std::array<size_t, 2>> received;
+	static constexpr unsigned unseen = std::numeric_limits<unsigned>::max();
+	struct Assembly
+	{
+		std::array<size_t, 2> sizes{};
+		std::array<unsigned, 2> lastMessage{unseen, unseen};
+	};
+	std::map<SplitPacketIdType, Assembly> received;
 };
 
 bool SendSnapshot(RakPeer &server, SystemAddress address, Policy policy, unsigned sequence, unsigned splitAt)
@@ -233,6 +252,8 @@ private:
 Result Run(Policy policy, unsigned hz, unsigned lossPercent, unsigned seed, unsigned durationMs, Drop drop, unsigned deadlineMs, unsigned warmupMs)
 {
 	Result result;
+	if (hz != 30 && hz != 60)
+		return result;
 	NativeAssembly native;
 	SendQueueProbe queue(hz);
 	SimulatedNetwork::LinkRule path;
@@ -304,9 +325,9 @@ Result Run(Policy policy, unsigned hz, unsigned lossPercent, unsigned seed, unsi
 			if (!receiver.Receive(message, ms + 1))
 				return result;
 		net.Inbox(client).clear();
-		if (measuring && ms < cutoff)
+		if (measuring && ms < cutoff && result.latest)
 		{
-			const unsigned publishedAt = result.latest ? (result.latest - 1) * 1000 / hz : 0;
+			const unsigned publishedAt = (result.latest - 1) * 1000 / hz;
 			ages.push_back(ms + 1 - publishedAt);
 		}
 	}

@@ -4,26 +4,41 @@
 
 using namespace FragmentSnapshotStudy;
 
-TEST(FragmentSnapshotStudy, NewSnapshotSupersedesTheOneMissingEitherFragment)
+namespace
 {
-	for (const unsigned hz : {30u, 60u})
-	{
-		SCOPED_TRACE(hz);
-		for (auto drop : {Drop::FirstPart, Drop::LastPart})
-		{
-			SCOPED_TRACE(static_cast<int>(drop));
-			const auto result = FragmentSnapshotStudy::Run(Policy::Replaceable, hz, 0, 7, 2000 / hz, drop, 2000);
-			ASSERT_TRUE(result.valid);
-			ASSERT_EQ(result.publications, 2u);
-			EXPECT_EQ(result.forcedDrops, 1u);
-			EXPECT_FALSE(result.firstCompleted);
-			EXPECT_EQ(result.latest, 2u);
-			EXPECT_EQ(result.completed, 1u);
-			EXPECT_LE(result.secondAppliedAtMs, 1000 / hz + 65);
-			EXPECT_GT(result.peakPartialBytes, 0u);
-			EXPECT_EQ(result.remainingPartialBytes, 0u);
-		}
-	}
+void CheckSuperseded(unsigned hz, Drop drop)
+{
+	const auto result = FragmentSnapshotStudy::Run(Policy::Replaceable, hz, 0, 7, 2000 / hz, drop, 2000);
+	ASSERT_TRUE(result.valid);
+	ASSERT_EQ(result.publications, 2u);
+	EXPECT_EQ(result.forcedDrops, 1u);
+	EXPECT_FALSE(result.firstCompleted);
+	EXPECT_EQ(result.latest, 2u);
+	EXPECT_EQ(result.completed, 1u);
+	EXPECT_LE(result.secondAppliedAtMs, 1000 / hz + 65);
+	EXPECT_GT(result.peakPartialBytes, 0u);
+	EXPECT_EQ(result.remainingPartialBytes, 0u);
+}
+}
+
+TEST(FragmentSnapshotStudy, SupersedesSnapshotMissingFirstPartAt30Hz)
+{
+	CheckSuperseded(30, Drop::FirstPart);
+}
+
+TEST(FragmentSnapshotStudy, SupersedesSnapshotMissingLastPartAt30Hz)
+{
+	CheckSuperseded(30, Drop::LastPart);
+}
+
+TEST(FragmentSnapshotStudy, SupersedesSnapshotMissingFirstPartAt60Hz)
+{
+	CheckSuperseded(60, Drop::FirstPart);
+}
+
+TEST(FragmentSnapshotStudy, SupersedesSnapshotMissingLastPartAt60Hz)
+{
+	CheckSuperseded(60, Drop::LastPart);
 }
 
 TEST(FragmentSnapshotStudy, PromotedFragmentsEventuallyDeliverTheMissingSnapshot)
@@ -48,18 +63,50 @@ TEST(FragmentSnapshotStudy, LostFinalUpdateExpiresWithoutAdvancingTheReceiver)
 	EXPECT_EQ(result.remainingPartialBytes, 0u);
 }
 
-TEST(FragmentSnapshotStudy, EveryStreamRecoversAfterAnOutageAndOrderedControlsDrain)
+namespace
 {
-	for (auto policy : {Policy::Promoted, Policy::Replaceable})
-	{
-		const auto result = RunBurst(policy, 30, 300, 7, 20);
-		ASSERT_TRUE(result.valid);
-		EXPECT_GT(result.outageDrops, 0u);
-		EXPECT_GE(result.firstFreshMs, 50u);
-		EXPECT_GE(result.allFreshMs, result.firstFreshMs);
-		EXPECT_EQ(result.reliableDelivered, 515u);
-		EXPECT_EQ(result.latencySamples, 120u);
-		EXPECT_GT(result.reliableP99Ms, 100u);
-		EXPECT_GT(result.peakAssemblyBytes, 1800u);
-	}
+void CheckBurstRecovery(Policy policy)
+{
+	const auto result = RunBurst(policy, 30, 300, 7, 20);
+	ASSERT_TRUE(result.valid);
+	EXPECT_GT(result.outageDrops, 0u);
+	EXPECT_GE(result.firstFreshMs, 50u);
+	EXPECT_GE(result.allFreshMs, result.firstFreshMs);
+	EXPECT_EQ(result.reliableDelivered, 515u);
+	EXPECT_EQ(result.latencySamples, 120u);
+	EXPECT_GT(result.reliableP99Ms, 100u);
+	EXPECT_GT(result.peakAssemblyBytes, 1800u);
+}
+}
+
+TEST(FragmentSnapshotStudy, PromotedStreamsRecoverAndOrderedControlsDrain)
+{
+	CheckBurstRecovery(Policy::Promoted);
+}
+
+TEST(FragmentSnapshotStudy, ReplaceableStreamsRecoverAndOrderedControlsDrain)
+{
+	CheckBurstRecovery(Policy::Replaceable);
+}
+
+TEST(FragmentSnapshotStudy, RejectsUnsupportedPublicationRates)
+{
+	EXPECT_FALSE(FragmentSnapshotStudy::Run(Policy::Promoted, 0, 0, 1, 100).valid);
+	EXPECT_FALSE(FragmentSnapshotStudy::Run(Policy::Promoted, 1001, 0, 1, 100).valid);
+}
+
+TEST(FragmentSnapshotStudy, StartupAgeRequiresACompleteSnapshot)
+{
+	const auto result = FragmentSnapshotStudy::Run(Policy::Promoted, 60, 0, 1, 40);
+	ASSERT_TRUE(result.valid);
+	EXPECT_EQ(result.applied, 0u);
+	EXPECT_EQ(result.p95AgeMs, 0u);
+}
+
+TEST(FragmentSnapshotStudy, ReusedSplitIdsContinueToCountAssemblyPayload)
+{
+	const auto result = FragmentSnapshotStudy::Run(Policy::Promoted, 60, 0, 1, 1000, Drop::None, 0, 1100000);
+	ASSERT_TRUE(result.valid);
+	EXPECT_GT(result.applied, 0u);
+	EXPECT_GE(result.peakAssemblyBytes, 3610u);
 }
