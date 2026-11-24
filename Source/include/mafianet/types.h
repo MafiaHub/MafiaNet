@@ -134,7 +134,7 @@ struct RAK_DLL_EXPORT SocketDescriptor
 	/// its port from RakPeer::GetMyBoundAddress(), exactly as an IPv4 wildcard
 	/// socket does. On Linux IPv4 and IPv6 share one port space, so a default
 	/// socket on a port excludes a separate AF_INET socket on the same port.
-	/// For an IPv4-only socket (the default before 0.27.0), use AF_INET. For an
+	/// For an IPv4-only socket (the default before 1.0.0), use AF_INET. For an
 	/// IPv6-only socket, use AF_INET6.
 	/// IPV6 is the newer internet protocol. Instead of addresses such as natpunch.slikesoft.com, you may have an address such as fe80::7c:31f7:fec4:27de%14.
 	/// Encoding takes 16 bytes instead of 4, so IPV6 is less efficient for bandwidth.

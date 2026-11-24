@@ -3,8 +3,30 @@ Changelog
 
 All notable changes to MafiaNet are documented here.
 
-Version 0.27.0
---------------
+Version 1.0.0
+-------------
+
+Upgrading from 0.26.0
+^^^^^^^^^^^^^^^^^^^^^
+
+Rebuild applications and native extensions, then deploy clients and servers
+together. The transport protocol moves from 7 to 12, and application packet
+IDs now start at ``ID_USER_PACKET_ENUM`` (90). Update hard-coded packet
+numbers and any readers of the old string wire format. CMake consumers that
+require a 0.x package version should request MafiaNet 1.0.
+
+**Connections and reliable UDP**
+
+* UDP connections use libsodium (1.0.18 or later) for encryption and replay
+  protection by default. To authenticate a particular server, configure its
+  identity key and pin its public key on clients. See :doc:`basics/secure-connections`.
+* A default socket accepts IPv4 and IPv6 on one port where dual stack is
+  available. Use ``AF_INET`` for an explicitly IPv4-only socket.
+  See :doc:`advanced/ipv6-support`.
+* ``GetMaxUnfragmentedPayload`` reports the current payload ceiling for a
+  destination and reliability mode. ``SendDatagram`` lets an application
+  require a single unreliable datagram. The reliable transport also handles
+  reordering, bandwidth caps and recovery after ACK feedback resumes.
 
 **Built-in object replication**
 
@@ -18,7 +40,12 @@ Version 0.27.0
   typed reports. Returning to a cell or transferring control starts with
   a current snapshot. Full snapshots support explicit dirty notifications
   and acknowledged replaceable delivery.
-
+* Schedule state with per-observer update intervals and byte budgets.
+  Compatible updates share batches. Receivers acknowledge applied snapshots,
+  and senders repair missing channels using each observer's ACK timing.
+* History-enabled snapshots support interpolation against a shared render
+  clock. A controlling client can reconcile ticked input against an
+  authoritative correction and replay its outstanding commands.
 
 **Built-in RPC**
 
@@ -27,6 +54,9 @@ Version 0.27.0
   See :doc:`guide/rpc` for the migration from RPC4.
 
 **Removed extensions**
+
+* Removed the Autopatcher and the MySQL and PostgreSQL extensions. Applications
+  that depended on these services must provide their own replacements.
 
 * Removed the exported ``CSHA1`` class and ``mafianet/dr_sha1.h``. Applications that used this header directly must supply their own SHA-1 implementation.
 
@@ -55,7 +85,7 @@ Version 0.27.0
 
 * **The ``DataStructures`` containers are gone.** The library, plugins, DependentExtensions and samples use ``std::vector``, ``std::deque``, ``std::map``, ``std::set`` and ``std::unordered_map``. Every ``ds_*.h`` header and the ``DataStructures`` namespace are removed, with no shims. ``RangeList``, ``Table`` and ``HuffmanEncodingTree`` survive in ``MafiaNet`` (``range_list.h``, ``table.h``, ``huffman_encoding_tree.h``).
 * **The custom allocator layer is gone.** The library allocates with ``new`` / ``delete`` and ``std::malloc`` / ``std::free``. ``memory_override.h``, ``SetMalloc`` and friends, ``rakMalloc`` / ``rakFree``, ``OP_NEW`` / ``OP_DELETE``, the bundled dlmalloc, every ``alloca`` and the ``_FILE_AND_LINE_`` macro with its ``file, line`` parameters are removed. Replace the global ``operator new`` / ``operator delete`` or link mimalloc/jemalloc to control allocation. ``RakNetSmartPtr`` is ``std::shared_ptr``.
-* **Public signatures take ``std::`` types.** ``DataStructures::List<T>&`` out-parameters are ``std::vector<T>&`` (``RakPeerInterface::GetSystemList``, ``GetSockets``, ``GetStatisticsList``, ReplicaManager3, FullyConnectedMesh2, FileList and more). Owned buffers come back as ``std::unique_ptr<unsigned char[]>`` (``BitStream::CopyData``, ``ReadAlignedBytesSafeAlloc``, ``DataCompressor::DecompressAndAllocate``). RPC4 hands out a ``LocalSlot *`` from ``GetLocalSlot()`` for ``InvokeSignal()``. Several plugins are now non-copyable.
+* **Public signatures take ``std::`` types.** ``DataStructures::List<T>&`` out-parameters are ``std::vector<T>&`` (``RakPeerInterface::GetSystemList``, ``GetSockets``, ``GetStatisticsList``, ReplicaManager3, FullyConnectedMesh2, FileList and more). Owned buffers come back as ``std::unique_ptr<unsigned char[]>`` (``BitStream::CopyData``, ``ReadAlignedBytesSafeAlloc``, ``DataCompressor::DecompressAndAllocate``). The built-in RPC service hands out a ``LocalSlot *`` from ``GetLocalSlot()`` for ``InvokeSignal()``. Several plugins are now non-copyable.
 * Replace ``LocklessUint32_t`` with ``std::atomic<uint32_t> counter{0}`` from ``<atomic>`` and ``<cstdint>``. Use ``counter.load()``, ``++counter`` and ``--counter`` for the former read, increment and decrement operations. Rebuild code using the affected socket and forwarding classes.
 * **New helpers:** ``SwapRemove`` (``vector_util.h``), ``InstancePtr`` (``instance_ptr.h``) and ``LockedQueue`` (``locked_queue.h``).
 * **Behaviour changes:** ``Table::SortTable`` keeps fully tied rows (ordered by row id) instead of dropping them; Router2 picks its forwarder deterministically; RPC4/MessageFilter match peer-supplied names verbatim; ``PacketizedTCP`` disconnects a peer whose length prefix exceeds ``SetMaxMessageLength()`` (default 64 MiB).

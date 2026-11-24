@@ -301,19 +301,13 @@ ctest --test-dir build -C Debug --output-on-failure
 
 ## Changelog
 
-### Version 0.27.0 (Latest)
-- Every UDP peer includes object replication, spatial streaming, and revocable client authority. Register game classes through `peer->GetReplication()`. [Replication guide](docs/guide/replication.rst)
-- RPC is built into every peer, including minimal builds. Replace `AttachPlugin(&rpc4)` with `auto &rpc = peer->GetRPC()`. [RPC migration guide](docs/guide/rpc.rst)
-- Removed `TeamManager` and `TeamBalancer`. Games now own team assignment and balancing.
-- Removed the `TwoWayAuthentication` plugin. Applications using it must handle user authentication themselves.
-- Removed RPC3, the SQLite networking and logging extensions, cloud storage, and the Lobby2 extension (including Rooms and the Steam adapter).
-- **Standard containers and allocation**: the `DataStructures` containers, the `rakMalloc`/`OP_NEW` allocator layer, `alloca` and `_FILE_AND_LINE_` are gone; the library uses `std::` containers, `new`/`delete` and smart pointers. Public `DataStructures::List<T>&` parameters are `std::vector<T>&`, owned buffers are `std::unique_ptr<unsigned char[]>`, and RPC4 hands out `LocalSlot *` handles. See the [migration guide](docs/advanced/migrating-to-std-containers.rst)
-- **Windows**: `std::` types cross the DLL boundary, so the application and `MafiaNet.dll` must use the same toolset and CRT
-- **Security fixes**: UDPProxyServer accepted forwarding requests from any system; peer-supplied RPC4/MessageFilter names were used as printf format strings
-- **Fixes**: a Huffman decoder out-of-bounds write, bounds on peer input in UDPProxyCoordinator and DataCompressor, `TableSerializer`/`StringTable` asserting on peer input, an ordered-channel stall after an MTU step-down, StatisticsHistory NaN sorting, the StringCompressor unknown-language decode buffer, the Steam room merge's dangling iterator, and leaks in RakPeer, FullyConnectedMesh2, ConnectionGraph2, StatisticsHistory, Table and NatPunchthroughServer; the full list is in `docs/changelog.rst`
-- **Behaviour changes**: `SortTable` keeps tied rows, Router2 picks its forwarder deterministically, `PacketizedTCP` disconnects on a message above `SetMaxMessageLength()` (64 MiB default)
-- **Breaking (API and ABI)**: rebuild against the updated headers.
-- **Wire protocol 12** assigns one native message ID to replication and removes retired packet slots. Application messages begin at 90. Rebuild and deploy clients and servers together.
+### Version 1.0.0 (Latest)
+
+- **Built-in replication and RPC.** Every UDP peer exposes `GetReplication()` and `GetRPC()`, including minimal builds. Register ordinary C++ objects, stream them by radius or cell, and grant clients authority to submit updates. Per-observer budgets, batched snapshots and selective repair control bandwidth. A shared render clock supports interpolation and owner reconciliation. [Replication guide](docs/guide/replication.rst) · [RPC migration](docs/guide/rpc.rst)
+- **Encrypted, dual-stack UDP.** Connections use libsodium 1.0.18 or later for encryption by default. Pin a server identity key when clients need to authenticate the server. Default sockets serve IPv4 and IPv6 on the same port where available. [Secure connections](docs/basics/secure-connections.rst) · [IPv6 setup](docs/advanced/ipv6-support.rst)
+- **Datagram delivery and recovery.** Query `GetMaxUnfragmentedPayload()` and use `SendDatagram()` for unreliable messages that must fit one datagram. The reliable transport handles reordered traffic and rebuilds its send window from fresh acknowledgments after an outage.
+- **Upgrading from v0.26.0.** Rebuild clients, servers and native extensions and deploy both endpoints together. The transport protocol moves from 7 to 12. Use `ID_USER_PACKET_ENUM` (90) as the base for application packets. Replace RakNet containers, allocators and strings with standard C++ types. Windows DLL consumers must match the library's compiler toolset and CRT. CMake consumers with a 0.x version requirement should request 1.0. [Container migration](docs/advanced/migrating-to-std-containers.rst)
+- **Removed services.** Port named calls to built-in RPC. Applications that used team management, TwoWayAuthentication, Lobby2/Rooms, the Steam lobby adapter, cloud storage, Autopatcher or database extensions need replacements. The changelog lists removed APIs, string wire-format changes and fixes to packet parsing, memory ownership and concurrency. [Full changelog](docs/changelog.rst)
 
 ### Version 0.26.0
 - **Receive on a thread of its own**: `RakPeerInterface::WaitForPackets()` blocks until a packet is waiting, and ReplicaManager3 can receive on one thread while `Update()` runs on another (per-connection locks, `WorldGuard`, `StateDelivery`)

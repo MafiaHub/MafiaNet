@@ -9,7 +9,7 @@ the wire format.
 Dual-Stack Sockets (the Default)
 --------------------------------
 
-Since 0.27.0, ``SocketDescriptor::socketFamily`` defaults to ``AF_UNSPEC``: a
+Since 1.0.0, ``SocketDescriptor::socketFamily`` defaults to ``AF_UNSPEC``: a
 plain ``SocketDescriptor`` opens one dual-stack socket (``AF_INET6`` with
 ``IPV6_V6ONLY=0``) that serves IPv4 and IPv6 peers alike, as a wildcard listen
 does in GameNetworkingSockets or ENet.
@@ -38,7 +38,7 @@ dual-stack sockets, the socket falls back to IPv4 only;
   ``hostAddress`` empty, or ``"::"``); ``"0.0.0.0"`` means "any IPv4
   address" and binds an IPv4-only socket. An IPv4-mapped bind address
   (``::ffff:a.b.c.d``) is not supported.
-* ``AF_INET`` is an IPv4-only socket -- the default before 0.27.0; set it to
+* ``AF_INET`` is an IPv4-only socket -- the default before 1.0.0; set it to
   get the old behaviour back. ``AF_INET6`` is an IPv6-only socket
   (``IPV6_V6ONLY=1``).
 
@@ -205,7 +205,7 @@ Configuration Options
    SocketDescriptor sd;
    sd.socketFamily = AF_UNSPEC;     // Dual-stack on the wildcard address (default)
    sd.socketFamily = AF_INET6;      // IPv6 only
-   sd.socketFamily = AF_INET;       // IPv4 only (the pre-0.27.0 default)
+   sd.socketFamily = AF_INET;       // IPv4 only (the pre-1.0.0 default)
    sd.requireDualStack = true;      // AF_UNSPEC: fail rather than fall back to IPv4
 
    // Bind to a specific interface (its family decides the socket family)

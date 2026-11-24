@@ -258,7 +258,7 @@ RNS2BindResult RNS2_Berkley::BindSharedIPV4And6(RNS2_BerkleyBindParameters *bind
 	// A specific bind address is never dual-stack, so unless dual-stack is
 	// required it binds IPv4 first: a name with both an A and an AAAA record
 	// ("localhost") then stays reachable by IPv4 clients, as with the
-	// pre-0.27.0 AF_INET default. Only a host with no IPv4 address (an IPv6
+	// pre-1.0.0 AF_INET default. Only a host with no IPv4 address (an IPv6
 	// literal, an AAAA-only name) binds IPv6, IPv6-only.
 	if (!bindParameters->requireDualStack && !IsWildcardBindHost(bindParameters->hostAddress))
 	{

@@ -87,7 +87,7 @@ TEST(IsPortInUse, UnsupportedFamilyIsNotInUse)
 	EXPECT_FALSE(IRNS2_Berkley::IsPortInUse(60000, "127.0.0.1", AF_UNIX, SOCK_DGRAM));
 }
 
-// Dual-stack is the default (0.27.0): like GameNetworkingSockets' wildcard
+// Dual-stack is the default (1.0.0): like GameNetworkingSockets' wildcard
 // listen and zpl-c ENet, a plain SocketDescriptor reaches IPv4 and IPv6 peers.
 TEST(SocketDescriptorDefaults, BothConstructorsDefaultToDualStack)
 {
