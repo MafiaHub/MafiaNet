@@ -80,6 +80,9 @@ option(MAFIANET_USE_COMPILER_CACHE "Use sccache/ccache when available" ON)
 # Compiler warnings on MafiaNet's own targets (see mafianet_enable_warnings).
 option(MAFIANET_WARNINGS_AS_ERRORS "Treat compiler warnings in MafiaNet code as errors" OFF)
 
+# Where libsodium comes from (see "Dependencies" below and docs/getting-started/building.rst).
+option(MAFIANET_USE_UNOFFICIAL_SODIUM "Find libsodium through vcpkg's unofficial-sodium CMake config package" OFF)
+
 # Ensure at least one library type is built
 if(NOT MAFIANET_BUILD_SHARED AND NOT MAFIANET_BUILD_STATIC)
     message(FATAL_ERROR "At least one of MAFIANET_BUILD_SHARED or MAFIANET_BUILD_STATIC must be ON")
@@ -129,7 +132,24 @@ endif()
 
 # Dependencies
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
-find_package(sodium 1.0.18 REQUIRED)
+# libsodium is linked as the `sodium` target, from one of three places:
+#  - a `sodium` target the parent project already defines (add_subdirectory of MafiaNet after providing it);
+#  - vcpkg's unofficial-sodium config package, with MAFIANET_USE_UNOFFICIAL_SODIUM;
+#  - otherwise cmake/Findsodium.cmake.
+# The installed MafiaNetConfig.cmake looks for libsodium the same way the build did (MAFIANET_SODIUM_PACKAGE).
+if(TARGET sodium)
+    message(STATUS "MafiaNet: using the sodium target defined by the parent project")
+    set(MAFIANET_SODIUM_PACKAGE sodium)
+elseif(MAFIANET_USE_UNOFFICIAL_SODIUM)
+    find_package(unofficial-sodium CONFIG REQUIRED)
+    # Not an ALIAS: the exported targets keep linking `sodium`, which the installed config defines again.
+    add_library(sodium INTERFACE IMPORTED)
+    target_link_libraries(sodium INTERFACE unofficial-sodium::sodium)
+    set(MAFIANET_SODIUM_PACKAGE unofficial-sodium)
+else()
+    find_package(sodium 1.0.18 REQUIRED)
+    set(MAFIANET_SODIUM_PACKAGE sodium)
+endif()
 find_package(Threads REQUIRED)
 
 # Include helpers

@@ -26,6 +26,14 @@ Version 0.27.0
   The peer owns the service and runs message filters before RPC handlers.
   See :doc:`guide/rpc` for the migration from RPC4.
 
+**Build**
+
+* MafiaNet can take libsodium from a ``sodium`` target that the parent
+  project defines before ``add_subdirectory()``, or from vcpkg's
+  ``unofficial-sodium`` package with ``-DMAFIANET_USE_UNOFFICIAL_SODIUM=ON``.
+  The installed ``MafiaNetConfig.cmake`` looks for libsodium in the same
+  package as the build. See :doc:`getting-started/building`.
+
 **Removed extensions**
 
 * Removed the exported ``CSHA1`` class and ``mafianet/dr_sha1.h``. Applications that used this header directly must supply their own SHA-1 implementation.

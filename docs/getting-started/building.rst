@@ -71,6 +71,9 @@ Configure build options with CMake:
    * - ``MAFIANET_WARNINGS_AS_ERRORS``
      - OFF
      - Treat warnings in MafiaNet's own code (``-Wall -Wextra``, ``/W4``) as errors. Fetched dependencies are never affected.
+   * - ``MAFIANET_USE_UNOFFICIAL_SODIUM``
+     - OFF
+     - Find libsodium through vcpkg's ``unofficial-sodium`` CMake package instead of ``cmake/Findsodium.cmake``. See `Providing libsodium`_.
    * - ``MAFIANET_BUILD_FUZZERS``
      - OFF
      - Build the libFuzzer harnesses (Clang only). See `Fuzzing`_.
@@ -89,6 +92,52 @@ Example with options:
 .. code-block:: bash
 
    cmake -DMAFIANET_BUILD_SAMPLES=ON -DMAFIANET_BUILD_TESTS=ON ..
+
+Providing libsodium
+-------------------
+
+MafiaNet links libsodium as a CMake target named ``sodium``. It comes from the
+first of these that applies:
+
+1. **A target your project already defines.** When MafiaNet is added with
+   ``add_subdirectory()`` (or FetchContent) after your project has created a
+   ``sodium`` target, MafiaNet uses it and does not look for libsodium itself.
+   Use this when your build compiles libsodium or finds it its own way:
+
+   .. code-block:: cmake
+
+      add_library(sodium UNKNOWN IMPORTED)
+      set_target_properties(sodium PROPERTIES
+        IMPORTED_LOCATION "${MY_SODIUM_LIBRARY}"
+        INTERFACE_INCLUDE_DIRECTORIES "${MY_SODIUM_INCLUDE_DIR}")
+      add_subdirectory(MafiaNet)
+
+   MafiaNet does not check the version of a target you provide: it must be
+   libsodium 1.0.18 or later.
+
+2. **vcpkg's package, with** ``-DMAFIANET_USE_UNOFFICIAL_SODIUM=ON``. vcpkg's
+   ``libsodium`` port installs a CMake package, ``unofficial-sodium``, rather
+   than the files ``Findsodium.cmake`` looks for. With this option MafiaNet runs
+   ``find_package(unofficial-sodium CONFIG REQUIRED)`` and links
+   ``unofficial-sodium::sodium``. A vcpkg port of MafiaNet passes it in
+   ``vcpkg_cmake_configure(OPTIONS ...)`` and depends on ``libsodium``; no patch
+   to MafiaNet's CMake files is needed.
+
+3. **Otherwise** ``cmake/Findsodium.cmake``, which uses pkg-config when it is
+   available and the default search paths otherwise. On Windows, point
+   ``sodium_DIR`` at a libsodium tree. ``-Dsodium_USE_STATIC_LIBS=ON`` selects
+   the static library.
+
+The installed ``MafiaNetConfig.cmake`` looks for libsodium in the package the
+build used: a build made with ``MAFIANET_USE_UNOFFICIAL_SODIUM`` runs
+``find_dependency(unofficial-sodium CONFIG)``, other builds use the installed
+``Findsodium.cmake``. In both cases, a ``sodium`` target that already exists
+when ``find_package(MafiaNet)`` runs is used as is. Only
+``MafiaNet::MafiaNetStatic`` needs libsodium at that point; see
+:doc:`installation`.
+
+``ci/sodium-provider`` is a parent project that provides libsodium in the
+first two ways; its ``CMakeLists.txt`` shows how to build it.
 
 Minimal builds
 --------------
