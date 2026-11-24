@@ -37,11 +37,11 @@ Bytes Encode(unsigned sequence, unsigned offset, unsigned size, unsigned char id
 	return data;
 }
 
-unsigned P95(std::vector<unsigned> &samples)
+unsigned Percentile(std::vector<unsigned> &samples, unsigned percent)
 {
 	if (samples.empty())
 		return 0;
-	auto nth = samples.begin() + (95 * samples.size() + 99) / 100 - 1;
+	auto nth = samples.begin() + (percent * samples.size() + 99) / 100 - 1;
 	std::nth_element(samples.begin(), nth, samples.end());
 	return *nth;
 }
@@ -130,6 +130,19 @@ bool SendSnapshot(RakPeer &server, SystemAddress address, Policy policy, unsigne
 	return server.Send(reinterpret_cast<const char *>(data.data()), static_cast<int>(data.size()), Priority::High, Reliability::Unreliable, 0, address, false) != 0;
 }
 
+// Discover the native fragment boundary at the workload RTT before adding loss or contention.
+unsigned Calibrate(SimulatedNetwork &net, RakPeer &sender, RakPeer &client, NativeAssembly &native)
+{
+	client.AttachPlugin(&native);
+	if (!SendSnapshot(sender, net.AddressOf(&client), Policy::Promoted, 0, 0) ||
+	    !net.RunUntilReceived(&client, ID_USER_PACKET_ENUM, 1000) ||
+	    native.firstFragmentBytes <= headerBytes || native.firstFragmentBytes >= stateBytes)
+		return 0;
+	net.Step(300);
+	net.Inbox(&client).clear();
+	return native.firstFragmentBytes - headerBytes;
+}
+
 class Receiver
 {
 public:
@@ -146,7 +159,7 @@ public:
 		if (!pending.empty() && ms - began >= fragmentTimeoutMs)
 			Discard();
 	}
-	bool Receive(SimulatedNetwork::Message &message, unsigned ms)
+	bool Receive(SimulatedNetwork::Message &message, unsigned ms, std::size_t otherStreamsHeld = 0)
 	{
 		if (message.id < ID_USER_PACKET_ENUM)
 			return true;
@@ -172,7 +185,7 @@ public:
 			pending = std::move(message.data);
 			result.remainingPartialBytes = pending.size();
 			result.peakPartialBytes = std::max(result.peakPartialBytes, pending.size());
-			result.peakAssemblyBytes = std::max(result.peakAssemblyBytes, pending.size());
+			result.peakAssemblyBytes = std::max(result.peakAssemblyBytes, otherStreamsHeld + pending.size());
 			return true;
 		}
 
@@ -181,7 +194,7 @@ public:
 		Bytes assembled(stateBytes);
 		std::copy(first.begin() + headerBytes, first.end(), assembled.begin());
 		std::copy(last.begin() + headerBytes, last.end(), assembled.begin() + splitAt);
-		result.peakAssemblyBytes = std::max(result.peakAssemblyBytes, first.size() + last.size() + assembled.size());
+		result.peakAssemblyBytes = std::max(result.peakAssemblyBytes, otherStreamsHeld + first.size() + last.size() + assembled.size());
 		Discard();
 		return Complete(sequence, assembled.data(), ms);
 	}
@@ -236,15 +249,9 @@ Result Run(Policy policy, unsigned hz, unsigned lossPercent, unsigned seed, unsi
 		return result;
 	source = net.AddressOf(server);
 	destination = net.AddressOf(client);
-	client->AttachPlugin(&native);
-	// Calibrate both arms with the same ordinary split send before enabling loss or counters.
-	if (!SendSnapshot(*server, destination, Policy::Promoted, 0, 0) ||
-	    !net.RunUntilReceived(client, ID_USER_PACKET_ENUM, 1000) ||
-	    native.firstFragmentBytes <= headerBytes || native.firstFragmentBytes >= stateBytes)
+	const unsigned splitAt = Calibrate(net, *server, *client, native);
+	if (!splitAt)
 		return result;
-	const unsigned splitAt = native.firstFragmentBytes - headerBytes;
-	net.Step(300);
-	net.Inbox(client).clear();
 	server->AttachPlugin(&queue);
 	Receiver receiver(result, splitAt);
 	unsigned warmCount = 0;
@@ -303,8 +310,8 @@ Result Run(Policy policy, unsigned hz, unsigned lossPercent, unsigned seed, unsi
 			ages.push_back(ms + 1 - publishedAt);
 		}
 	}
-	result.p95AgeMs = P95(ages);
-	result.p95SendQueueMs = P95(queue.delays);
+	result.p95AgeMs = Percentile(ages, 95);
+	result.p95SendQueueMs = Percentile(queue.delays, 95);
 	if (policy == Policy::Promoted)
 	{
 		result.peakAssemblyBytes = native.peak;
@@ -314,6 +321,144 @@ Result Run(Policy policy, unsigned hz, unsigned lossPercent, unsigned seed, unsi
 	net.SetTap({});
 	result.publications -= warmCount;
 	result.valid = native.valid && (drop == Drop::None || result.forcedDrops == 1);
+	return result;
+}
+
+BurstResult RunBurst(Policy policy, unsigned hz, unsigned outageMs, unsigned seed, unsigned headroomPercent)
+{
+	constexpr unsigned streams = 4, outageStart = 6000, afterReopen = 4000, controlPeriod = 20;
+	constexpr unsigned char controlId = ID_USER_PACKET_ENUM + 3;
+	BurstResult result;
+	if ((hz != 30 && hz != 60) || outageMs > 1000 || (headroomPercent != 20 && headroomPercent != 60))
+		return result;
+	const unsigned reopen = outageStart + outageMs, finish = reopen + afterReopen;
+	const unsigned totalHz = streams * hz;
+	// Payload offered by the snapshots and controls plus headroom for headers and recovery.
+	const unsigned linkRate = (totalHz * stateBytes + 96 * 1000 / controlPeriod) * (100 + headroomPercent) / 100;
+	SimulatedBottleneck fifo(linkRate / 10, {{0, linkRate}});
+	NativeAssembly native;
+	SimulatedNetwork net(seed);
+	auto *sender = net.AddPeer(1, 1);
+	auto *client = net.AddPeer(1);
+	SimulatedNetwork::LinkRule path;
+	path.delayMs = 50;
+	net.SetLinkBothWays(sender, client, path);
+	if (!net.Connect(client, sender))
+		return result;
+	const auto destination = net.AddressOf(client);
+	const unsigned splitAt = Calibrate(net, *sender, *client, native);
+	if (!splitAt)
+		return result;
+	native.peak = 0;
+	path.reorderPerThousand = 5;
+	path.reorderDelayMs = 25;
+	net.SetLinkBothWays(sender, client, path);
+	path.bottleneck = &fifo;
+	net.SetLink(sender, client, path);
+
+	std::array<Result, streams> states{};
+	std::vector<Receiver> receivers;
+	receivers.reserve(streams);
+	for (auto &state : states)
+		receivers.emplace_back(state, splitAt);
+	std::array<bool, streams> fresh{};
+	unsigned freshCount = 0, published = 0;
+	std::vector<unsigned> latencies;
+	uint64_t dropsAtStart = 0;
+	for (unsigned ms = 0; ms < finish + 10000; ++ms)
+	{
+		if (ms == outageStart)
+		{
+			if (!result.reliableDelivered || std::any_of(states.begin(), states.end(), [](const Result &state)
+			                                             { return !state.applied; }))
+				return result;
+			dropsAtStart = net.DatagramsDropped();
+			path.dark = true;
+			net.SetLink(sender, client, path);
+		}
+		if (ms == reopen)
+		{
+			result.outageDrops = net.DatagramsDropped() - dropsAtStart;
+			path.dark = false;
+			net.SetLink(sender, client, path);
+		}
+		if (ms < finish && ms % controlPeriod == 0)
+		{
+			const auto data = Encode(result.reliableSent, 0, 96 - headerBytes, controlId);
+			if (!sender->Send(reinterpret_cast<const char *>(data.data()), static_cast<int>(data.size()), Priority::High, Reliability::ReliableOrdered, 0, destination, false))
+				return result;
+			++result.reliableSent;
+		}
+		// The sequence identifies both publication time and stream, in round-robin order.
+		if (ms < finish && ms == published * 1000 / totalHz)
+		{
+			states[published % streams].publications = published + 1;
+			++published;
+			if (!SendSnapshot(*sender, destination, policy, published, splitAt))
+				return result;
+		}
+		net.Step(1);
+		const unsigned now = ms + 1;
+		for (auto &receiver : receivers)
+			receiver.Expire(now);
+		for (auto &message : net.Inbox(client))
+		{
+			if (message.id < ID_USER_PACKET_ENUM)
+				continue;
+			if (message.id == controlId)
+			{
+				const unsigned expected = result.reliableDelivered;
+				if (expected >= result.reliableSent || message.data != Encode(expected, 0, 96 - headerBytes, controlId))
+					return result;
+				++result.reliableDelivered;
+				const unsigned sentAt = expected * controlPeriod;
+				if (sentAt >= outageStart - 100 && sentAt < reopen + 2000)
+					latencies.push_back(now - sentAt);
+				continue;
+			}
+			if (message.data.size() < headerBytes)
+				return result;
+			uint32_t sequence;
+			std::memcpy(&sequence, message.data.data() + 1, sizeof(sequence));
+			if (!sequence || sequence > published)
+				return result;
+			const unsigned stream = (sequence - 1) % streams;
+			auto &state = states[stream];
+			size_t otherHeld = 0;
+			for (unsigned i = 0; i < streams; ++i)
+				if (i != stream)
+					otherHeld += states[i].remainingPartialBytes;
+			// Include simultaneous partials in other streams and the current receive's output copy.
+			if (!receivers[stream].Receive(message, now, otherHeld))
+				return result;
+			result.peakAssemblyBytes = std::max(result.peakAssemblyBytes, state.peakAssemblyBytes);
+			if (!fresh[stream] && state.latest && (state.latest - 1) * 1000 / totalHz >= reopen)
+			{
+				if (!freshCount)
+					result.firstFreshMs = now - reopen;
+				fresh[stream] = true;
+				if (++freshCount == streams)
+					result.allFreshMs = now - reopen;
+			}
+		}
+		net.Inbox(client).clear();
+	}
+	unsigned completed = 0;
+	for (const auto &state : states)
+	{
+		completed += state.completed;
+		if (state.remainingPartialBytes)
+			return result;
+	}
+	if (policy == Policy::Promoted && (completed != published || native.held != 0))
+		return result;
+	result.fifoDrops = fifo.drops;
+	result.latencySamples = static_cast<unsigned>(latencies.size());
+	result.reliableP99Ms = Percentile(latencies, 99);
+	if (policy == Policy::Promoted)
+		result.peakAssemblyBytes = native.peak;
+	result.valid = native.valid && freshCount == streams && result.reliableDelivered == result.reliableSent &&
+	               result.latencySamples > 0 && (!outageMs || result.outageDrops > 0);
 	return result;
 }
 }

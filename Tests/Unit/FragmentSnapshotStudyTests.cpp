@@ -47,3 +47,19 @@ TEST(FragmentSnapshotStudy, LostFinalUpdateExpiresWithoutAdvancingTheReceiver)
 	EXPECT_EQ(result.latest, 0u);
 	EXPECT_EQ(result.remainingPartialBytes, 0u);
 }
+
+TEST(FragmentSnapshotStudy, EveryStreamRecoversAfterAnOutageAndOrderedControlsDrain)
+{
+	for (auto policy : {Policy::Promoted, Policy::Replaceable})
+	{
+		const auto result = RunBurst(policy, 30, 300, 7, 20);
+		ASSERT_TRUE(result.valid);
+		EXPECT_GT(result.outageDrops, 0u);
+		EXPECT_GE(result.firstFreshMs, 50u);
+		EXPECT_GE(result.allFreshMs, result.firstFreshMs);
+		EXPECT_EQ(result.reliableDelivered, 515u);
+		EXPECT_EQ(result.latencySamples, 120u);
+		EXPECT_GT(result.reliableP99Ms, 100u);
+		EXPECT_GT(result.peakAssemblyBytes, 1800u);
+	}
+}

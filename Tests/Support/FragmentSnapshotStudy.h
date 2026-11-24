@@ -31,4 +31,15 @@ struct Result
 // A single state stream. Steady runs sample receiver age every simulated millisecond
 // after the requested warmup. deadlineMs adds a drain only for the short acceptance cases.
 Result Run(Policy policy, unsigned hz, unsigned lossPercent, unsigned seed, unsigned durationMs, Drop drop = Drop::None, unsigned deadlineMs = 0, unsigned warmupMs = 0);
+
+struct BurstResult
+{
+	bool valid = false;
+	unsigned firstFreshMs = 0, allFreshMs = 0, reliableP99Ms = 0;
+	unsigned reliableSent = 0, reliableDelivered = 0, latencySamples = 0;
+	std::size_t peakAssemblyBytes = 0;
+	std::uint64_t outageDrops = 0, fifoDrops = 0;
+};
+
+BurstResult RunBurst(Policy policy, unsigned hz, unsigned outageMs, unsigned seed, unsigned headroomPercent);
 }
