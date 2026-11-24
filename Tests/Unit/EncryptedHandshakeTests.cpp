@@ -637,7 +637,7 @@ TEST(EncryptedHandshake, PlaintextClientCryptInfoCarriesARandomNonceThatReply2Ec
 	EXPECT_NE(nonce, otherNonce);
 }
 
-TEST(EncryptedHandshake, Protocol9RequestReceivesVersionMismatch)
+TEST(EncryptedHandshake, ReleasedProtocol7RequestGetsProtocol8InMismatchReply)
 {
 	SimulatedNetwork net;
 	RakPeer *server = net.AddPeer(1, 1);
@@ -650,14 +650,14 @@ TEST(EncryptedHandshake, Protocol9RequestReceivesVersionMismatch)
 
 	unsigned char request[35] = {ID_OPEN_CONNECTION_REQUEST_1};
 	std::memcpy(request + 1, kOfflineMessageDataId, kOfflineMessageDataIdSize);
-	request[1 + kOfflineMessageDataIdSize] = 9;
+	request[1 + kOfflineMessageDataIdSize] = 7;
 	net.InjectDatagram(sender, server, request, sizeof(request));
 	net.Step(20);
 
 	ASSERT_EQ(1u, replies.size());
 	ASSERT_GE(replies.front().size(), 2u);
 	EXPECT_EQ(ID_INCOMPATIBLE_PROTOCOL_VERSION, replies.front()[0]);
-	EXPECT_EQ(RAKNET_PROTOCOL_VERSION, replies.front()[1]);
+	EXPECT_EQ(8u, replies.front()[1]);
 }
 
 // REQUEST_1 shorter than the REPLY_1 it would trigger (35 bytes) is ignored, so the server never answers

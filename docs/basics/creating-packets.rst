@@ -140,7 +140,7 @@ Use less bandwidth with compression:
 Strings
 -------
 
-Protocol 11 writes a 32-bit byte count followed by byte-aligned data. An owning
+Protocol 8 writes a 32-bit byte count followed by byte-aligned data. An owning
 string can carry embedded NULs. C-string inputs end at the first NUL.
 ``WriteCompressed`` and ``ReadCompressed`` use the Huffman codec and preserve
 all bytes. A narrow string can contain at most 16 MiB in either encoding.
@@ -150,7 +150,7 @@ incomplete or oversized input. For standalone compressed streams, hold a
 
 For Unicode text, encode the field as UTF-8 in a ``std::string``. The length
 counts bytes. Applications migrating a former wide-string field must update
-both its writer and its reader together. The protocol 11 handshake accepts
+both its writer and its reader together. The protocol 8 handshake accepts
 peers using either application field format. Use an application-level version
 if peers with different formats can connect.
 

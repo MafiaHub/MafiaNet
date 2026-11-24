@@ -297,6 +297,10 @@ cutting a release, bump **every** location below to the new version:
 | `docs/changelog.rst` | Add a new `Version X.Y.Z` section at the top |
 | `README.md` | Add a new `### Version X.Y.Z (Latest)` entry under Changelog and drop `(Latest)` from the previous one |
 
+For a wire-breaking release, set `RAKNET_PROTOCOL_VERSION` one above the last
+published transport protocol. Changes that ship together share that number.
+For 1.0.0 the baseline is v0.26.0 (protocol 7), so the release uses protocol 8.
+
 ### Steps
 
 1. Determine the previous release boundary (e.g. `git log --reverse <prev-tag>..HEAD`,

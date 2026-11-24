@@ -10,7 +10,7 @@ Upgrading from 0.26.0
 ^^^^^^^^^^^^^^^^^^^^^
 
 Rebuild applications and native extensions, then deploy clients and servers
-together. The transport protocol moves from 7 to 12, and application packet
+together. The transport protocol moves from 7 to 8, and application packet
 IDs now start at ``ID_USER_PACKET_ENUM`` (90). Update hard-coded packet
 numbers and any readers of the old string wire format. CMake consumers that
 require a 0.x package version should request MafiaNet 1.0.
@@ -32,7 +32,7 @@ require a 0.x package version should request MafiaNet 1.0.
 
 * Every UDP peer owns its replication service, including in minimal builds.
   Register replica types through ``peer->GetReplication()`` and configure a
-  server, client or peer role. Protocol 12 assigns one message ID to replication
+  server, client or peer role. Protocol 8 assigns one message ID to replication
   and removes retired message slots. Application message IDs start at 90.
   Rebuild and deploy both endpoints together. See :doc:`guide/replication`.
 * Stream replicas by radius or explicit cells, cap the visible set and
@@ -109,7 +109,7 @@ require a 0.x package version should request MafiaNet 1.0.
 * **Fix: StringCompressor** leaves an empty string, not stale buffer contents, when it decodes with an unknown language id.
 * **Fix: Steam lobby room merge** no longer uses a dangling iterator when a member callback leaves the room.
 
-**Breaking API, ABI and wire changes.** Protocol 12 uses the current message table on both endpoints. Old binaries must be rebuilt.
+**Breaking API, ABI and wire changes.** Protocol 8 uses the current message table on both endpoints. Old binaries must be rebuilt.
 
 Version 0.26.0
 --------------

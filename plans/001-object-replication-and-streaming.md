@@ -6,7 +6,7 @@ Every UDP peer owns one C++17 replication service, accessible as `peer->GetRepli
 
 ## Implemented release
 
-MafiaNet 0.27.0 assigns a single message ID to built-in replication on transport protocol 12. Both endpoints register stable game type IDs and codec versions. A session has one object ID namespace. Worlds and dimensions select the server-side audience. Each owner-report format is identified by the replica type and its registered report version. A lost final replaceable snapshot is sent reliably after 250 ms without application acknowledgment.
+MafiaNet 1.0.0 assigns a single message ID to built-in replication on transport protocol 8. Both endpoints register stable game type IDs and codec versions. A session has one object ID namespace. Worlds and dimensions select the server-side audience. Each owner-report format is identified by the replica type and its registered report version. A lost final replaceable snapshot is sent reliably after 250 ms without application acknowledgment.
 
 The [public guide](../docs/guide/replication.rst) and [two-client sample](../Samples/Replication/main.cpp) use the implemented API. The sample runs on loopback. The deterministic acceptance suite is in [BuiltinReplicationTests.cpp](../Tests/Unit/BuiltinReplicationTests.cpp).
 

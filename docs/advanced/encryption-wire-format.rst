@@ -1,7 +1,7 @@
 Encryption Wire Format
 ======================
 
-This page specifies how MafiaNet protocol version 12 establishes and uses session keys, precisely
+This page specifies how MafiaNet protocol version 8 establishes and uses session keys, precisely
 enough to write an interoperable implementation. For what the encryption does and does not protect,
 and how to use it, see :doc:`../basics/secure-connections`.
 
@@ -27,7 +27,7 @@ Conventions
   An IPv4-mapped IPv6 address is sent in the IPv4 form.
 * ``OFFLINE_ID`` is the 16-byte offline message marker
   ``00 FF FF 00 FE FE FE FE FD FD FD FD 12 34 56 78``.
-* The protocol version, ``RAKNET_PROTOCOL_VERSION``, is **12**. It occupies one byte.
+* The protocol version, ``RAKNET_PROTOCOL_VERSION``, is **8**. It occupies one byte.
 * ``initiator`` is the peer that called ``Connect``; ``responder`` is the peer that accepted. In a
   simultaneous connect the winner of the tie-break (see `Simultaneous connect`_) is the initiator.
 
@@ -67,7 +67,7 @@ ID_OPEN_CONNECTION_REQUEST_1 (client to server)
 
     [message ID] (u8)
     [OFFLINE_ID] (16 bytes)
-    [protocol version] (u8) // 12
+    [protocol version] (u8) // 8
     <zero pad up to the MTU being probed>
 
 **At least 35 bytes**, the size of ``REPLY_1``: a server silently ignores a shorter ``REQUEST_1``,
@@ -205,7 +205,7 @@ Signed input
 The signature is ``crypto_sign_ed25519_detached`` with the identity secret key over these 107 bytes::
 
     "MafiaNet server identity"   24 bytes of ASCII, no terminator
-    protocol version              1 byte (12)
+    protocol version              1 byte (8)
     client crypt info            41 bytes, exactly as in REQUEST_2
     server crypt info            41 bytes, exactly as in REPLY_2
 
@@ -294,7 +294,7 @@ public key. Let ``I`` be the initiator's crypt info and ``R`` the responder's, a
 3. **Expand.** The ``info`` string is 118 bytes, or 214 when the responder has an identity key::
 
        "MafiaNet datagram"         17 bytes of ASCII, no terminator
-       protocol version             1 byte (12)
+       protocol version             1 byte (8)
        initiator GUID               8 bytes, little-endian
        responder GUID               8 bytes, little-endian
        initiator crypt info I      41 bytes
@@ -364,7 +364,7 @@ Associated data
 
 Two bytes are authenticated but not encrypted::
 
-    [protocol version] (u8)   // 12
+    [protocol version] (u8)   // 8
     [prefix] (u8)
 
 Authenticating the prefix binds the length of the sequence field; authenticating the protocol
@@ -423,7 +423,7 @@ Plaintext mode
 With mode Plaintext on both sides, the crypt infos carry zero keys (and only the client's nonce, for
 the ``REPLY_2`` echo), no keys are derived,
 no overhead is reserved, and connected datagrams are bare reliability-layer datagrams as they were
-before protocol version 9. ``ID_CONNECTION_REQUEST`` is then the first datagram of the connection,
+before protocol version 8. ``ID_CONNECTION_REQUEST`` is then the first datagram of the connection,
 unsealed. ``droppedUnauthenticatedDatagrams`` stays 0.
 
 Simultaneous connect
@@ -497,7 +497,7 @@ Constants
    * - Constant
      - Value
    * - Protocol version
-     - 12
+     - 8
    * - Crypt info size
      - 41 bytes (1 mode + 32 public key + 8 nonce)
    * - Key size, shared secret size
