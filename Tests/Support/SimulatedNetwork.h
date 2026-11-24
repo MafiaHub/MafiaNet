@@ -72,7 +72,8 @@ public:
 	SimulatedNetwork(const SimulatedNetwork &) = delete;
 	SimulatedNetwork &operator=(const SimulatedNetwork &) = delete;
 
-	// A started peer bound to 10.0.0.<n>:<port> (port 0 picks one).
+	// A started peer bound to 10.0.0.<n>:<port> (port 0 picks one); from the 256th
+	// host on, <n> carries into the third octet (10.0.1.0, ...).
 	RakPeer *AddPeer(unsigned int maxConnections, unsigned short maxIncoming = 0, unsigned short port = 0);
 	// Takes ownership of a peer with a custom transport enqueue implementation.
 	RakPeer *AddCustomPeer(std::unique_ptr<RakPeer> peer, unsigned int maxConnections, unsigned short maxIncoming = 0)

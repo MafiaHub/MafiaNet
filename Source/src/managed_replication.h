@@ -5,6 +5,8 @@
 #include <map>
 #include <mutex>
 #include <set>
+#include <unordered_map>
+#include <vector>
 #include "replication_wire.h"
 #include "replication_clock.h"
 
@@ -60,6 +62,13 @@ public:
 
 private:
 	class Connection;
+	// The connections each replica is constructed on, so that Mark() costs the replica's observers and not
+	// every connection. It mirrors their constructed lists and, like Mark(), is only used under the world:
+	// Update() records what each connection gains and loses (QueryReplicaList(), ConstructionFailed()), a final
+	// dereference drops the replica and Disconnected() the connection. Keys are only compared, never followed.
+	std::unordered_map<const Replica3 *, std::vector<Connection *>> observers;
+	void Observe(const Replica3 &replica, Connection &connection);
+	void Unobserve(const Replica3 &replica, Connection &connection);
 	void Notify(ReplicaEventKind kind, NetworkID id, PeerGuid source, OwnerInputStamp input = {});
 	std::deque<ReplicaEvent> events;
 	bool dispatching = false;
