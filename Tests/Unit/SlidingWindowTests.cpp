@@ -20,7 +20,7 @@ void Ack(MafiaNet::CCRakNetSlidingWindow &window, DatagramSequenceNumberType seq
 {
 	for (int i = 0; i < count; ++i)
 	{
-		window.OnAck(now, 100000, false, 0, 0, 0, true, seq);
+		window.OnAck(now, 100000, false, 0, 0, kMtu, true, seq);
 		seq = seq + (DatagramSequenceNumberType) 1;
 	}
 }

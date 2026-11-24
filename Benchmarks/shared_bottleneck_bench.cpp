@@ -1,7 +1,11 @@
 // Copyright (c) 2026, MafiaHub. Licensed under the MIT-style license in license.txt.
 #include <benchmark/benchmark.h>
+#include <algorithm>
 #include <array>
 #include <cstring>
+#include <optional>
+#include <utility>
+#include <vector>
 #include "SimulatedNetwork.h"
 #include "mafianet/message_identifiers.h"
 
@@ -9,11 +13,13 @@ using namespace MafiaNet;
 
 namespace
 {
-void RakPeer_SharedBottleneck(benchmark::State &state)
+template <bool outage>
+void SharedBottleneck(benchmark::State &state)
 {
 	const size_t flows = static_cast<size_t>(state.range(0));
 	constexpr size_t blockBytes = 16 * 1024;
-	SimulatedBottleneck path(51200, {{0, 256 * 1024}});
+	constexpr unsigned outageStart = 6000, reopen = 6300, recoveryEnd = reopen + 2000;
+	std::optional<SimulatedBottleneck> pathStorage; // Outlive the links that reference it.
 	SimulatedNetwork net(static_cast<uint32_t>(state.range(2)));
 	auto *receiver = net.AddPeer(2, 2);
 	std::array<RakPeer *, 2> senders{};
@@ -33,6 +39,10 @@ void RakPeer_SharedBottleneck(benchmark::State &state)
 	rule.lossPercent = static_cast<int>(state.range(1));
 	for (size_t flow = 0; flow < flows; ++flow)
 		net.SetLink(receiver, senders[flow], rule);
+	std::vector<SimulatedBottleneck::Rate> rates{{0, 256 * 1024}};
+	if (outage && flows == 1)
+		rates.push_back({net.Now() + reopen * 1000, 128 * 1024});
+	auto &path = pathStorage.emplace(51200, std::move(rates));
 	rule.bottleneck = &path;
 	for (size_t flow = 0; flow < flows; ++flow)
 		net.SetLink(senders[flow], receiver, rule);
@@ -59,9 +69,24 @@ void RakPeer_SharedBottleneck(benchmark::State &state)
 			net.Inbox(senders[flow]).clear();
 		return true;
 	};
+	size_t recoveryFirstWait = 0;
+	uint64_t recoveryStartDrops = 0;
+	std::array<uint32_t, 2> recoveryStartDelivered{};
 	for (auto _ : state)
 		for (unsigned ms = 0; ms < 60000; ++ms)
 		{
+			if (outage && (ms == outageStart || ms == reopen))
+			{
+				auto firstLink = rule;
+				firstLink.dark = ms == outageStart;
+				net.SetLink(senders[0], receiver, firstLink);
+				if (ms == reopen)
+				{
+					recoveryFirstWait = path.waitUs.size();
+					recoveryStartDrops = path.drops;
+					recoveryStartDelivered = delivered;
+				}
+			}
 			for (size_t flow = 0; flow < flows; ++flow)
 				while (offered[flow] - delivered[flow] < 16)
 				{
@@ -79,6 +104,21 @@ void RakPeer_SharedBottleneck(benchmark::State &state)
 			{
 				state.SkipWithError("shared flow sequence mismatch");
 				return;
+			}
+			if (outage && ms + 1 == recoveryEnd)
+			{
+				auto first = path.waitUs.begin() + recoveryFirstWait;
+				if (first == path.waitUs.end())
+				{
+					state.SkipWithError("no datagrams admitted during recovery");
+					return;
+				}
+				const auto rank = first + (95 * (path.waitUs.end() - first) - 1) / 100;
+				std::nth_element(first, rank, path.waitUs.end());
+				state.counters["recovery_queue_p95_ms"] = *rank / 1000.0;
+				state.counters["recovery_tail_drops"] = static_cast<double>(path.drops - recoveryStartDrops);
+				for (size_t flow = 0; flow < flows; ++flow)
+					state.counters["recovery_flow" + std::to_string(flow) + "_blocks"] = delivered[flow] - recoveryStartDelivered[flow];
 			}
 		}
 	double sum = 0, squares = 0;
@@ -126,5 +166,7 @@ void SharedCases(benchmark::Benchmark *bench)
 			bench->Args({flows, 2, seed});
 	}
 }
-BENCHMARK(RakPeer_SharedBottleneck)->Apply(SharedCases)->ArgNames({"flows", "loss_pct", "seed"})->Iterations(1);
+BENCHMARK_TEMPLATE(SharedBottleneck, false)->Name("RakPeer_SharedBottleneck")->Apply(SharedCases)->ArgNames({"flows", "loss_pct", "seed"})->Iterations(1);
+// One flow returns at half capacity. With two flows only the first loses its link.
+BENCHMARK_TEMPLATE(SharedBottleneck, true)->Name("RakPeer_BottleneckRecovery")->Apply(SharedCases)->ArgNames({"flows", "loss_pct", "seed"})->Iterations(1);
 }

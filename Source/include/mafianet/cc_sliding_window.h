@@ -131,7 +131,7 @@ public:
 	/// hasBAndAS are possibly written with the ack, see OnSendAck()
 	/// B and AS are used in the calculations in UpdateWindowSizeAndAckOnAckPerSyn
 	/// B and AS are updated at most once per SYN
-	void OnAck(CCTimeType curTime, CCTimeType rtt, bool hasBAndAS, BytesPerMicrosecond _B, BytesPerMicrosecond _AS, double totalUserDataBytesAcked, bool isContinuousSend, DatagramSequenceNumberType sequenceNumber);
+	void OnAck(CCTimeType curTime, CCTimeType rtt, bool hasBAndAS, BytesPerMicrosecond _B, BytesPerMicrosecond _AS, uint32_t datagramBytes, bool isContinuousSend, DatagramSequenceNumberType sequenceNumber);
 	void OnDuplicateAck(CCTimeType curTime, DatagramSequenceNumberType sequenceNumber);
 
 	/// Call when you send an ack, to see if the ack should have the B and AS parameters transmitted
@@ -217,6 +217,9 @@ protected:
 	CCTimeType recentEpoch, lastDelayBackoff, lastAckAt;
 	unsigned intervalAcks, intervalGaps;
 	bool excessiveGaps;
+	bool recovering;
+	CCTimeType lastAckBeforeRestart;
+	DatagramSequenceNumberType firstRecoveryDatagram;
 };
 
 }

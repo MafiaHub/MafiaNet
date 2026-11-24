@@ -51,6 +51,7 @@ void CCRakNetSlidingWindow::Init(CCTimeType curTime, uint32_t maxDatagramPayload
 	pacingClock = baselineEpoch = recentEpoch = lastDelayBackoff = lastAckAt = curTime;
 	intervalAcks = intervalGaps = 0;
 	excessiveGaps = false;
+	recovering = false;
 	recentMinimum = completedMinimum = UNSET_TIME_US;
 	previousMinRtt = currentMinRtt = UNSET_TIME_US;
 	pacingCredit = maxDatagramPayload;
@@ -197,15 +198,27 @@ void CCRakNetSlidingWindow::OnResend(CCTimeType curTime, MafiaNet::TimeUS nextAc
 	// the one-datagram restart for a flight without recent ACK feedback.
 	ssThresh = cwnd / 2;
 	cwnd = recentAck ? ssThresh : minimumWindow;
+	recovering = !recentAck;
+	if (recovering)
+	{
+		// Missing datagrams from the old flight already caused this restart.
+		firstRecoveryDatagram = nextDatagramSequenceNumber;
+		lastAckBeforeRestart = lastAckAt;
+		intervalAcks = intervalGaps = 0;
+		excessiveGaps = false;
+		recentEpoch = curTime;
+	}
 	nextCongestionControlBlock = nextDatagramSequenceNumber;
 	backoffThisBlock = true;
 }
 // ----------------------------------------------------------------------------------------------------------------------------
 void CCRakNetSlidingWindow::OnNAK(CCTimeType curTime, DatagramSequenceNumberType nakSequenceNumber)
 {
-	(void) nakSequenceNumber;
+	if (recovering && LessThan(nakSequenceNumber, firstRecoveryDatagram))
+		return;
 	(void) curTime;
 
+	recovering = false;
 	++intervalGaps;
 	if (_isContinuousSend && backoffThisBlock == false)
 	{
@@ -217,12 +230,16 @@ void CCRakNetSlidingWindow::OnNAK(CCTimeType curTime, DatagramSequenceNumberType
 	}
 }
 // ----------------------------------------------------------------------------------------------------------------------------
-void CCRakNetSlidingWindow::OnAck(CCTimeType curTime, CCTimeType rtt, bool hasBAndAS, BytesPerMicrosecond _B, BytesPerMicrosecond _AS, double totalUserDataBytesAcked, bool isContinuousSend, DatagramSequenceNumberType sequenceNumber)
+void CCRakNetSlidingWindow::OnAck(CCTimeType curTime, CCTimeType rtt, bool hasBAndAS, BytesPerMicrosecond _B, BytesPerMicrosecond _AS, uint32_t datagramBytes, bool isContinuousSend, DatagramSequenceNumberType sequenceNumber)
 {
 	(void) _B;
-	(void) totalUserDataBytesAcked;
 	(void) _AS;
 	(void) hasBAndAS;
+	// Credit only datagrams sent since feedback went silent. A probe can
+	// cross the restored link before its sender declares the timeout.
+	if (recovering && rtt >= curTime - lastAckBeforeRestart)
+		return;
+
 	lastRtt = static_cast<double>(rtt);
 
 	// Remember the minima of two ten-second intervals, to age out a changed path.
@@ -262,8 +279,12 @@ void CCRakNetSlidingWindow::OnAck(CCTimeType curTime, CCTimeType rtt, bool hasBA
 
 	_isContinuousSend = isContinuousSend;
 
-	if (isContinuousSend == false)
+	if (!isContinuousSend)
+	{
+		if (recovering && !LessThan(sequenceNumber, firstRecoveryDatagram))
+			recovering = false;
 		return;
+	}
 
 	bool isNewCongestionControlPeriod;
 	isNewCongestionControlPeriod = GreaterThan(sequenceNumber, nextCongestionControlBlock);
@@ -301,9 +322,15 @@ void CCRakNetSlidingWindow::OnAck(CCTimeType curTime, CCTimeType rtt, bool hasBA
 	}
 	if (IsInSlowStart())
 	{
-		cwnd += MAXIMUM_MTU_INCLUDING_UDP_HEADER;
+		// Rebuild toward half the pre-timeout window only as bytes arrive.
+		// On crossing the threshold, take the usual congestion-avoidance increment.
+		cwnd += recovering ? std::min(datagramBytes, MAXIMUM_MTU_INCLUDING_UDP_HEADER) : MAXIMUM_MTU_INCLUDING_UDP_HEADER;
 		if (cwnd > ssThresh && ssThresh != 0)
-			cwnd = ssThresh + MAXIMUM_MTU_INCLUDING_UDP_HEADER * MAXIMUM_MTU_INCLUDING_UDP_HEADER / cwnd;
+		{
+			const double avoidanceWindow = ssThresh + MAXIMUM_MTU_INCLUDING_UDP_HEADER * MAXIMUM_MTU_INCLUDING_UDP_HEADER / cwnd;
+			cwnd = recovering ? std::min(cwnd, avoidanceWindow) : avoidanceWindow;
+			recovering = false;
+		}
 
 		// CC PRINTF
 		//	printf("++ %.0f Slow start increase.\n", cwnd);

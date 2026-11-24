@@ -124,13 +124,18 @@ TEST(FragmentSnapshotStudy, PromotedStreamsDrainTheStartupBacklogWhileAcksContin
 	EXPECT_LE(result.reliableP99Ms, 200u);
 }
 
-TEST(FragmentSnapshotStudy, PromotedStreamsRecoverAfterAThreeRttOutage)
+TEST(FragmentSnapshotStudy, OrderedControlsRecoverWithEitherPreOutageBackoffState)
 {
-	// Repeated retries within one flight must not force repeated window cuts.
-	const auto result = RunBurst(Policy::Promoted, 60, 300, 4, 60);
-	ASSERT_TRUE(result.valid);
-	ASSERT_GT(result.outageDrops, 0u);
-	EXPECT_LE(result.allFreshMs, 800u);
-	EXPECT_LE(result.reliableP99Ms, 1000u);
+	// Seeds 1 and 5 exhaust the window before feedback resumes. The others
+	// enter the outage having already backed off in that flight.
+	for (unsigned seed : {1u, 2u, 3u, 4u, 5u})
+	{
+		SCOPED_TRACE(seed);
+		const auto result = RunBurst(Policy::Promoted, 60, 300, seed, 60);
+		ASSERT_TRUE(result.valid);
+		ASSERT_GT(result.outageDrops, 0u);
+		EXPECT_LE(result.allFreshMs, 800u);
+		EXPECT_LE(result.reliableP99Ms, 1000u);
+	}
 }
 #endif
