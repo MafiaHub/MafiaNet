@@ -257,3 +257,50 @@ See Also
 * :doc:`../advanced/session-handshake-security` - Trust model and denial-of-service limits
 * :doc:`../basics/network-messages` - ``ID_SESSION_CONFIG_*`` message reference
 * :doc:`client-server` - Client-server setup
+
+Player numbers for scripts and admins
+-------------------------------------
+
+Own one ``MafiaNet::PlayerIdRegistry`` for the lifetime of the server.
+Call ``Assign`` when the game accepts a player, just before reporting the join
+to scripts. A game that joins immediately can do this on
+``ID_NEW_INCOMING_CONNECTION``. A game with login or asset downloads should wait
+until those steps succeed. A queue entry or abandoned download consumes no ID.
+
+.. code-block:: cpp
+
+   #include "mafianet/player_ids.h"
+
+   MafiaNet::PlayerIdRegistry players;  // server-owned
+
+   // In your join handler, after the application's acceptance checks:
+   if (auto id = players.Assign(MafiaNet::ToPeerGuid(packet->guid)))
+       OnPlayerJoin(*id);
+
+   // An admin command can look up a player without knowing the current avatar.
+   if (auto guid = players.FindPeer(MafiaNet::PlayerId{number}))
+       server->CloseConnection(MafiaNet::ToGuid(*guid), true);
+
+   // On ID_DISCONNECTION_NOTIFICATION or ID_CONNECTION_LOST:
+   if (auto id = players.FindId(MafiaNet::ToPeerGuid(packet->guid)))
+   {
+       OnPlayerDisconnect(*id);
+       players.Release(*id);
+   }
+
+The first join gets 1. Repeated assignment during a join returns its existing
+ID. Replacing an avatar preserves the number. After release, reconnecting with
+the same peer GUID gets the next number. Each server starts its own sequence.
+Only wraparound permits reuse, and the allocator skips numbers still held.
+Zero is reserved. ``Assign`` returns ``std::nullopt`` for an unassigned GUID
+or when every number in the configured range is occupied. A constructor
+argument can limit that range for applications with a smaller ID field.
+
+The registry lives entirely on the server. Use ``static_cast<uint32_t>(*id)``
+for display, the authenticated connection for permissions, and the replica's
+``NetworkID`` for entity references. Each registry operation is thread-safe.
+For a status command, call
+``GetPlayerList(out)`` to fill a ``std::vector<std::pair<PlayerId, PeerGuid>>``
+with a snapshot of joined players sorted by player number.
+Process join and disconnect callbacks in order, and resolve queued admin
+commands by player number when executing them.
