@@ -259,6 +259,124 @@ TEST(SimulatedPeer, SplitRetryCausesAccountForEveryRetransmittedPayloadByte)
 #endif
 }
 
+TEST(SimulatedPeer, UnreliableStreamKeepsUpAtOneHundredMillisecondRtt)
+{
+	SimulatedNetwork net;
+	SimulatedNetwork::LinkRule path;
+	path.delayMs = 50;
+	net.SetDefaultLink(path);
+	auto *sender = net.AddPeer(1, 1);
+	auto *receiver = net.AddPeer(1);
+	ASSERT_TRUE(net.Connect(receiver, sender));
+	const auto address = net.AddressOf(receiver);
+	// Establish a representative RTT before starting the unreliable-only stream.
+	SendNumbered(sender, address, 0, 1800);
+	ASSERT_TRUE(net.RunUntilReceived(receiver, ID_TEST_PAYLOAD, 1000));
+	net.Step(300);
+	net.Inbox(receiver).clear();
+	path.reorderPerThousand = 5;
+	path.reorderDelayMs = 25;
+	net.SetLinkBothWays(sender, receiver, path);
+	// Two datagrams per frame offer 109 kB/s at 60 Hz, below the 256 KiB/s cap.
+	sender->SetPerConnectionOutgoingBandwidthLimit(256 * 1024 * 8);
+	for (unsigned frame = 0; frame < 720; ++frame)
+	{
+		SendNumbered(sender, address, 2 * frame, 1310, Reliability::Unreliable);
+		SendNumbered(sender, address, 2 * frame + 1, 490, Reliability::Unreliable);
+		net.Step((frame + 1) * 1000 / 60 - frame * 1000 / 60);
+	}
+	// Allow two RTTs for the last in-flight messages.
+	net.Step(200);
+	auto delivered = NumbersReceived(net, receiver);
+	ASSERT_EQ(delivered.size(), 1440u);
+	std::sort(delivered.begin(), delivered.end());
+	for (uint32_t i = 0; i < delivered.size(); ++i)
+		EXPECT_EQ(delivered[i], i);
+}
+
+#if USE_SLIDING_WINDOW_CONGESTION_CONTROL == 1
+TEST(SimulatedPeer, AcknowledgedDatagramsGrowTheWindowOnlyOnce)
+{
+	for (const auto reliability : {Reliability::Unreliable, Reliability::ReliableOrdered})
+	{
+		SCOPED_TRACE(static_cast<int>(reliability));
+		std::vector<std::vector<unsigned char>> replies;
+		SimulatedNetwork net;
+		// Plaintext lets repeated feedback reach the reliability layer.
+		net.SetNewPeerEncryptionMode(EncryptionMode::Plaintext);
+		auto *sender = net.AddPeer(1);
+		auto *receiver = net.AddPeer(1, 1);
+		ASSERT_TRUE(net.Connect(sender, receiver));
+		net.Step(300);
+		const auto address = net.AddressOf(receiver);
+		SimulatedNetwork::LinkRule hold;
+		hold.dark = true;
+		net.SetLink(receiver, sender, hold);
+		net.SetTap([&](const SystemAddress &from, const SystemAddress &, const char *data, int size)
+		           {
+			if (from == address)
+				replies.emplace_back(data, data + size); });
+		for (unsigned i = 0; i < 96; ++i)
+			SendNumbered(sender, address, i, 900, reliability);
+		ASSERT_TRUE(net.RunUntil([&]
+		                         { return !replies.empty(); }, 150, 1));
+		net.SetTap({});
+		SimulatedNetwork::SendBudget initial, credited, repeated;
+		ASSERT_TRUE(net.ReadSendBudget(sender, address, initial));
+		ASSERT_TRUE(initial.queued);
+		auto deliverReplies = [&]
+		{
+			for (const auto &reply : replies)
+				net.InjectDatagram(address, sender, reply.data(), static_cast<int>(reply.size()));
+			net.Step(1);
+		};
+		deliverReplies();
+		ASSERT_TRUE(net.ReadSendBudget(sender, address, credited));
+		EXPECT_GT(credited.windowBytes, initial.windowBytes);
+		deliverReplies();
+		ASSERT_TRUE(net.ReadSendBudget(sender, address, repeated));
+		EXPECT_EQ(repeated.windowBytes, credited.windowBytes);
+	}
+}
+#endif
+
+TEST(SimulatedPeer, ReliableAndUnreliableSendersShareOneBusyLink)
+{
+	SimulatedBottleneck fifo(32 * 1024, {{0, 128 * 1024}});
+	SimulatedNetwork net;
+	SimulatedNetwork::LinkRule path;
+	path.delayMs = 50;
+	net.SetDefaultLink(path);
+	auto *receiver = net.AddPeer(2, 2);
+	auto *reliable = net.AddPeer(1);
+	auto *unreliable = net.AddPeer(1);
+	ASSERT_TRUE(net.Connect(reliable, receiver));
+	ASSERT_TRUE(net.Connect(unreliable, receiver));
+	path.bottleneck = &fifo;
+	net.SetLink(reliable, receiver, path);
+	net.SetLink(unreliable, receiver, path);
+	const auto address = net.AddressOf(receiver);
+	constexpr unsigned offersPerFlow = 600;
+	for (unsigned i = 0; i < offersPerFlow; ++i)
+	{
+		SendNumbered(reliable, address, i, 900, Reliability::ReliableOrdered);
+		SendNumbered(unreliable, address, i, 900, Reliability::Unreliable);
+		net.Step(10);
+	}
+	const auto delivered = [&](const RakPeer *source)
+	{
+		const auto origin = net.AddressOf(source);
+		const auto &inbox = net.Inbox(receiver);
+		return std::count_if(inbox.begin(), inbox.end(), [&](const auto &message)
+		                     { return message.id == ID_TEST_PAYLOAD && message.systemAddress == origin; });
+	};
+	// Each offers 90 kB/s against one 128 KiB/s link. Both should get at least a quarter.
+	EXPECT_GT(delivered(reliable) * 900, 6 * 128 * 1024 / 4);
+	EXPECT_GT(delivered(unreliable) * 900, 6 * 128 * 1024 / 4);
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return delivered(reliable) == offersPerFlow; }, 15000));
+}
+
 TEST(SimulatedPeer, TwoSendersRecoverWhenSharingOneFullLinkQueue)
 {
 	SimulatedBottleneck path(1800, {{0, 256 * 1024}});

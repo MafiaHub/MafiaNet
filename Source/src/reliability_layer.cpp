@@ -859,45 +859,24 @@ bool ReliabilityLayer::HandleSocketReceiveFromConnectedPlayer(
 					return true;
 				}
 
-				CCTimeType whenSent;
-				int datagramWireBytes = 0;
-				MessageNumberNode *messageNumberNode = GetMessageNumberNodeByDatagramIndex(datagramNumber, &whenSent, &datagramWireBytes);
-				// This size got through: failures of datagrams no larger were loss, not a black hole.
-				mtuBlackHoleEvidence.OnDatagramAcked(datagramWireBytes);
-				if (messageNumberNode)
-				{
-					//	printf("%p Got ack for %i\n", this, datagramNumber.val);
+				auto &datagram = datagramHistory[offsetIntoList];
+				if (datagram.acknowledged)
+					continue;
+				datagram.acknowledged = true;
+				mtuBlackHoleEvidence.OnDatagramAcked(datagram.wireBytes);
 #if INCLUDE_TIMESTAMP_WITH_DATAGRAMS == 1
-					congestionManager.OnAck(timeRead, rtt, dhf.hasBAndAS, 0, dhf.AS, totalUserDataBytesAcked, bandwidthExceededStatistic, datagramNumber);
+				const CCTimeType ping = rtt;
 #else
-					CCTimeType ping;
-					if (timeRead > whenSent)
-					{
-						ping = timeRead - whenSent;
-					}
-					else
-					{
-						ping = 0;
-					}
-					congestionManager.OnAck(timeRead, ping, dhf.hasBAndAS, 0, dhf.AS, totalUserDataBytesAcked, bandwidthExceededStatistic, datagramNumber);
+				const CCTimeType ping = timeRead > datagram.timeSent ? timeRead - datagram.timeSent : 0;
 #endif
-					while (messageNumberNode)
-					{
-						// TESTING1
-						// 						printf("Remove %i on ack for datagramNumber=%i.\n", messageNumberNode->messageNumber.val, datagramNumber.val);
+				congestionManager.OnAck(timeRead, ping, dhf.hasBAndAS, 0, dhf.AS, totalUserDataBytesAcked, bandwidthExceededStatistic, datagramNumber);
 
-						RemovePacketFromResendListAndDeleteOlderReliableSequenced(messageNumberNode->messageNumber, timeRead, messageHandlerList, systemAddress);
-						messageNumberNode = messageNumberNode->next;
-					}
-
+				if (datagram.head)
+				{
+					for (auto *message = datagram.head; message; message = message->next)
+						RemovePacketFromResendListAndDeleteOlderReliableSequenced(message->messageNumber, timeRead, messageHandlerList, systemAddress);
 					RemoveFromDatagramHistory(datagramNumber);
 				}
-				// 				else if (isReliable) {
-				// 					// Previously used slot, rather than empty unreliable slot
-				// 					printf("%p Ack %i is duplicate\n", this, datagramNumber.val);
-				//
-				//  				congestionManager.OnDuplicateAck(timeRead, datagramNumber);
-				// 				}
 			}
 		}
 	}
@@ -953,8 +932,7 @@ bool ReliabilityLayer::HandleSocketReceiveFromConnectedPlayer(
 					return true;
 				}
 
-				CCTimeType timeSent;
-				MessageNumberNode *messageNumberNode = GetMessageNumberNodeByDatagramIndex(messageNumber, &timeSent);
+				MessageNumberNode *messageNumberNode = datagramHistory[offsetIntoList].head;
 				while (messageNumberNode)
 				{
 					// Update timers so resends occur immediately
@@ -4290,24 +4268,6 @@ bool ReliabilityLayer::ResendBufferOverflow(void) const
 	//	int index2 = (sendReliableMessageNumberIndex+(uint32_t)1) & (uint32_t) RESEND_BUFFER_ARRAY_MASK;
 	RakAssert(index1 < RESEND_BUFFER_ARRAY_LENGTH);
 	return resendBuffer[index1] != 0; // || resendBuffer[index2]!=0;
-}
-//-------------------------------------------------------------------------------------------------------
-ReliabilityLayer::MessageNumberNode *ReliabilityLayer::GetMessageNumberNodeByDatagramIndex(DatagramSequenceNumberType index, CCTimeType *timeSent, int *wireBytes)
-{
-	if (datagramHistory.empty())
-		return nullptr;
-
-	if (congestionManager.LessThan(index, datagramHistoryPopCount))
-		return nullptr;
-
-	DatagramSequenceNumberType offsetIntoList = index - datagramHistoryPopCount;
-	if (offsetIntoList >= datagramHistory.size())
-		return nullptr;
-
-	*timeSent = datagramHistory[offsetIntoList].timeSent;
-	if (wireBytes)
-		*wireBytes = datagramHistory[offsetIntoList].wireBytes;
-	return datagramHistory[offsetIntoList].head;
 }
 //-------------------------------------------------------------------------------------------------------
 void ReliabilityLayer::RemoveFromDatagramHistory(DatagramSequenceNumberType index)
