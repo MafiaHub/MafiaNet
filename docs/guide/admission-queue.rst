@@ -276,8 +276,10 @@ until those steps succeed. A queue entry or abandoned download consumes no ID.
    // In your join handler, after the application's acceptance checks:
    if (auto id = players.Assign(MafiaNet::ToPeerGuid(packet->guid)))
        OnPlayerJoin(*id);
+   else
+       server->CloseConnection(packet->systemAddress, true);
 
-   // An admin command can look up a player without knowing the current avatar.
+   // An immediate kick can look up a player without knowing the current avatar.
    if (auto guid = players.FindPeer(MafiaNet::PlayerId{number}))
        server->CloseConnection(MafiaNet::ToGuid(*guid), true);
 
@@ -302,5 +304,17 @@ for display, the authenticated connection for permissions, and the replica's
 For a status command, call
 ``GetPlayerList(out)`` to fill a ``std::vector<std::pair<PlayerId, PeerGuid>>``
 with a snapshot of joined players sorted by player number.
-Process join and disconnect callbacks in order, and resolve queued admin
-commands by player number when executing them.
+
+Process joins, disconnects and queued admin commands on the same server loop.
+When queuing a kick, look up the requested player number with ``FindPeer``. If
+the player is present, store both the number and the peer GUID in the command.
+When the command runs, check that the GUID still owns that number:
+
+.. code-block:: cpp
+
+   if (players.FindId(command.guid) == command.playerId)
+       server->CloseConnection(MafiaNet::ToGuid(command.guid), true);
+
+Discard pending commands for a departing join before releasing its number.
+With a small ID range, even the same peer can reconnect and receive its old
+number again.
