@@ -159,7 +159,7 @@ TEST(BoundAddressReportingLive, ExplicitIpv6WildcardReportsIpv6Loopback)
 
 // A specific bind address can never be dual-stack, so AF_UNSPEC binds it IPv4
 // first: a name with both an A and an AAAA record ("localhost") stays
-// reachable by IPv4 clients, as with the pre-0.27.0 AF_INET default.
+// reachable by IPv4 clients, as with the pre-1.0.0 AF_INET default.
 TEST(UnspecSpecificHostLive, NameWithBothFamiliesBindsIpv4)
 {
 	bool dualStack = true;

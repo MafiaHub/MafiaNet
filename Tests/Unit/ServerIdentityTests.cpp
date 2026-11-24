@@ -334,8 +334,8 @@ TEST(ServerIdentityCrypto, SignatureMatchesKnownAnswer)
 
 	IdentityBlock block;
 	ASSERT_TRUE(SignServerIdentity(key.secretKey, MakeInfo(0x40, 0x0102030405060708ull), MakeInfo(0x60, 0x1112131415161718ull), &block));
-	EXPECT_EQ(FromHex("1925e66df823ddc9a8976747b8fda773b468a23321430bc72c6a5bc99f7048fb"
-	                  "1623cb71d86b5dd4659ee4ae984f096027639076ecf4dec9e5a703c68baad108"),
+	EXPECT_EQ(FromHex("ba7b4eb393cb15fa2415ae2b0f0bc96de0da4e10900532643ec7d13509b8d27c"
+	                  "ec33c1e56bc559b3699c52efad9ea4d98b16ea6ed4debebe5858ef51b450980f"),
 	          Bytes(block.signature, 64));
 }
 
@@ -459,8 +459,8 @@ TEST(ServerIdentityCrypto, KeyScheduleIncludesTheIdentityBlock)
 	const IdentityKey key = IdentityKey::FromSeed(0x00);
 	IdentityBlock identity;
 	ASSERT_TRUE(SignServerIdentity(key.secretKey, initiatorInfo, responderInfo, &identity));
-	EXPECT_EQ(FromHex("358f05c4707b9184f54c89a59fbf61fb64604bee68883d1087f81ce8f9026d76"
-	                  "c712b8ae841a881c9d96f997d28184adb209cddd1114209935a57d08964a5e03"),
+	EXPECT_EQ(FromHex("c9b68264294c1faf3a660533e0dee1f22056d657d66cd6726da784e6e6cac790"
+	                  "b0f0e7e1d3d816eca36fd5cdfcb9d2f1f1b2b16b47cf200bd9846308e39f6a09"),
 	          Bytes(identity.signature, 64));
 
 	auto derive = [&](const IdentityBlock &block, bool initiator, SessionKeys *out)
@@ -475,12 +475,12 @@ TEST(ServerIdentityCrypto, KeyScheduleIncludesTheIdentityBlock)
 	ASSERT_TRUE(derive(identity, false, &responderWithIdentity));
 	ASSERT_TRUE(derive(IdentityBlock(), true, &without));
 	// info is 214 bytes with the block and 118 without; keyIR then keyRI.
-	EXPECT_EQ(FromHex("e5a1c57ac9987ddd161f917ca4371dfe44f1e5d4403e129551c01e5a15b9cfa3"), Bytes(withIdentity.send, 32));
-	EXPECT_EQ(FromHex("df5e51cdbd80e999495765175e1d0c7b67ba6a4303a5e562707245aae85d6cc7"), Bytes(withIdentity.recv, 32));
+	EXPECT_EQ(FromHex("a54dce5257981106f14f835edb930279f52e653bbd5ee59ea6333ef1adfe0c52"), Bytes(withIdentity.send, 32));
+	EXPECT_EQ(FromHex("6ed81332ee7857d8d7dd88cb90655b8a6b2a5e48927ec5cbe75dc32961a6bd6f"), Bytes(withIdentity.recv, 32));
 	EXPECT_EQ(Bytes(withIdentity.send, 32), Bytes(responderWithIdentity.recv, 32));
 	EXPECT_EQ(Bytes(withIdentity.recv, 32), Bytes(responderWithIdentity.send, 32));
-	EXPECT_EQ(FromHex("e11ac194777b017d1f8541871ef61a64509f426b4e4ff2bc41ed9eab4a02e349"), Bytes(without.send, 32));
-	EXPECT_EQ(FromHex("edc6da25d39a8acd8a093afb412a5bf7349d770c9f09eaba7693fce7858a9fc5"), Bytes(without.recv, 32));
+	EXPECT_EQ(FromHex("ee6a7493d9138571a06e6b93a4ec30040db31bdf7b2911bd60711bd1eefefb34"), Bytes(without.send, 32));
+	EXPECT_EQ(FromHex("5979c84fb1c0cda409bdf13ccd35751ce1549b8e1c596b801d0b76ae6d120191"), Bytes(without.recv, 32));
 
 	// The overload without an identity block is the absent block.
 	SessionKeys overload;

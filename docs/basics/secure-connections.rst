@@ -304,7 +304,7 @@ a call that still passes a ``bool`` there no longer compiles),
 SMTPS and authentication in ``EmailSender`` (plaintext SMTP only; the password argument is
 ignored), the experimental ``crypto/`` file encrypter, and the Rackspace plugin.
 
-Protocol 9 introduced this handshake. The current protocol is 11. A peer using a different version answers the first handshake packet
+Protocol 8 introduces this handshake. A peer using a different version answers the first handshake packet
 with ``ID_INCOMPATIBLE_PROTOCOL_VERSION``.
 
 Simultaneous connects
