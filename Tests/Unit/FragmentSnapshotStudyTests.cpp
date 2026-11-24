@@ -1,5 +1,6 @@
 // Copyright (c) 2026, MafiaHub. MIT license.
 #include "FragmentSnapshotStudy.h"
+#include "mafianet/defines.h"
 #include <gtest/gtest.h>
 
 using namespace FragmentSnapshotStudy;
@@ -110,3 +111,26 @@ TEST(FragmentSnapshotStudy, ReusedSplitIdsContinueToCountAssemblyPayload)
 	EXPECT_GT(result.applied, 0u);
 	EXPECT_GE(result.peakAssemblyBytes, 3610u);
 }
+
+#if USE_SLIDING_WINDOW_CONGESTION_CONTROL == 1
+TEST(FragmentSnapshotStudy, PromotedStreamsDrainTheStartupBacklogWhileAcksContinue)
+{
+	// Seed 3 overflows the forward FIFO during slow start. Six seconds later a
+	// new publication on each stream and ordered traffic should fit within two RTTs.
+	const auto result = RunBurst(Policy::Promoted, 60, 0, 3, 20);
+	ASSERT_TRUE(result.valid);
+	ASSERT_GT(result.fifoDrops, 0u);
+	EXPECT_LE(result.allFreshMs, 200u);
+	EXPECT_LE(result.reliableP99Ms, 200u);
+}
+
+TEST(FragmentSnapshotStudy, PromotedStreamsRecoverAfterAThreeRttOutage)
+{
+	// Repeated retries within one flight must not force repeated window cuts.
+	const auto result = RunBurst(Policy::Promoted, 60, 300, 4, 60);
+	ASSERT_TRUE(result.valid);
+	ASSERT_GT(result.outageDrops, 0u);
+	EXPECT_LE(result.allFreshMs, 800u);
+	EXPECT_LE(result.reliableP99Ms, 1000u);
+}
+#endif

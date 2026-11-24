@@ -36,16 +36,41 @@ TEST(SlidingWindow, IsolatedRetryKeepsTheWindowWhileAckBlackoutRestartsSlowStart
 	EXPECT_EQ(window.GetCWNDLimit(), 1000u);
 }
 
-TEST(SlidingWindow, FrequentGapsReduceWindowEvenWithAcksArriving)
+namespace
 {
-	MafiaNet::CCRakNetSlidingWindow window;
+void ReportFrequentGaps(MafiaNet::CCRakNetSlidingWindow &window)
+{
 	window.Init(0, 1000);
 	for (unsigned i = 0; i < 10; ++i)
 		window.OnAck(100000, 100000, false, 0, 0, 0, true, window.GetAndIncrementNextDatagramSequenceNumber());
 	for (unsigned gap = 0; gap < 3; ++gap)
 		window.OnNAK(110000, gap);
 	window.OnAck(130000, 100000, false, 0, 0, 0, true, window.GetAndIncrementNextDatagramSequenceNumber());
+}
+}
+
+TEST(SlidingWindow, FrequentGapsWithRecentAcksHalveTheWindowOncePerFlight)
+{
+	MafiaNet::CCRakNetSlidingWindow window;
+	ReportFrequentGaps(window);
+	const auto before = window.GetCWNDLimit();
+	ASSERT_GT(before, 2000u);
 	window.OnResend(131000, 131000);
+	EXPECT_EQ(window.GetCWNDLimit(), before / 2);
+	window.OnResend(132000, 132000);
+	EXPECT_EQ(window.GetCWNDLimit(), before / 2);
+}
+
+TEST(SlidingWindow, AckBlackoutAfterGapBackoffRestartsTheNextFlightAtOneDatagram)
+{
+	MafiaNet::CCRakNetSlidingWindow window;
+	ReportFrequentGaps(window);
+	window.OnResend(131000, 131000);
+	ASSERT_GT(window.GetCWNDLimit(), 1000u);
+	// A later flight has made progress, then ACK feedback stops entirely.
+	window.GetAndIncrementNextDatagramSequenceNumber();
+	window.OnAck(140000, 100000, false, 0, 0, 0, true, window.GetAndIncrementNextDatagramSequenceNumber());
+	window.OnResend(600000, 600000);
 	EXPECT_EQ(window.GetCWNDLimit(), 1000u);
 }
 
