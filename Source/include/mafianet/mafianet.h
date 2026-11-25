@@ -32,4 +32,5 @@
 #include "mafianet/guid_util.h"           // MafiaNet::to_string / connected_address
 #include "mafianet/aliases.h"             // canonical aliases: PeerInterface, Guid, Statistics
 #include "mafianet/peer_handle.h"         // RAII handles: Peer, PacketPtr
+#include "mafianet/server.h"              // Player-oriented server lifecycle
 #include "mafianet/dispatcher.h"          // typed message dispatcher: Dispatcher, Sender

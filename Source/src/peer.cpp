@@ -2629,10 +2629,11 @@ void RakPeer::QueueSessionDecision(const AddressOrGUID systemIdentifier, bool ac
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-void RakPeer::QueueSessionCommand(const AddressOrGUID systemIdentifier, int command, const char *data, unsigned int length)
+bool RakPeer::QueueSessionCommand(const AddressOrGUID systemIdentifier, int command, const char *data, unsigned int length, uint64_t generation)
 {
 	auto bcs = std::make_unique<BufferedCommandStruct>();
 	bcs->command = (decltype(bcs->command)) command;
+	bcs->generation = generation;
 	bcs->systemIdentifier = systemIdentifier;
 	bcs->numberOfBitsToSend = BYTES_TO_BITS(length);
 	bcs->broadcast = false;
@@ -2646,11 +2647,16 @@ void RakPeer::QueueSessionCommand(const AddressOrGUID systemIdentifier, int comm
 		bcs->data = (char *) std::malloc(length);
 		if (bcs->data)
 			memcpy(bcs->data, data, length);
+		else if (generation)
+			return false;
 		else
 			bcs->numberOfBitsToSend = 0;
 	}
+	if (generation && !playerRoster->Answer(ToPeerGuid(systemIdentifier.rakNetGuid), generation, command != BufferedCommandStruct::BCS_SESSION_STATUS))
+		return false;
 	bufferedCommands.Push(std::move(bcs));
 	quitAndDataEvents.SetEvent();
+	return true;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -3969,7 +3975,11 @@ void RakPeer::ProduceWithheldConnectionPacket(RemoteSystemStruct *remoteSystem)
 	packet->guid.systemIndex = packet->systemAddress.systemIndex;
 	remoteSystem->connectionReportedToApplication = true;
 	if (incoming)
-		playerRoster->Connected(ToPeerGuid(remoteSystem->guid));
+	{
+		packet->connectionGeneration = remoteSystem->generation;
+		playerRoster->Connected(ToPeerGuid(remoteSystem->guid), remoteSystem->generation,
+		                        remoteSystem->lowestPing == 65535 ? -1 : static_cast<int>(remoteSystem->lowestPing));
+	}
 	AddPacketToProducer(packet);
 
 	// Then what the remote sent while we were still finishing the handshake, in arrival order: right
@@ -4040,6 +4050,8 @@ void RakPeer::DeliverApplicationMessage(RemoteSystemStruct *remoteSystem, unsign
 	packet->systemAddress.systemIndex = remoteSystem->remoteSystemIndex;
 	packet->guid = remoteSystem->guid;
 	packet->guid.systemIndex = packet->systemAddress.systemIndex;
+	if (data[0] >= ID_USER_PACKET_ENUM || data[0] == ID_TIMESTAMP)
+		packet->connectionGeneration = remoteSystem->generation;
 	if (!DispatchNetworkThreadReceive(packet))
 		AddPacketToProducer(packet);
 }
@@ -4054,6 +4066,7 @@ void RakPeer::ProduceSessionAbandoned(RemoteSystemStruct *remoteSystem)
 
 	Packet *packet = AllocPacket(sizeof(MessageID));
 	packet->data[0] = (unsigned char) ID_SESSION_CONFIG_ABANDONED;
+	packet->connectionGeneration = remoteSystem->generation;
 	packet->bitSize = sizeof(MessageID) * 8;
 	packet->systemAddress = remoteSystem->systemAddress;
 	packet->systemAddress.systemIndex = remoteSystem->remoteSystemIndex;
@@ -4211,6 +4224,9 @@ RakPeer::RemoteSystemStruct *RakPeer::AssignSystemAddressToRemoteSystemList(cons
 			remoteSystem->MTUSize = mtuSize;
 			remoteSystem->guid = guid;
 			remoteSystem->departingPlayerId = {};
+			if (++lastConnectionGeneration == 0)
+				++lastConnectionGeneration;
+			remoteSystem->generation = lastConnectionGeneration;
 			remoteSystem->raceFirstAddress = UNASSIGNED_SYSTEM_ADDRESS;
 			remoteSystem->isActive = true; // This one line causes future incoming packets to go through the reliability layer
 			remoteSystem->handshakeLocalCryptInfo = localCryptInfo;
@@ -4463,7 +4479,7 @@ PlayerId RakPeer::RetirePlayer(const RemoteSystemStruct &system)
 	// Graceful closes leave CONNECTED before the notification. Timeouts and silent closes
 	// can go straight from CONNECTED to slot removal in the same update.
 	if (system.connectMode == RemoteSystemStruct::CONNECTED && !system.sessionConfigIsConnectingSide)
-		return playerRoster->Disconnected(ToPeerGuid(system.guid));
+		return playerRoster->Disconnected(ToPeerGuid(system.guid), system.generation);
 	return system.departingPlayerId;
 }
 
@@ -4780,6 +4796,7 @@ void RakPeer::CloseConnectionInternal2(const AddressOrGUID &systemIdentifier, bo
 			{
 				if (remoteSystemList[index].isActive)
 				{
+					playerRoster->Disconnected(ToPeerGuid(remoteSystemList[index].guid), remoteSystemList[index].generation);
 					RemoveFromActiveSystemList(target);
 
 					// Found the index to stop
@@ -4822,9 +4839,10 @@ void RakPeer::CloseConnectionInternal2(const AddressOrGUID &systemIdentifier, bo
 	}
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-bool RakPeer::SendBuffered(const char *data, BitSize_t numberOfBitsToSend, MafiaNet::Priority priority, MafiaNet::Reliability reliability, char orderingChannel, const AddressOrGUID systemIdentifier, bool broadcast, RemoteSystemStruct::ConnectMode connectionMode, uint32_t receipt, bool allowFragmentation)
+bool RakPeer::SendBuffered(const char *data, BitSize_t numberOfBitsToSend, MafiaNet::Priority priority, MafiaNet::Reliability reliability, char orderingChannel, const AddressOrGUID systemIdentifier, bool broadcast, RemoteSystemStruct::ConnectMode connectionMode, uint32_t receipt, bool allowFragmentation, uint64_t generation)
 {
 	auto bcs = std::make_unique<BufferedCommandStruct>();
+	bcs->generation = generation;
 	bcs->data = (char *) std::malloc((size_t) BITS_TO_BYTES(numberOfBitsToSend)); // Making a copy doesn't lose efficiency because I tell the reliability layer to use this allocation for its own copy
 	if (bcs->data == 0)
 		return false;
@@ -5025,6 +5043,8 @@ void RakPeer::OnConnectedPong(MafiaNet::Time sendPingTime, MafiaNet::Time sendPo
 	//	lastPing = remoteSystem->pingAndClockDifferential[ remoteSystem->pingAndClockDifferentialWriteIndex ].pingTime;
 
 	remoteSystem->pingAndClockDifferential[remoteSystem->pingAndClockDifferentialWriteIndex].pingTime = (unsigned short) ping;
+	if (remoteSystem->connectionReportedToApplication && !remoteSystem->sessionConfigIsConnectingSide)
+		playerRoster->UpdatePing(ToPeerGuid(remoteSystem->guid), remoteSystem->generation, static_cast<int>(remoteSystem->pingAndClockDifferential[remoteSystem->pingAndClockDifferentialWriteIndex].pingTime));
 	// Thanks to Chris Taylor (cat02e@fsu.edu) for the improved timestamping algorithm
 	// Divide each integer by 2, rather than the sum by 2, to prevent overflow
 	remoteSystem->pingAndClockDifferential[remoteSystem->pingAndClockDifferentialWriteIndex].clockDifferential = sendPongTime - (time / 2 + sendPingTime / 2);
@@ -6285,6 +6305,14 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 			break;
 		// Destroying the command at the end of the iteration frees its data, unless a branch handed it on.
 		BufferedCommandStruct *bcs = popped->get();
+		// A reconnect may have reused the GUID since the game queued this command.
+		if (bcs->generation)
+		{
+			const auto *target = GetRemoteSystem(bcs->systemIdentifier, true, true);
+			if (!target || target->generation != bcs->generation ||
+			    (bcs->command == BufferedCommandStruct::BCS_SEND && target->connectMode != RemoteSystemStruct::CONNECTED))
+				continue;
+		}
 		if (bcs->command == BufferedCommandStruct::BCS_SEND)
 		{
 			// GetTime is a very slow call so do it once and as late as possible
@@ -6382,6 +6410,7 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 					packet->systemAddress.systemIndex = remoteSystem->remoteSystemIndex;
 					packet->guid.systemIndex = remoteSystem->remoteSystemIndex;
 					packet->playerId = RetirePlayer(*remoteSystem);
+					packet->connectionGeneration = remoteSystem->generation;
 					packet->wasGeneratedLocally = true;
 					AddPacketToProducer(packet);
 				}
@@ -6692,6 +6721,7 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 					packet->data[0] = ID_DISCONNECTION_NOTIFICATION; // DeadConnection
 
 				packet->playerId = RetirePlayer(*remoteSystem);
+				packet->connectionGeneration = remoteSystem->generation;
 				if (attachReason)
 					memcpy(packet->data + sizeof(unsigned char), remoteSystem->disconnectReasonData, reasonLength);
 
@@ -6983,7 +7013,9 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 							// Let the application decide. The connection stays unreported until it calls
 							// AcceptSession() or RejectSession(), or the handshake times out below.
 							remoteSystem->sessionConfigAwaitingLocalDecision = true;
+							playerRoster->Pending(ToPeerGuid(remoteSystem->guid), remoteSystem->generation);
 							packet = AllocPacket(byteSize, message.release());
+							packet->connectionGeneration = remoteSystem->generation;
 							packet->bitSize = bitSize;
 							packet->systemAddress = systemAddress;
 							packet->systemAddress.systemIndex = remoteSystem->remoteSystemIndex;

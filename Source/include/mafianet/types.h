@@ -461,6 +461,8 @@ struct Packet
 
 	/// Departing player on a local disconnect or connection-lost notification. Zero otherwise.
 	PlayerId playerId{};
+	/// Local connection incarnation on server lifecycle events and received user messages.
+	uint64_t connectionGeneration = 0;
 };
 
 ///  Index of an unassigned player

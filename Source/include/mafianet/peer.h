@@ -52,6 +52,10 @@ class HuffmanEncodingTree;
 class RakNetSocket2Factory;
 class PluginInterface2;
 class PlayerRoster;
+namespace detail
+{
+class ServerState;
+}
 
 // Sucks but this struct has to be outside the class.  Inside and DevCPP won't let you refer to the struct as RakPeer::RemoteSystemIndex while GCC
 // forces you to do RakPeer::RemoteSystemIndex
@@ -899,10 +903,12 @@ public:
 		std::atomic<ConnectMode> connectMode;
 		// Network thread only. Captured when a connection leaves CONNECTED.
 		PlayerId departingPlayerId{};
+		uint64_t generation = 0;
 	};
 
 protected:
 	friend class ReplicationManager;
+	friend class detail::ServerState;
 	friend class SimulatedNetwork; // inspects a manual peer between updates
 	friend RAK_THREAD_DECLARATION(UpdateNetworkLoop);
 	//friend RAK_THREAD_DECLARATION(RecvFromLoop);
@@ -1017,6 +1023,7 @@ protected:
 	DatagramSendResult QueueDatagram(const char *data, uint64_t bits, Priority priority, Reliability reliability, char orderingChannel, const AddressOrGUID target);
 	std::shared_ptr<const ConnectedSystems> connectedSystems;
 	std::unique_ptr<PlayerRoster> playerRoster;
+	uint64_t lastConnectionGeneration = 0; // Network thread only, retained across Startup.
 	void SetConnectMode(RemoteSystemStruct &system, RemoteSystemStruct::ConnectMode mode);
 	void PublishConnectedSystems();
 	PlayerId RetirePlayer(const RemoteSystemStruct &system);
@@ -1163,6 +1170,7 @@ protected:
 	struct BufferedCommandStruct
 	{
 		BufferedCommandStruct() = default;
+		uint64_t generation = 0; // A nonzero value binds this command to a specific connection.
 		~BufferedCommandStruct() { std::free(data); }
 		BufferedCommandStruct(const BufferedCommandStruct &) = delete;
 		BufferedCommandStruct &operator=(const BufferedCommandStruct &) = delete;
@@ -1235,7 +1243,7 @@ protected:
 	void PingInternal(const SystemAddress target, bool performImmediate, MafiaNet::Reliability reliability);
 	// This stores the user send calls to be handled by the update thread.  This way we don't have thread contention over systemAddresss
 	void CloseConnectionInternal(const AddressOrGUID &systemIdentifier, bool sendDisconnectionNotification, bool performImmediate, unsigned char orderingChannel, MafiaNet::Priority disconnectionNotificationPriority);
-	bool SendBuffered(const char *data, BitSize_t numberOfBitsToSend, MafiaNet::Priority priority, MafiaNet::Reliability reliability, char orderingChannel, const AddressOrGUID systemIdentifier, bool broadcast, RemoteSystemStruct::ConnectMode connectionMode, uint32_t receipt, bool allowFragmentation = true);
+	bool SendBuffered(const char *data, BitSize_t numberOfBitsToSend, MafiaNet::Priority priority, MafiaNet::Reliability reliability, char orderingChannel, const AddressOrGUID systemIdentifier, bool broadcast, RemoteSystemStruct::ConnectMode connectionMode, uint32_t receipt, bool allowFragmentation = true, uint64_t generation = 0);
 	void SendBufferedList(const char **data, const int *lengths, const int numParameters, MafiaNet::Priority priority, MafiaNet::Reliability reliability, char orderingChannel, const AddressOrGUID systemIdentifier, bool broadcast, RemoteSystemStruct::ConnectMode connectionMode, uint32_t receipt);
 	bool SendImmediate(char *data, BitSize_t numberOfBitsToSend, MafiaNet::Priority priority, MafiaNet::Reliability reliability, char orderingChannel, const AddressOrGUID systemIdentifier, bool broadcast, bool useCallerDataAllocation, MafiaNet::TimeUS currentTime, uint32_t receipt, bool allowFragmentation = true);
 	//bool HandleBufferedRPC(BufferedCommandStruct *bcs, MafiaNet::TimeMS time);
@@ -1364,7 +1372,7 @@ private:
 	/// Queue any session command (accept, reject, status) with a copy of its payload.
 	/// Server: tell the application a session request it was holding is gone (ID_SESSION_CONFIG_ABANDONED).
 	void ProduceSessionAbandoned(RemoteSystemStruct *remoteSystem);
-	void QueueSessionCommand(const AddressOrGUID systemIdentifier, int command, const char *data, unsigned int length);
+	bool QueueSessionCommand(const AddressOrGUID systemIdentifier, int command, const char *data, unsigned int length, uint64_t generation = 0);
 	/// Counts remote-initiated peers for SessionAdmission; pendingFromAddress is for \a address, or 0 when unassigned.
 	void CountRemoteInitiatedPeers(const SystemAddress &address, unsigned int &connected, unsigned int &exchanging, unsigned int &pending, unsigned int &pendingFromAddress) const;
 	/// True when a directed application send must be refused because the target is still running the

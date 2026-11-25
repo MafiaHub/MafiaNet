@@ -42,6 +42,8 @@
 
 namespace MafiaNet
 {
+enum class JoinPolicy;
+class Server;
 class SimulatedNetwork : public RakNetSocket2Factory
 {
 public:
@@ -72,6 +74,8 @@ public:
 
 	SimulatedNetwork(const SimulatedNetwork &) = delete;
 	SimulatedNetwork &operator=(const SimulatedNetwork &) = delete;
+
+	Server &AddServer(unsigned short slots, JoinPolicy policy, bool interactive = false);
 
 	// A started peer bound to 10.0.0.<n>:<port> (port 0 picks one).
 	RakPeer *AddPeer(unsigned int maxConnections, unsigned short maxIncoming = 0, unsigned short port = 0);
@@ -211,6 +215,7 @@ private:
 	static TimeUS VirtualClock();
 
 	std::vector<RakPeer *> peers;
+	std::map<RakPeer *, std::unique_ptr<Server>> servers;
 	std::set<const RakPeer *> peersInStorage;
 	std::map<const RakPeer *, std::vector<Message>> inboxes;
 	std::set<const RakPeer *> receiveDisabled;

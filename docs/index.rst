@@ -41,6 +41,7 @@ MafiaNet Documentation
    :caption: Architecture Guide
 
    guide/concepts
+   guide/player-server
    guide/client-server
    guide/admission-queue
    guide/peer-to-peer

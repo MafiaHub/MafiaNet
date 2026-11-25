@@ -20,22 +20,44 @@ public:
 	explicit PlayerRoster(uint32_t highestId = UINT32_MAX)
 	    : maxId(highestId) {}
 
-	void Connected(PeerGuid peer)
+	void Pending(PeerGuid peer, uint64_t generation)
 	{
 		if (peer == UNASSIGNED_PEER_GUID)
 			return;
 		std::lock_guard<std::mutex> lock(mutex);
-		idsByPeer.try_emplace(peer, PlayerId{});
+		connections.insert_or_assign(peer, Entry{generation, Phase::Pending});
 	}
 
-	std::optional<PlayerId> Accept(PeerGuid peer)
+	bool Answer(PeerGuid peer, uint64_t generation, bool final)
 	{
 		std::lock_guard<std::mutex> lock(mutex);
-		const auto entry = idsByPeer.find(peer);
-		if (entry == idsByPeer.end())
+		auto it = connections.find(peer);
+		if (it == connections.end() || it->second.generation != generation || it->second.phase != Phase::Pending)
+			return false;
+		if (final)
+			it->second.phase = Phase::Answered;
+		return true;
+	}
+
+	void Connected(PeerGuid peer, uint64_t generation = 0, int ping = -1)
+	{
+		if (peer == UNASSIGNED_PEER_GUID)
+			return;
+		std::lock_guard<std::mutex> lock(mutex);
+		auto &entry = connections.try_emplace(peer).first->second;
+		entry.generation = generation;
+		entry.phase = Phase::Connected;
+		entry.ping = ping;
+	}
+
+	std::optional<PlayerId> Accept(PeerGuid peer, uint64_t generation = 0)
+	{
+		std::lock_guard<std::mutex> lock(mutex);
+		const auto entry = connections.find(peer);
+		if (entry == connections.end() || entry->second.phase != Phase::Connected || (generation && entry->second.generation != generation))
 			return std::nullopt;
-		if (entry->second != PlayerId{})
-			return entry->second;
+		if (entry->second.id != PlayerId{})
+			return entry->second.id;
 		if (peersById.size() >= maxId)
 			return std::nullopt;
 
@@ -44,7 +66,7 @@ public:
 			id = Successor(id);
 
 		peersById.emplace(id, peer);
-		entry->second = id;
+		entry->second.id = id;
 		next = Successor(id);
 		return id;
 	}
@@ -52,10 +74,10 @@ public:
 	std::optional<PlayerId> FindId(PeerGuid peer) const
 	{
 		std::lock_guard<std::mutex> lock(mutex);
-		const auto entry = idsByPeer.find(peer);
-		if (entry == idsByPeer.end() || entry->second == PlayerId{})
+		const auto entry = connections.find(peer);
+		if (entry == connections.end() || entry->second.id == PlayerId{})
 			return std::nullopt;
-		return entry->second;
+		return entry->second.id;
 	}
 
 	std::optional<PeerGuid> FindPeer(PlayerId id) const
@@ -74,22 +96,54 @@ public:
 		out.assign(peersById.begin(), peersById.end());
 	}
 
-	PlayerId Disconnected(PeerGuid peer)
+	// Only internal snapshot construction runs under the lock.
+	template <class Append>
+	void VisitPlayers(Append append) const
 	{
 		std::lock_guard<std::mutex> lock(mutex);
-		const auto entry = idsByPeer.find(peer);
-		if (entry == idsByPeer.end())
+		for (const auto &[id, guid] : peersById)
+			append(id, guid, connections.at(guid).generation);
+	}
+
+	struct ConnectionInfo
+	{
+		PlayerId id;
+		int ping;
+	};
+
+	std::optional<ConnectionInfo> FindConnection(PeerGuid guid, uint64_t generation) const
+	{
+		std::lock_guard<std::mutex> lock(mutex);
+		auto it = connections.find(guid);
+		if (it == connections.end() || it->second.generation != generation || it->second.phase != Phase::Connected)
+			return std::nullopt;
+		return ConnectionInfo{it->second.id, it->second.ping};
+	}
+
+	void UpdatePing(PeerGuid guid, uint64_t generation, int ping)
+	{
+		std::lock_guard<std::mutex> lock(mutex);
+		auto it = connections.find(guid);
+		if (it != connections.end() && it->second.generation == generation)
+			it->second.ping = ping;
+	}
+
+	PlayerId Disconnected(PeerGuid peer, uint64_t generation = 0)
+	{
+		std::lock_guard<std::mutex> lock(mutex);
+		const auto entry = connections.find(peer);
+		if (entry == connections.end() || (generation && entry->second.generation != generation))
 			return {};
-		const PlayerId id = entry->second;
+		const PlayerId id = entry->second.id;
 		peersById.erase(id);
-		idsByPeer.erase(entry);
+		connections.erase(entry);
 		return id;
 	}
 
 	void Reset()
 	{
 		std::lock_guard<std::mutex> lock(mutex);
-		idsByPeer.clear();
+		connections.clear();
 		peersById.clear();
 		next = PlayerId{1};
 	}
@@ -104,7 +158,20 @@ private:
 	const uint32_t maxId;
 	PlayerId next{1};
 	mutable std::mutex mutex;
-	std::unordered_map<PeerGuid, PlayerId> idsByPeer;
+	enum class Phase
+	{
+		Pending,
+		Answered,
+		Connected
+	};
+	struct Entry
+	{
+		uint64_t generation = 0;
+		Phase phase = Phase::Connected;
+		PlayerId id{};
+		int ping = -1;
+	};
+	std::unordered_map<PeerGuid, Entry> connections;
 	std::map<PlayerId, PeerGuid> peersById;
 };
 }
