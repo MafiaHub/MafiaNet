@@ -3959,7 +3959,7 @@ void RakPeer::ProduceWithheldConnectionPacket(RemoteSystemStruct *remoteSystem)
 		// The original bytes could not be stashed (allocation failure); the message id alone still tells
 		// the application a connection exists, which is what every caller keys off.
 		packet = AllocPacket(sizeof(MessageID));
-		packet->data[0] = incoming ? ID_NEW_INCOMING_CONNECTION : ID_CONNECTION_REQUEST_ACCEPTED;
+		packet->data[0] = incoming ? MessageID{ID_NEW_INCOMING_CONNECTION} : MessageID{ID_CONNECTION_REQUEST_ACCEPTED};
 		packet->bitSize = sizeof(MessageID) * 8;
 	}
 
