@@ -1,59 +1,90 @@
 // Copyright (c) 2026, MafiaHub. MIT license.
+#include "protocol.h"
 #include "mafianet/server.h"
+#include <chrono>
 #include <iostream>
 
 using namespace MafiaNet;
+using namespace std::chrono_literals;
 
-// Both ends register this message at ID_USER_PACKET_ENUM. A client sends it after
-// loading the indicated world revision. Account authentication belongs to the game.
-struct WorldLoaded
+namespace
 {
-	uint32_t revision = 0;
-	template <class Archive>
-	void serialize(Archive &archive) { archive & revision; }
-};
+// Fixed tickets for this loopback example. A game would verify an account ticket here.
+void admit(const ConnectionRequest &request)
+{
+	ConnectionSlot slot;
+	if (request.payload() == "guest-demo")
+		slot = ConnectionSlot::Public;
+	else if (request.payload() == "staff-demo")
+		slot = ConnectionSlot::Reserved;
+	else
+	{
+		request.reject("Unknown ticket");
+		return;
+	}
+	switch (request.accept(slot))
+	{
+	case SessionAcceptResult::Full:
+		request.status("Waiting for a slot");
+		break;
+	case SessionAcceptResult::InvalidPayload:
+	case SessionAcceptResult::OutOfMemory:
+		request.reject("Login unavailable");
+		break;
+	case SessionAcceptResult::Accepted:
+	case SessionAcceptResult::Expired:
+		break;
+	}
+}
+}
 
 int main()
 {
-	auto server = Server::listen(60000, {32});
-	if (!server)
+	ServerCapacity capacity;
+	capacity.connected = 2;
+	capacity.reserved = 1;
+	capacity.pending = 8;
+	capacity.pending_per_address = 4;
+	auto peer = Peer::server().host("127.0.0.1").port(Login::port).capacity(capacity).start();
+	if (!peer)
+	{
+		std::cerr << "Could not listen on port " << Login::port << '\n';
 		return 1;
-	const auto check_world = [](const ConnectionRequest &request)
-	{
-		if (request.payload() != "world-v1")
+	}
+	Server server(std::move(*peer));
+	server.on<ConnectionRequested>(admit);
+	server.on<ClientConnected>([](const ClientConnection &)
+	                           { std::cout << "Connected, waiting for WorldLoaded\n"; });
+	server.messages().on<Login::WorldLoaded>(Login::worldLoadedId, [&](const Login::WorldLoaded &message, const Sender &sender)
+	                                         {
+		if (auto connection = server.connection(sender))
 		{
-			request.reject("Unsupported world version");
-			return;
-		}
-		if (request.accept() == SessionAcceptResult::Full)
-			request.status("Waiting for a slot");
-	};
-	server->on<ConnectionRequested>(check_world);
-	// Only validated requests remain here. A disconnect or an abandoned claim can release capacity.
-	const auto retry_waiting = [&](const auto &)
-	{
-		for (const auto &request : server->pending_requests())
-			if (request.accept() == SessionAcceptResult::Full)
-				break;
-	};
-	server->on<ClientDisconnected>(retry_waiting);
-	server->on<ConnectionAbandoned>(retry_waiting);
-	server->on<ClientConnected>([](ClientConnection connection)
-	                            { std::cout << "Waiting for client " << static_cast<uint64_t>(connection.key().guid) << " to finish loading\n"; });
-	server->messages().on<WorldLoaded>(ID_USER_PACKET_ENUM, [&](const WorldLoaded &message, const Sender &sender)
-	                                   {
-		if (auto connection = server->connection(sender))
-		{
-			if (message.revision == 1)
+			if (message.revision == Login::worldRevision)
 				connection->accept_player();
 			else
 				connection->disconnect();
 		} });
-	server->on<PlayerJoined>([](Player player)
-	                         { std::cout << "Player " << static_cast<uint32_t>(player.id()) << " entered the world\n"; });
+	server.messages().register_message<Login::Welcome>(Login::welcomeId);
+	server.on<PlayerJoined>([](Player player)
+	                        {
+		auto number = static_cast<uint32_t>(player.id());
+		std::cout << "Player " << number << " joined" << std::endl;
+		player.send(Login::Welcome{number}); });
+	server.on<PlayerLeft>([](const PlayerLeft &left)
+	                      { std::cout << "Player " << static_cast<uint32_t>(left.player_id) << " left" << std::endl; });
+
+	std::cout << "Listening on 127.0.0.1:" << Login::port << std::endl;
+	auto nextQueueUpdate = std::chrono::steady_clock::now() + 1s;
 	for (;;)
 	{
-		server->transport().WaitForPackets(16);
-		server->poll();
+		server.transport().WaitForPackets(16);
+		server.poll();
+		auto now = std::chrono::steady_clock::now();
+		if (now >= nextQueueUpdate)
+		{
+			for (const auto &request : server.pending_requests())
+				admit(request);
+			nextQueueUpdate = now + 1s;
+		}
 	}
 }

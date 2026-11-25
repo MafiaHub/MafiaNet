@@ -103,8 +103,6 @@ admission policy independently. For an existing server with custom bind or
 identity settings, move the ``Peer`` returned by ``Peer::server().start()`` into
 ``Server`` before receiving its first packet.
 
-Build the ``PlayerWelcome`` and ``PlayerLogin`` executables with
-``MAFIANET_BUILD_SAMPLES=ON``. The first sends a typed welcome containing the
-assigned number. The second checks a client-supplied world version during
-admission, then waits for a typed load-complete message before admitting the
-player to the game.
+For a runnable client and server, follow :doc:`player-session-protocol`.
+The ``PlayerWelcome`` sample also demonstrates assigning a player number as
+soon as the connection is accepted.

@@ -220,9 +220,11 @@ RakPeer *SimulatedNetwork::StartPeer(RakPeer *peer, unsigned int maxConnections,
 RakPeer *SimulatedNetwork::RestartPeer(RakPeer *peer, unsigned int maxConnections, unsigned short maxIncoming)
 {
 	// Only plain IPv4 peers made by AddPeer: the restarted one is rebuilt the same way.
-	RakAssert(peersInStorage.count(peer) == 0 && ipv4Aliases.count(peer) == 0);
+	if (servers.count(peer) || peersInStorage.count(peer) || ipv4Aliases.count(peer))
+		return nullptr;
 	const SystemAddress address = AddressOf(peer);
-	RakAssert(address.GetIPVersion() == 4);
+	if (address.GetIPVersion() != 4)
+		return nullptr;
 	const unsigned hostNumber = (unsigned) (ntohl(address.address.addr4.sin_addr.s_addr) & 0xFF);
 
 	// Shutdown(0) sends nothing: no disconnection notification, exactly as a crash.

@@ -120,7 +120,8 @@ public:
 	}
 	// Destroys \a peer as if its process crashed -- no disconnection
 	// notification reaches anyone -- and starts a fresh peer (new GUID) bound to
-	// the same address. Returns the new peer; \a peer is gone.
+	// the same address. Returns the replacement for a plain IPv4 peer, or nullptr
+	// if the original cannot be restarted (e.g. its lifetime belongs to a Server).
 	RakPeer *RestartPeer(RakPeer *peer, unsigned int maxConnections, unsigned short maxIncoming = 0);
 	// The peer's address of that IP version (4 or 6), or UNASSIGNED_SYSTEM_ADDRESS
 	// when it has none: a dual-stack peer has both.

@@ -141,7 +141,7 @@ int main()
 }
 ```
 
-Every incoming connection requires an answer. Calling `accept_player()` assigns its player number. A game can wait for login or loading before making that call. Pending requests use a separate capacity budget. A full server can check a whitelist, keep a queue and admit reserved clients. See the [queue and reserved slots guide](docs/guide/admission-queue.rst). See the [player server guide](docs/guide/player-server.rst), the [welcome example](Samples/PlayerWelcome/main.cpp), or the [manual join example](Samples/PlayerLogin/main.cpp). For clients and peer-to-peer networking, see the [client/server guide](docs/guide/client-server.rst).
+Every incoming connection requires an answer. Calling `accept_player()` assigns its player number. A game can wait for login or loading before making that call. Pending requests use a separate capacity budget. A full server can check a whitelist, keep a queue and admit reserved clients. See the [queue and reserved slots guide](docs/guide/admission-queue.rst). See the [player server guide](docs/guide/player-server.rst), the [welcome example](Samples/PlayerWelcome/main.cpp), or the [complete client and server walkthrough](docs/guide/player-session-protocol.rst). For clients and peer-to-peer networking, see the [client/server guide](docs/guide/client-server.rst).
 
 ## Features
 

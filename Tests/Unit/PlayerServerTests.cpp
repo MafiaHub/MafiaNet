@@ -14,6 +14,15 @@ struct CommandQueueAccess : RakPeer
 };
 }
 
+TEST(PlayerServer, SimulatedRestartLeavesServerOwnedPeerRunning)
+{
+	SimulatedNetwork net;
+	auto &server = net.AddServer({1});
+	auto *host = static_cast<RakPeer *>(&server.transport());
+	EXPECT_EQ(net.RestartPeer(host, 1), nullptr);
+	EXPECT_TRUE(host->IsActive());
+}
+
 TEST(PlayerServer, OldLoginAndPlayerCannotTargetTheSameGuidAfterReconnect)
 {
 	SimulatedNetwork net;

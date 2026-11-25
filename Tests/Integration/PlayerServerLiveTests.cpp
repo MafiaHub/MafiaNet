@@ -31,14 +31,20 @@ TEST(PlayerServerLive, ListenDeliversJoinAndLeaveOnThePollThread)
 		EXPECT_EQ(std::this_thread::get_id(), caller);
 		left = event; });
 	ASSERT_EQ(client->Connect("127.0.0.1", bound, nullptr, 0), CONNECTION_ATTEMPT_STARTED);
+	bool clientAccepted = false;
+	bool clientDisconnected = false;
 	const auto wait = [&](auto predicate)
 	{
 		const auto start = GetTimeMS();
 		while (GetTimeMS() - start < 5000)
 		{
 			server->poll();
-			while (client.receive())
+			while (auto packet = client.receive())
 			{
+				if (packet->data[0] == ID_CONNECTION_REQUEST_ACCEPTED)
+					clientAccepted = true;
+				if (packet->data[0] == ID_DISCONNECTION_NOTIFICATION)
+					clientDisconnected = true;
 			}
 			if (predicate())
 				return true;
@@ -47,11 +53,11 @@ TEST(PlayerServerLive, ListenDeliversJoinAndLeaveOnThePollThread)
 		return false;
 	};
 	ASSERT_TRUE(wait([&]
-	                 { return joined.has_value(); }));
+	                 { return joined.has_value() && clientAccepted; }));
 	ASSERT_EQ(joined->id(), PlayerId{1});
 	ASSERT_TRUE(joined->disconnect());
 	ASSERT_TRUE(wait([&]
-	                 { return left.has_value(); }));
+	                 { return left.has_value() && clientDisconnected; }));
 	EXPECT_EQ(left->player_id, joined->id());
 	EXPECT_EQ(left->connection, joined->key());
 	EXPECT_FALSE(joined->disconnect());

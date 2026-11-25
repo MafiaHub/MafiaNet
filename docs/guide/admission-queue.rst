@@ -1,5 +1,5 @@
 Whitelist checks, queues and reserved slots
-==========================================
+===========================================
 
 A listening game server has two budgets. A new arrival uses one pending slot
 while the game checks its credentials. Acceptance claims one connected slot,
@@ -78,7 +78,7 @@ timeout at both ends. Choose an update interval shorter than both timeouts.
 An earlier unanswered request times out if neither a decision nor a status arrives.
 
 Using RakPeerInterface directly
-------------------------------
+-------------------------------
 
 ``Peer::server().capacity(capacity).start()`` sizes both populations. For manual
 startup, configure ``SetMaximumPendingSessions(pending, perAddress)`` and
