@@ -13,6 +13,7 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
+#include "../sample_session.h"
 #include "mafianet/guid_util.h"
 #include "mafianet/peer_interface.h"
 #include "mafianet/bit_stream.h"
@@ -149,7 +150,7 @@ int main(void)
 	{
 		if (server)
 		{
-			for (packet = server->Receive(); packet; server->DeallocatePacket(packet), packet = server->Receive())
+			for (packet = Sample::ReceiveAndAcceptRequests(server); packet; server->DeallocatePacket(packet), packet = Sample::ReceiveAndAcceptRequests(server))
 			{
 				if (packet->data[0] == ID_NEW_INCOMING_CONNECTION || packet->data[0] == 253)
 				{

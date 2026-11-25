@@ -6,11 +6,12 @@
  */
 
 // A RakVoice relay host forwards voice on RakPeer's own
-// update thread. The server here never calls Receive() at all -- the shape of an
+// update thread. The server here only calls Receive() during connection setup -- the shape of an
 // application whose main thread is stalled -- and the listener must still hear the
 // talker. The unit suite proves the routing on the simulated network; this proves it
 // on the real threaded update loop.
 
+#include "SessionTestHelpers.h"
 #include <gtest/gtest.h>
 
 #include "mafianet/get_time.h"
@@ -83,10 +84,10 @@ TEST_F(RakVoiceNetworkThreadRelayLive, RelaysWhileTheServerNeverCallsReceive)
 	serverAddress.SetBinaryAddress("127.0.0.1");
 	serverAddress.SetPortHostOrder(serverPort);
 
-	// The server is never pumped; the handshake completes on its update thread. Wait for
-	// both clients too: the server counts a connection before the client has seen it accepted.
+	// Handle session requests during setup, then leave both voice streams to the network thread.
 	auto allConnected = [&]
 	{
+		SessionTestHelpers::DrainAndAcceptRequests(server.get());
 		return server->NumberOfConnections() == 2 && talker->GetConnectionState(serverAddress) == IS_CONNECTED &&
 		       listener->GetConnectionState(serverAddress) == IS_CONNECTED;
 	};
@@ -163,6 +164,7 @@ TEST_F(RakVoiceNetworkThreadRelayLive, ClearingTheRelayWaitsForOneThatIsMidCall)
 	TimeMS start = GetTimeMS();
 	while (GetTimeMS() - start < 10000 && talker->GetConnectionState(serverAddress) != IS_CONNECTED)
 	{
+		SessionTestHelpers::DrainAndAcceptRequests(server.get());
 		for (auto pkt : talker.incoming())
 			(void) pkt;
 		RakSleep(30);

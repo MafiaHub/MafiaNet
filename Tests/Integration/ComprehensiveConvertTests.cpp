@@ -5,6 +5,7 @@
  *  license.txt file in the root directory of this source tree.
  */
 
+#include "SessionTestHelpers.h"
 #include <gtest/gtest.h>
 
 #include "mafianet/peer_interface.h"
@@ -293,7 +294,7 @@ TEST_F(ComprehensiveConvert, DoesALittleBitOfEverything)
 		}
 
 		for (i = 0; i < NUM_PEERS; i++)
-			peers[i]->DeallocatePacket(peers[i]->Receive());
+			peers[i]->DeallocatePacket(SessionTestHelpers::ReceiveAndAcceptRequests(peers[i]));
 
 		RakSleep(0);
 	}

@@ -17,7 +17,9 @@ struct CommandQueueAccess : RakPeer
 TEST(PlayerServer, OldLoginAndPlayerCannotTargetTheSameGuidAfterReconnect)
 {
 	SimulatedNetwork net;
-	auto &server = net.AddServer(1, JoinPolicy::Manual);
+	auto &server = net.AddServer(1);
+	server.on<ConnectionRequested>([](const ConnectionRequest &request)
+	                               { EXPECT_TRUE(request.accept()); });
 	auto *host = static_cast<RakPeer *>(&server.transport());
 	auto *client = net.AddPeer(1);
 	std::vector<ClientConnection> connections;
@@ -34,7 +36,8 @@ TEST(PlayerServer, OldLoginAndPlayerCannotTargetTheSameGuidAfterReconnect)
 	{
 		net.Inbox(client).clear();
 		return net.StartConnect(client, host) == CONNECTION_ATTEMPT_STARTED &&
-		       net.RunUntilReceived(client, ID_CONNECTION_REQUEST_ACCEPTED, 5000);
+		       net.RunUntil([&]
+		                    { server.poll(); return net.Received(client, ID_CONNECTION_REQUEST_ACCEPTED); }, 5000);
 	};
 	ASSERT_TRUE(connect());
 	server.poll();
@@ -48,7 +51,7 @@ TEST(PlayerServer, OldLoginAndPlayerCannotTargetTheSameGuidAfterReconnect)
 	ASSERT_TRUE(joined[0].disconnect());
 	ASSERT_TRUE(net.RunUntilReceived(client, ID_DISCONNECTION_NOTIFICATION, 5000));
 	ASSERT_TRUE(connect());
-	// Both sessions' notifications are still waiting in the application's queue.
+	// The saved handles belong to the first connection.
 	EXPECT_FALSE(connections[0].accept_player());
 	EXPECT_FALSE(joined[0].disconnect());
 	EXPECT_FALSE(joined[0].ping());
@@ -63,10 +66,34 @@ TEST(PlayerServer, OldLoginAndPlayerCannotTargetTheSameGuidAfterReconnect)
 	EXPECT_FALSE(joined[0].disconnect());
 }
 
+TEST(PlayerServer, MissingRequestHandlerLeavesSessionPendingUntilTimeout)
+{
+	SimulatedNetwork net;
+	auto &server = net.AddServer(1);
+	auto *host = static_cast<RakPeer *>(&server.transport());
+	auto *client = net.AddPeer(1);
+	host->SetSessionTimeout(100);
+	client->SetSessionTimeout(250);
+	std::vector<PeerGuid> abandoned;
+	server.on<ConnectionAbandoned>([&](const ConnectionAbandoned &event)
+	                               { abandoned.push_back(event.connection.guid); });
+	server.on<ClientConnected>([](ClientConnection)
+	                           { ADD_FAILURE() << "Unanswered session connected"; });
+	ASSERT_EQ(net.StartConnect(client, host), CONNECTION_ATTEMPT_STARTED);
+	ASSERT_TRUE(net.RunUntil([&]
+	                         {
+		server.poll();
+		return !abandoned.empty() && net.Received(client, ID_CONNECTION_ATTEMPT_FAILED); }, 5000));
+	EXPECT_EQ(abandoned, (std::vector<PeerGuid>{ToPeerGuid(client->GetMyGUID())}));
+	EXPECT_TRUE(server.players().empty());
+}
+
 TEST(PlayerServer, RequestCanDeferAndAbandonWithoutAllocatingAPlayer)
 {
 	SimulatedNetwork net;
-	auto &server = net.AddServer(1, JoinPolicy::Immediate, AdmissionPolicy::Interactive);
+	auto &server = net.AddServer(1);
+	server.on<ClientConnected>([](ClientConnection client)
+	                           { EXPECT_TRUE(client.accept_player()); });
 	auto *host = static_cast<RakPeer *>(&server.transport());
 	auto *client = net.AddPeer(1);
 	std::vector<ConnectionRequest> requests;
@@ -125,7 +152,11 @@ constexpr MessageID greetingId = ID_USER_PACKET_ENUM;
 TEST(PlayerServer, QueuedSendAndKickAreDroppedAtExecutionAfterReconnect)
 {
 	SimulatedNetwork net;
-	auto &server = net.AddServer(1, JoinPolicy::Immediate);
+	auto &server = net.AddServer(1);
+	server.on<ClientConnected>([](ClientConnection client)
+	                           { EXPECT_TRUE(client.accept_player()); });
+	server.on<ConnectionRequested>([](const ConnectionRequest &request)
+	                               { EXPECT_TRUE(request.accept()); });
 	auto *host = static_cast<RakPeer *>(&server.transport());
 	auto *client = net.AddPeer(1);
 	std::vector<Player> players;
@@ -136,7 +167,8 @@ TEST(PlayerServer, QueuedSendAndKickAreDroppedAtExecutionAfterReconnect)
 	{
 		net.Inbox(client).clear();
 		return net.StartConnect(client, host) == CONNECTION_ATTEMPT_STARTED &&
-		       net.RunUntilReceived(client, ID_CONNECTION_REQUEST_ACCEPTED, 5000);
+		       net.RunUntil([&]
+		                    { server.poll(); return net.Received(client, ID_CONNECTION_REQUEST_ACCEPTED); }, 5000);
 	};
 	ASSERT_TRUE(connect());
 	server.poll();
@@ -174,7 +206,9 @@ TEST(PlayerServer, QueuedSendAndKickAreDroppedAtExecutionAfterReconnect)
 TEST(PlayerServer, PollDispatchesLoginAndSnapshotsAnUnjoinedDisconnect)
 {
 	SimulatedNetwork net;
-	auto &server = net.AddServer(1, JoinPolicy::Manual);
+	auto &server = net.AddServer(1);
+	server.on<ConnectionRequested>([](const ConnectionRequest &request)
+	                               { EXPECT_TRUE(request.accept()); });
 	auto *host = static_cast<RakPeer *>(&server.transport());
 	auto *client = net.AddPeer(1);
 	std::vector<std::string> events;
@@ -195,8 +229,9 @@ TEST(PlayerServer, PollDispatchesLoginAndSnapshotsAnUnjoinedDisconnect)
 		EXPECT_TRUE(server.connection(from));
 		events.emplace_back("login"); });
 	ASSERT_EQ(net.StartConnect(client, host), CONNECTION_ATTEMPT_STARTED);
-	ASSERT_TRUE(net.RunUntilReceived(client, ID_CONNECTION_REQUEST_ACCEPTED, 5000));
-	EXPECT_TRUE(events.empty());
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { server.poll(); return net.Received(client, ID_CONNECTION_REQUEST_ACCEPTED); }, 5000));
+	EXPECT_EQ(events, (std::vector<std::string>{"connected"}));
 	BitStream login;
 	server.messages().encode(login, Greeting{7});
 	client->Send(&login, Priority::High, Reliability::ReliableOrdered, 0, net.AddressOf(host), false);
@@ -215,7 +250,11 @@ TEST(PlayerServer, HandlesExpireWhenServerIsDestroyed)
 	std::optional<Player> saved;
 	{
 		SimulatedNetwork net;
-		auto &server = net.AddServer(1, JoinPolicy::Immediate);
+		auto &server = net.AddServer(1);
+		server.on<ClientConnected>([](ClientConnection client)
+		                           { EXPECT_TRUE(client.accept_player()); });
+		server.on<ConnectionRequested>([](const ConnectionRequest &request)
+		                               { EXPECT_TRUE(request.accept()); });
 		auto *host = static_cast<RakPeer *>(&server.transport());
 		auto *client = net.AddPeer(1);
 		server.on<PlayerJoined>([&](Player player)
@@ -229,10 +268,12 @@ TEST(PlayerServer, HandlesExpireWhenServerIsDestroyed)
 	EXPECT_FALSE(saved->send(Greeting{1}));
 }
 
-TEST(PlayerServer, DisconnectInConnectedHandlerCancelsImmediateJoin)
+TEST(PlayerServer, DisconnectInConnectedHandlerLeavesPlayerRosterEmpty)
 {
 	SimulatedNetwork net;
-	auto &server = net.AddServer(1, JoinPolicy::Immediate);
+	auto &server = net.AddServer(1);
+	server.on<ConnectionRequested>([](const ConnectionRequest &request)
+	                               { EXPECT_TRUE(request.accept()); });
 	auto *host = static_cast<RakPeer *>(&server.transport());
 	auto *client = net.AddPeer(1);
 	server.on<ClientConnected>([](ClientConnection connection)
@@ -247,7 +288,9 @@ TEST(PlayerServer, DisconnectInConnectedHandlerCancelsImmediateJoin)
 TEST(PlayerServer, PlayerListContainsOnlyAcceptedSessionsInNumberOrder)
 {
 	SimulatedNetwork net;
-	auto &server = net.AddServer(3, JoinPolicy::Manual);
+	auto &server = net.AddServer(3);
+	server.on<ConnectionRequested>([](const ConnectionRequest &request)
+	                               { EXPECT_TRUE(request.accept()); });
 	auto *host = static_cast<RakPeer *>(&server.transport());
 	std::vector<ClientConnection> clients;
 	server.on<ClientConnected>([&](ClientConnection client)
@@ -274,7 +317,7 @@ TEST(PlayerServer, PlayerListContainsOnlyAcceptedSessionsInNumberOrder)
 TEST(PlayerServer, RefusedRequestReturnsReasonAndNeverCreatesAClient)
 {
 	SimulatedNetwork net;
-	auto &server = net.AddServer(1, JoinPolicy::Immediate, AdmissionPolicy::Interactive);
+	auto &server = net.AddServer(1);
 	auto *host = static_cast<RakPeer *>(&server.transport());
 	auto *client = net.AddPeer(1);
 	server.on<ConnectionRequested>([](const ConnectionRequest &request)

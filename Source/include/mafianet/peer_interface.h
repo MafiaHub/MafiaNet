@@ -42,13 +42,6 @@ struct RakNetBandwidth;
 class RouterInterface;
 class NetworkIDManager;
 
-/// How the server answers incoming session requests.
-enum class AdmissionPolicy
-{
-	Automatic,
-	Interactive
-};
-
 enum class DatagramSendStatus
 {
 	Queued,
@@ -450,8 +443,8 @@ public:
 	// --------------------------------------------------------------------------------------------Session Handshake - Payloads exchanged before a connection is reported--------------------------------------------------------------------------------------------
 	/// Sets this peer's session-handshake payload.
 	/// \details The session handshake runs after the transport connection is up but before either side
-	/// reports it: a client sends this payload in ID_SESSION_CONFIG_REQUEST, a server answers with it in
-	/// ID_SESSION_CONFIG. Neither peer produces ID_CONNECTION_REQUEST_ACCEPTED / ID_NEW_INCOMING_CONNECTION
+	/// reports it. A connecting peer sends this payload in ID_SESSION_CONFIG_REQUEST. The accepting
+	/// application must call AcceptSession() with its response or RejectSession() with a reason. Neither peer produces ID_CONNECTION_REQUEST_ACCEPTED / ID_NEW_INCOMING_CONNECTION
 	/// until the exchange completes, so those packets mean "the remote's session payload is in hand".
 	/// The bytes are opaque to MafiaNet. Call before Startup()/Connect().
 	/// \param[in] data A block of data to send, or 0 for none
@@ -471,12 +464,6 @@ public:
 	/// \param[out] length Filled in with the payload length, or 0 when there is none
 	/// \return Pointer to the payload owned by that connection, or 0 when there is none
 	virtual const char *GetRemoteSessionConfig(const AddressOrGUID systemIdentifier, unsigned int *length) = 0;
-
-	/// Select the admission policy for subsequent incoming session requests.
-	/// Automatic (the default) replies with the payload from SetSessionConfig().
-	/// Interactive delivers ID_SESSION_CONFIG_REQUEST to Receive(). The session stays pending
-	/// until AcceptSession(), RejectSession(), or timeout. Changing policy leaves pending decisions open.
-	virtual void SetSessionAdmissionPolicy(AdmissionPolicy policy) = 0;
 
 	/// Server: accept a pending session request, sending \a data as this connection's payload.
 	/// \details Completes the handshake and surfaces the withheld ID_NEW_INCOMING_CONNECTION. Only

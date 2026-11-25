@@ -89,6 +89,9 @@ Basic Server
                 server->DeallocatePacket(packet), packet = server->Receive()) {
 
                switch (packet->data[0]) {
+                   case ID_SESSION_CONFIG_REQUEST:
+                       server->AcceptSession(packet->guid, nullptr, 0);
+                       break;
                    case ID_NEW_INCOMING_CONNECTION:
                        printf("Client connected: %s\n",
                               MafiaNet::to_string(packet->systemAddress).c_str());

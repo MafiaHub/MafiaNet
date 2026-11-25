@@ -12,6 +12,7 @@
  *  are larger than MMSG_BATCH_MAX so the batched send fills and flushes.
  */
 
+#include "SessionTestHelpers.h"
 #include "mafianet/guid_util.h"
 #include <gtest/gtest.h>
 
@@ -67,7 +68,7 @@ protected:
 	// Pumps the server, recording the address each new client was seen from.
 	void PumpServer()
 	{
-		for (Packet *p = server->Receive(); p != nullptr; p = server->Receive())
+		for (Packet *p = SessionTestHelpers::ReceiveAndAcceptRequests(server); p != nullptr; p = SessionTestHelpers::ReceiveAndAcceptRequests(server))
 		{
 			if (p->data[0] == ID_NEW_INCOMING_CONNECTION)
 				seenFrom[p->guid.g] = p->systemAddress;

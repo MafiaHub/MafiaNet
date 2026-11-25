@@ -13,6 +13,7 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
+#include "../sample_session.h"
 #include "mafianet/peer_interface.h"
 
 #include "mafianet/bit_stream.h"
@@ -84,7 +85,7 @@ public:
 	}
 	void Update(MafiaNet::TimeMS curTime)
 	{
-		Packet *p = peer->Receive();
+		Packet *p = Sample::ReceiveAndAcceptRequests(peer);
 		while (p)
 		{
 			switch (p->data[0])
@@ -124,7 +125,7 @@ public:
 				break;
 			}
 			peer->DeallocatePacket(p);
-			p = peer->Receive();
+			p = Sample::ReceiveAndAcceptRequests(peer);
 		}
 
 		if (curTime > nextSendTime && isConnected)
@@ -175,7 +176,7 @@ public:
 	}
 	void Update(MafiaNet::TimeMS curTime)
 	{
-		Packet *p = peer->Receive();
+		Packet *p = Sample::ReceiveAndAcceptRequests(peer);
 		while (p)
 		{
 			switch (p->data[0])
@@ -192,7 +193,7 @@ public:
 				// 					}
 			}
 			peer->DeallocatePacket(p);
-			p = peer->Receive();
+			p = Sample::ReceiveAndAcceptRequests(peer);
 		}
 
 		if (curTime > nextSendTime)

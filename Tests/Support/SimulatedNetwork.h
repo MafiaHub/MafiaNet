@@ -42,7 +42,6 @@
 
 namespace MafiaNet
 {
-enum class JoinPolicy;
 class Server;
 class SimulatedNetwork : public RakNetSocket2Factory
 {
@@ -75,7 +74,11 @@ public:
 	SimulatedNetwork(const SimulatedNetwork &) = delete;
 	SimulatedNetwork &operator=(const SimulatedNetwork &) = delete;
 
-	Server &AddServer(unsigned short slots, JoinPolicy policy, AdmissionPolicy admission = AdmissionPolicy::Automatic);
+	Server &AddServer(unsigned short slots);
+
+	// Test application decision for raw peers. Handshake tests can retain requests in the inbox instead.
+	std::function<void(RakPeer &, const Packet &)> onSessionRequest = [](RakPeer &peer, const Packet &request)
+	{ peer.AcceptSession(request.guid, nullptr, 0); };
 
 	// A started peer bound to 10.0.0.<n>:<port> (port 0 picks one).
 	RakPeer *AddPeer(unsigned int maxConnections, unsigned short maxIncoming = 0, unsigned short port = 0);

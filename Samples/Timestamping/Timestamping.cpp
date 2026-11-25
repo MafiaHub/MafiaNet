@@ -13,6 +13,7 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
+#include "../sample_session.h"
 #include "mafianet/peer_interface.h"
 
 #include "mafianet/bit_stream.h"
@@ -140,7 +141,7 @@ int main(void)
 		else
 		{
 			packetFromServer = true;
-			packet = rakServer->Receive();
+			packet = Sample::ReceiveAndAcceptRequests(rakServer);
 		}
 
 		if (packet && packet->data[0] == ID_TIMESTAMP)

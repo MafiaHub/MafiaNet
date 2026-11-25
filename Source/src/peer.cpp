@@ -2571,12 +2571,6 @@ const char *RakPeer::GetRemoteSessionConfig(const AddressOrGUID systemIdentifier
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-void RakPeer::SetSessionAdmissionPolicy(AdmissionPolicy policy)
-{
-	sessionAdmissionPolicy.store(policy, std::memory_order_relaxed);
-}
-
-// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void RakPeer::AcceptSession(const AddressOrGUID systemIdentifier, const char *data, unsigned int length)
 {
 	RakAssert(length <= MAXIMUM_SESSION_CONFIG_SIZE);
@@ -3946,8 +3940,6 @@ void RakPeer::ProduceWithheldConnectionPacket(RemoteSystemStruct *remoteSystem)
 	if (remoteSystem == 0)
 		return;
 
-	// A crossed plaintext connection can answer a session request while holding an outgoing
-	// connection notification. The slot's session role determines player eligibility.
 	const bool incoming = !remoteSystem->sessionConfigIsConnectingSide;
 	Packet *packet;
 	if (remoteSystem->withheldConnectionPacketData != 0 && remoteSystem->withheldConnectionPacketLength > 0)
@@ -5576,15 +5568,9 @@ bool ProcessOfflineNetworkPacket(SystemAddress systemAddress, const char *data, 
 
 					// You might get this when already connected because of cross-connections
 					remoteSystem = rakPeer->GetRemoteSystemFromSystemAddress(systemAddress, true, true);
-					if (remoteSystem != 0 && remoteSystem->reliabilityLayer.IsEncrypted())
+					if (remoteSystem != 0)
 					{
-						// Session keys are already installed for this address while this attempt is still pending. The
-						// cross-connection tie-break (the REQUEST_2 handler) only lets that happen when we answered the
-						// other peer's attempt because its GUID is lower: those keys belong to the winning handshake.
-						// Any REPLY_2 to our own attempt -- stale, duplicated or forged -- is ignored: nothing is derived
-						// from it, the installed keys are never replaced (a second SetSessionKeys would restart the
-						// sequence on one side only), and we do not send ID_CONNECTION_REQUEST. The attempt stays queued
-						// and is dropped once the winner's ID_CONNECTION_REQUEST opens, or ends as an attempt normally does.
+						// The winning incoming handshake owns this slot. Ignore replies to the absorbed attempt.
 						rakPeer->requestedConnectionQueueMutex.Unlock();
 						return true;
 					}
@@ -5619,17 +5605,8 @@ bool ProcessOfflineNetworkPacket(SystemAddress systemAddress, const char *data, 
 					unlock = false;
 
 					bool thisIPConnectedRecently = false;
-					if (remoteSystem == 0)
-					{
-						if (rcs->socket == 0)
-						{
-							remoteSystem = rakPeer->AssignSystemAddressToRemoteSystemList(systemAddress, RakPeer::RemoteSystemStruct::UNVERIFIED_SENDER, rakNetSocket, &thisIPConnectedRecently, bindingAddress, mtu, guid, sessionKeys, clientInfo, serverInfo, IdentityBlock());
-						}
-						else
-						{
-							remoteSystem = rakPeer->AssignSystemAddressToRemoteSystemList(systemAddress, RakPeer::RemoteSystemStruct::UNVERIFIED_SENDER, rcs->socket, &thisIPConnectedRecently, bindingAddress, mtu, guid, sessionKeys, clientInfo, serverInfo, IdentityBlock());
-						}
-					}
+					auto *socket = rcs->socket ? rcs->socket : rakNetSocket;
+					remoteSystem = rakPeer->AssignSystemAddressToRemoteSystemList(systemAddress, RakPeer::RemoteSystemStruct::UNVERIFIED_SENDER, socket, &thisIPConnectedRecently, bindingAddress, mtu, guid, sessionKeys, clientInfo, serverInfo, IdentityBlock());
 					keys.Wipe();
 					if (remoteSystem != 0 && identityVerified)
 					{
@@ -5958,7 +5935,7 @@ bool ProcessOfflineNetworkPacket(SystemAddress systemAddress, const char *data, 
 				// Cross-connection: a peer with a lower GUID does not answer our REQUEST_2 while its own attempt to us
 				// is pending (see the tie-break below). This refusal ends that attempt, so retry ours right away
 				// instead of after a whole retry interval.
-				if (rakPeer->encryptionMode == EncryptionMode::Required && guid.g < rakPeer->myGuid.g)
+				if (guid.g < rakPeer->myGuid.g)
 				{
 					rakPeer->requestedConnectionQueueMutex.Lock();
 					for (i = 0; i < rakPeer->requestedConnectionQueue.size(); i++)
@@ -5993,7 +5970,7 @@ bool ProcessOfflineNetworkPacket(SystemAddress systemAddress, const char *data, 
 			// normally. If our GUID is higher, answer as usual: the keys installed below are the winner's, a REPLY_2
 			// to our own attempt is ignored (the REPLY_2 handler), and the attempt is dropped once the winner's
 			// ID_CONNECTION_REQUEST opens under these keys (RunUpdateCycle, UNVERIFIED_SENDER).
-			// Plaintext has no keys to agree on and keeps converging as it always did.
+			// Plaintext uses the same tie-break so exactly one peer receives the session request.
 			// The queue lock is held until the connection is allocated: Connect() looks for a connection under the
 			// same lock, so an attempt it starts meanwhile is either refused there or seen here.
 			// Server identity: a peer whose own attempt to this address pinned the remote's identity never lets that
@@ -6003,7 +5980,6 @@ bool ProcessOfflineNetworkPacket(SystemAddress systemAddress, const char *data, 
 			// retries its own attempt at once: the remote, no longer connecting, answers it as responder and must
 			// prove the pinned identity.
 			rakPeer->requestedConnectionQueueMutex.Lock();
-			if (rakPeer->encryptionMode == EncryptionMode::Required)
 			{
 				bool refuseForPin = false;
 				for (i = 0; i < rakPeer->requestedConnectionQueue.size(); i++)
@@ -6357,7 +6333,8 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 					limits.maxPending = maximumPendingSessions;
 					limits.maxPendingPerAddress = maximumPendingSessionsPerAddress;
 					SessionAdmission::Counts counts;
-					CountRemoteInitiatedPeers(UNASSIGNED_SYSTEM_ADDRESS, counts.connected, counts.exchanging, counts.pending, counts.pendingFromAddress);
+					if (SessionAdmission::UsesPendingPool(limits))
+						CountRemoteInitiatedPeers(UNASSIGNED_SYSTEM_ADDRESS, counts.connected, counts.exchanging, counts.pending, counts.pendingFromAddress);
 					if (SessionAdmission::MayAccept(limits, counts))
 						SendSessionConfigResponse(sessionSystem, bcs->data, sessionPayloadLength);
 					else
@@ -6826,7 +6803,7 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 					// REQUEST_2 handler). The winner's ID_CONNECTION_REQUEST just opened under these keys, so this is the
 					// connection: drop our attempt quietly, wiping its key pair.
 					// Until the connection is reported, that Connect() is answered by the failure path if it dies.
-					if (remoteSystem->connectMode == RemoteSystemStruct::HANDLING_CONNECTION_REQUEST && remoteSystem->reliabilityLayer.IsEncrypted() &&
+					if (remoteSystem->connectMode == RemoteSystemStruct::HANDLING_CONNECTION_REQUEST &&
 					    DropConnectionAttemptSupersededBy(systemAddress))
 						remoteSystem->absorbedOurConnectAttempt = true;
 				}
@@ -7000,14 +6977,14 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 				{
 					// Server side of the session handshake. The client's payload arrives before we answer, so a
 					// server can inspect it and refuse without ever having disclosed its own.
-					if (remoteSystem->connectMode == RemoteSystemStruct::EXCHANGING_SESSION_DATA && remoteSystem->sessionConfigAwaitingLocalDecision == false)
+					if (remoteSystem->connectMode == RemoteSystemStruct::EXCHANGING_SESSION_DATA && !remoteSystem->sessionConfigIsConnectingSide && !remoteSystem->sessionConfigAwaitingLocalDecision)
 					{
 						if (StoreRemoteSessionConfig(remoteSystem, (const unsigned char *) data + sizeof(MessageID), byteSize - (unsigned int) sizeof(MessageID)) == false)
 						{
 							// Oversized payload is a protocol violation; drop without answering.
 							SetConnectMode(*remoteSystem, RemoteSystemStruct::DISCONNECT_ASAP_SILENTLY);
 						}
-						else if (sessionAdmissionPolicy.load(std::memory_order_relaxed) == AdmissionPolicy::Interactive)
+						else
 						{
 							// Let the application decide. The connection stays unreported until it calls
 							// AcceptSession() or RejectSession(), or the handshake times out below.
@@ -7021,12 +6998,6 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 							packet->guid = remoteSystem->guid;
 							packet->guid.systemIndex = packet->systemAddress.systemIndex;
 							AddPacketToProducer(packet);
-						}
-						else
-						{
-							rakPeerMutexes[sessionConfig_Mutex].Lock();
-							SendSessionConfigResponse(remoteSystem, (const char *) sessionConfig.GetData(), (unsigned int) sessionConfig.GetNumberOfBytesUsed());
-							rakPeerMutexes[sessionConfig_Mutex].Unlock();
 						}
 					}
 					else
@@ -7121,12 +7092,7 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 
 						// It answers our ID_CONNECTION_REQUEST, which only the REPLY_2 handler sends, right after
 						// setting weInitiatedTheConnection (never cleared while the slot lives). So it is only ever
-						// legitimate on a connection we initiated. That includes a plaintext cross-connection, where
-						// both peers send ID_CONNECTION_REQUEST on one slot and each takes the other's accept in
-						// HANDLING_CONNECTION_REQUEST or REQUESTED_CONNECTION. On a slot created by an incoming request -- the absorbed side of
-						// an encrypted cross-connection among them, which never sends ID_CONNECTION_REQUEST -- it is
-						// forged: ignored, even with allowConnectionResponseIPMigration, so a peer that connected to
-						// us cannot switch our slot to the connecting role of the session handshake (#99).
+						// legitimate on the initiating slot, including when simultaneous attempts crossed.
 						if (remoteSystem->weInitiatedTheConnection &&
 						    (remoteSystem->connectMode == RemoteSystemStruct::HANDLING_CONNECTION_REQUEST ||
 						     remoteSystem->connectMode == RemoteSystemStruct::REQUESTED_CONNECTION ||

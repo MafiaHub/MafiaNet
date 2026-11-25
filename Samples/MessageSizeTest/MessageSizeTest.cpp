@@ -13,6 +13,7 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
+#include "../sample_session.h"
 #include "mafianet/peer_interface.h"
 #include "mafianet/get_time.h"
 #include "mafianet/message_identifiers.h"
@@ -39,7 +40,19 @@ int main(int, char **)
 	receiver->SetMaximumIncomingConnections(32);
 	sender->Startup(1, &sd2, 1);
 	sender->Connect("127.0.0.1", 1234, 0, 0);
-	RakSleep(100);
+	const auto started = MafiaNet::GetTimeMS();
+	while (sender->NumberOfConnections() == 0 && MafiaNet::GetTimeMS() - started < 5000)
+	{
+		while (auto *packet = Sample::ReceiveAndAcceptRequests(receiver))
+			receiver->DeallocatePacket(packet);
+		RakSleep(1);
+	}
+	if (sender->NumberOfConnections() == 0)
+	{
+		MafiaNet::RakPeerInterface::DestroyInstance(sender);
+		MafiaNet::RakPeerInterface::DestroyInstance(receiver);
+		return 1;
+	}
 
 	unsigned char data[4000];
 	data[0] = ID_USER_PACKET_ENUM;
@@ -64,7 +77,7 @@ int main(int, char **)
 		MafiaNet::Time timeout = MafiaNet::GetTime() + 1000;
 		while (MafiaNet::GetTime() < timeout)
 		{
-			for (p = receiver->Receive(); p; receiver->DeallocatePacket(p), p = receiver->Receive())
+			for (p = Sample::ReceiveAndAcceptRequests(receiver); p; receiver->DeallocatePacket(p), p = Sample::ReceiveAndAcceptRequests(receiver))
 			{
 				if (p->data[0] == ID_USER_PACKET_ENUM)
 				{

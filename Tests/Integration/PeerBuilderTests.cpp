@@ -77,6 +77,8 @@ TEST(PeerBuilder, ServerClientConnectAndPortClash)
 		{
 			for (auto pkt : server.incoming())
 			{
+				if (pkt.id() == ID_SESSION_CONFIG_REQUEST)
+					server->AcceptSession(pkt->guid, nullptr, 0);
 				if (pkt.id() == ID_NEW_INCOMING_CONNECTION)
 					serverGotIncoming = true;
 			}
@@ -177,7 +179,8 @@ TEST(PeerBuilder, EncryptionModeReachesThePeerAndMustMatch)
 	while (GetTimeMS() - start < 10000 && !(plainAccepted && strictRefused))
 	{
 		for (auto pkt : server.incoming())
-			(void) pkt;
+			if (pkt.id() == ID_SESSION_CONFIG_REQUEST)
+				server->AcceptSession(pkt->guid, nullptr, 0);
 		for (auto pkt : plain.incoming())
 			plainAccepted = plainAccepted || pkt.id() == ID_CONNECTION_REQUEST_ACCEPTED;
 		for (auto pkt : strict.incoming())
@@ -231,7 +234,8 @@ TEST(PeerBuilder, IdentityKeyAndPinReachThePeers)
 	while (GetTimeMS() - start < 10000 && !(goodAccepted && wrongRefused))
 	{
 		for (auto pkt : server.incoming())
-			(void) pkt;
+			if (pkt.id() == ID_SESSION_CONFIG_REQUEST)
+				server->AcceptSession(pkt->guid, nullptr, 0);
 		for (auto pkt : good.incoming())
 		{
 			ASSERT_NE(ID_PUBLIC_KEY_MISMATCH, pkt.id()) << "the right pin was refused";

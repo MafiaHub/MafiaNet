@@ -13,6 +13,7 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
+#include "../sample_session.h"
 #include "mafianet/peer_interface.h"
 
 #include "mafianet/message_filter.h"
@@ -52,7 +53,7 @@ int main()
 	// Wait for the connection to complete
 	for (;;)
 	{
-		packet = peer1->Receive();
+		packet = Sample::ReceiveAndAcceptRequests(peer1);
 		if (packet && packet->data[0] == ID_NEW_INCOMING_CONNECTION)
 		{
 			printf("Connected.\n");
@@ -77,7 +78,7 @@ int main()
 
 	// Print out the messages that peer 1 got
 	printf("We should get ID_USER_PACKET_ENUM and not ID_USER_PACKET_ENUM+1.\n");
-	packet = peer1->Receive();
+	packet = Sample::ReceiveAndAcceptRequests(peer1);
 	while (packet)
 	{
 		switch (packet->data[0])
@@ -94,7 +95,7 @@ int main()
 		}
 		peer1->DeallocatePacket(packet);
 		RakSleep(0);
-		packet = peer1->Receive();
+		packet = Sample::ReceiveAndAcceptRequests(peer1);
 	}
 
 	// Have peer 2 send the messages again.
@@ -106,7 +107,7 @@ int main()
 	RakSleep(1000);
 
 	printf("We should now NOT get ID_USER_PACKET_ENUM and should get ID_USER_PACKET_ENUM+1\n");
-	packet = peer1->Receive();
+	packet = Sample::ReceiveAndAcceptRequests(peer1);
 	while (packet)
 	{
 		switch (packet->data[0])
@@ -119,7 +120,7 @@ int main()
 			break;
 		}
 		peer1->DeallocatePacket(packet);
-		packet = peer1->Receive();
+		packet = Sample::ReceiveAndAcceptRequests(peer1);
 		RakSleep(0);
 	}
 

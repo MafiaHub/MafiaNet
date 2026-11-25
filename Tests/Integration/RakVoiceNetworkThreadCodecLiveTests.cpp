@@ -11,6 +11,7 @@
 // proves the routing on the simulated network; this runs the codec lock against
 // RakPeer's real update threads (and under TSan in CI).
 
+#include "SessionTestHelpers.h"
 #include <gtest/gtest.h>
 
 #include "mafianet/get_time.h"
@@ -80,9 +81,10 @@ TEST_F(RakVoiceNetworkThreadCodecLive, ListenerHearsATalkerFedFromItsOwnThreadWi
 	ASSERT_EQ(talker->Connect("127.0.0.1", serverPort, 0, 0), CONNECTION_ATTEMPT_STARTED);
 	ASSERT_EQ(listener->Connect("127.0.0.1", serverPort, 0, 0), CONNECTION_ATTEMPT_STARTED);
 
-	// The handshake completes on each peer's update thread; nothing is ever pumped.
+	// Accept the session requests before testing voice with the application receive loop stopped.
 	auto allConnected = [&]
 	{
+		SessionTestHelpers::DrainAndAcceptRequests(server.get());
 		return server->NumberOfConnections() == 2 && talker->GetConnectionState(serverAddress) == IS_CONNECTED &&
 		       listener->GetConnectionState(serverAddress) == IS_CONNECTED;
 	};

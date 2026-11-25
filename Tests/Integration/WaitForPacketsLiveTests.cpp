@@ -67,7 +67,11 @@ struct WaitPair
 			for (auto pkt : client.incoming())
 				(void) pkt;
 			for (auto pkt : server.incoming())
-				serverSawClient = serverSawClient || pkt->data[0] == ID_NEW_INCOMING_CONNECTION;
+			{
+				if (pkt.id() == ID_SESSION_CONFIG_REQUEST)
+					server->AcceptSession(pkt->guid, nullptr, 0);
+				serverSawClient = serverSawClient || pkt.id() == ID_NEW_INCOMING_CONNECTION;
+			}
 			RakSleep(30);
 		}
 		return serverSawClient && client->GetConnectionState(serverAddress) == IS_CONNECTED;
@@ -76,7 +80,8 @@ struct WaitPair
 	void DrainServer()
 	{
 		for (auto pkt : server.incoming())
-			(void) pkt;
+			if (pkt.id() == ID_SESSION_CONFIG_REQUEST)
+				server->AcceptSession(pkt->guid, nullptr, 0);
 	}
 
 	void Send()

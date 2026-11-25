@@ -10,6 +10,7 @@
 // delivers its replicas and their state, and the pass thread serializes to every connection, creates
 // and destroys the server's own replicas and takes replicas away from under the state arriving for them.
 
+#include "SessionTestHelpers.h"
 #include <gtest/gtest.h>
 
 #include "mafianet/bit_stream.h"
@@ -347,7 +348,7 @@ public:
 		                    while (!stop.load())
 		                    {
 			                    peer->WaitForPackets(10);
-			                    for (Packet *packet = peer->Receive(); packet; packet = peer->Receive())
+			                    for (Packet *packet = SessionTestHelpers::ReceiveAndAcceptRequests(peer); packet; packet = SessionTestHelpers::ReceiveAndAcceptRequests(peer))
 				                    peer->DeallocatePacket(packet);
 		                    } }),
 	      passThread([this, manager]()

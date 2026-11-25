@@ -16,6 +16,7 @@
 // This is my own internal test program for the master client but serves as a good example.
 // Right now it is hardcoded to connect to 127.0.0.1.  You would run the master server first, then run this.
 
+#include "../sample_session.h"
 #include "MasterCommon.h"
 #include "MasterClient.h"
 #include "mafianet/string_compressor.h"
@@ -211,13 +212,13 @@ int main(void)
 			ch = 0;
 		}
 
-		p = testGameServerOrClient->Receive();
+		p = Sample::ReceiveAndAcceptRequests(testGameServerOrClient);
 		while (p)
 		{
 			// Ignore any game packets.  The master server plugin handles everything.
 			testGameServerOrClient->DeallocatePacket(p);
 			// Call Receive every update to keep the plugin going
-			p = testGameServerOrClient->Receive();
+			p = Sample::ReceiveAndAcceptRequests(testGameServerOrClient);
 		}
 
 #ifdef _WIN32

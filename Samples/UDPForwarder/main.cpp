@@ -13,6 +13,7 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
+#include "../sample_session.h"
 #include "mafianet/guid_util.h"
 #include "mafianet/peer_interface.h"
 #include "mafianet/sleep.h"
@@ -84,7 +85,7 @@ int main()
 	{
 		for (int i = 0; i < 2; i++)
 		{
-			p = rakPeer[i]->Receive();
+			p = Sample::ReceiveAndAcceptRequests(rakPeer[i]);
 			while (p)
 			{
 				if (p->data[0] == ID_DISCONNECTION_NOTIFICATION)
@@ -101,7 +102,7 @@ int main()
 					printf("Failed to connect to %s (failure)\n", MafiaNet::to_string(p->systemAddress).c_str());
 
 				rakPeer[i]->DeallocatePacket(p);
-				p = rakPeer[i]->Receive();
+				p = Sample::ReceiveAndAcceptRequests(rakPeer[i]);
 			}
 		}
 

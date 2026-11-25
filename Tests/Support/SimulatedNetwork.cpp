@@ -109,14 +109,13 @@ RakPeer *SimulatedNetwork::AddPeer(unsigned int maxConnections, unsigned short m
 	return StartPeer(static_cast<RakPeer *>(RakPeerInterface::GetInstance()), maxConnections, maxIncoming, port);
 }
 
-Server &SimulatedNetwork::AddServer(unsigned short slots, JoinPolicy policy, AdmissionPolicy admission)
+Server &SimulatedNetwork::AddServer(unsigned short slots)
 {
 	Peer owner;
 	auto *peer = static_cast<RakPeer *>(owner.get());
-	peer->SetSessionAdmissionPolicy(admission);
 	StartPeer(peer, slots, slots, 0);
 	SetReceiveEnabled(peer, false);
-	auto inserted = servers.emplace(peer, std::make_unique<Server>(std::move(owner), policy));
+	auto inserted = servers.emplace(peer, std::make_unique<Server>(std::move(owner)));
 	return *inserted.first->second;
 }
 
@@ -436,6 +435,8 @@ void SimulatedNetwork::Step(uint32_t ms)
 				continue;
 			for (Packet *packet = peer->Receive(); packet; packet = peer->Receive())
 			{
+				if (packet->data[0] == ID_SESSION_CONFIG_REQUEST && onSessionRequest)
+					onSessionRequest(*peer, *packet);
 				Message message;
 				message.id = packet->length ? packet->data[0] : 0;
 				message.data.assign(packet->data, packet->data + packet->length);

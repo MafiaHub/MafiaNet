@@ -70,6 +70,8 @@ TEST_F(DispatcherLive, RoutesTypedTimestampedAndSystemMessages)
 	           {
 		sawIncomingConnection = true;
 		incomingFrom = s.address(); });
+	serverD.on(ID_SESSION_CONFIG_REQUEST, [&](const Sender &from)
+	           { server->AcceptSession(from.guid(), nullptr, 0); });
 	MessageID serverChatId = serverD.on<ChatMessage>([&](const ChatMessage &m, const Sender &from)
 	                                                 {
 		++chatReceived;

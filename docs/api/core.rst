@@ -120,7 +120,6 @@ completes. See :doc:`../basics/connecting` for the flow and
 .. doxygenfunction:: MafiaNet::RakPeerInterface::SetSessionConfig
 .. doxygenfunction:: MafiaNet::RakPeerInterface::GetSessionConfig
 .. doxygenfunction:: MafiaNet::RakPeerInterface::GetRemoteSessionConfig
-.. doxygenfunction:: MafiaNet::RakPeerInterface::SetSessionAdmissionPolicy
 .. doxygenfunction:: MafiaNet::RakPeerInterface::AcceptSession
 .. doxygenfunction:: MafiaNet::RakPeerInterface::RejectSession
 .. doxygenfunction:: MafiaNet::RakPeerInterface::SetMaximumPendingSessions

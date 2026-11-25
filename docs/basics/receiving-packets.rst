@@ -85,11 +85,14 @@ Processing Messages
 
 .. code-block:: cpp
 
-   void ProcessPacket(MafiaNet::Packet* packet) {
+   void ProcessPacket(MafiaNet::RakPeerInterface* peer, MafiaNet::Packet* packet) {
        switch (packet->data[0]) {
            // System messages
            case ID_CONNECTION_REQUEST_ACCEPTED:
                OnConnected(packet);
+               break;
+           case ID_SESSION_CONFIG_REQUEST:
+               peer->AcceptSession(packet->guid, nullptr, 0);
                break;
            case ID_NEW_INCOMING_CONNECTION:
                OnClientConnected(packet);

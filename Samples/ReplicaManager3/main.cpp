@@ -15,6 +15,7 @@
 
 // Demonstrates ReplicaManager 3: A system to automatically create, destroy, and serialize objects
 
+#include "../sample_session.h"
 #include "mafianet/string_table.h"
 #include "mafianet/peer_interface.h"
 
@@ -481,7 +482,7 @@ int main(void)
 	bool quit = false;
 	while (!quit)
 	{
-		for (packet = rakPeer->Receive(); packet; rakPeer->DeallocatePacket(packet), packet = rakPeer->Receive())
+		for (packet = Sample::ReceiveAndAcceptRequests(rakPeer); packet; rakPeer->DeallocatePacket(packet), packet = Sample::ReceiveAndAcceptRequests(rakPeer))
 		{
 			switch (packet->data[0])
 			{

@@ -125,6 +125,8 @@ int main()
     if (!server)
         return 1;
 
+    server->on<ConnectionRequested>([](const ConnectionRequest &request) { request.accept(); });
+    server->on<ClientConnected>([](ClientConnection client) { client.accept_player(); });
     server->on<PlayerJoined>([](Player player) {
         std::cout << "Player " << static_cast<uint32_t>(player.id()) << " joined\n";
     });
@@ -136,7 +138,7 @@ int main()
 }
 ```
 
-The default server assigns a number when a player joins. Games with login or loading screens can accept players when ready. See the [player server guide](docs/guide/player-server.rst), the [welcome example](Samples/PlayerWelcome/main.cpp), or the [manual join example](Samples/PlayerLogin/main.cpp). For clients and peer-to-peer networking, see the [client/server guide](docs/guide/client-server.rst).
+Every incoming connection requires an answer. Calling `accept_player()` assigns its player number. A game can wait for login or loading before making that call. See the [player server guide](docs/guide/player-server.rst), the [welcome example](Samples/PlayerWelcome/main.cpp), or the [manual join example](Samples/PlayerLogin/main.cpp). For clients and peer-to-peer networking, see the [client/server guide](docs/guide/client-server.rst).
 
 ## Features
 

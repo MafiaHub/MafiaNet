@@ -55,9 +55,8 @@ What MafiaNet guarantees
   connecting role, is bound the same way: it is taken only on a connection this peer initiated, so a
   peer that connected *to* us cannot send one to switch our side to the connecting role or make us
   report a connection we never asked for; it is ignored and the incoming connection completes
-  normally. In a plaintext simultaneous (cross-connection) handshake every peer that sends
-  ``ID_CONNECTION_REQUEST`` is an initiator and accepts the answer, which is correct. An encrypted one resolves to a single handshake (the lower
-  RakNetGUID's), so there only that handshake's initiator takes the connecting role.
+  normally. Simultaneous attempts resolve to one handshake in both encryption modes. When both
+  peers can accept an incoming connection, the lower GUID initiates and the other peer answers.
 * **The handshake cannot be replayed.** A second ``ID_SESSION_CONFIG_REQUEST`` on a connection that
   has left ``EXCHANGING_SESSION_DATA``, or one that arrives while a decision is already pending, is
   discarded. A peer cannot re-run the exchange to make the connection packet be produced twice.
@@ -98,8 +97,7 @@ What MafiaNet guarantees
 What the application must do
 ----------------------------
 
-**Validate before you trust.** The payload is the *input* to your decision, never the decision. In
-interactive mode the client's payload arrives before the server answers precisely so it can be
+**Validate before you trust.** The payload is the *input* to your decision, never the decision. The client's payload arrives before the server answers precisely so it can be
 checked; a rejected peer never becomes a connection.
 
 **Parse defensively.** Treat it exactly as you would a packet from an unauthenticated remote:
@@ -113,18 +111,15 @@ checked; a rejected peer never becomes a connection.
 * Do not size an allocation from a length field inside the payload without checking it against the
   actual ``length``.
 
-**Do not put secrets in a server payload.** It is sent to every peer that completes the transport
-handshake, before any application-level authentication. In static mode that is unconditional. If a
-value should only reach authorized clients, use interactive mode and send it from
-``AcceptSession()`` after validating that peer, or send it as a normal message after the connection
-is established and authenticated.
+**Authorize before disclosing sensitive data.** The server sends its response payload when
+the application calls ``AcceptSession()``. Verify the recipient before including private data.
 
 **Prefer the GUID form when answering.** ``AcceptSession()``/``RejectSession()`` take an
 ``AddressOrGUID``. A system address can be reused by a different peer between the request arriving
 and the answer being queued; a GUID cannot. Use ``packet->guid`` from the
 ``ID_SESSION_CONFIG_REQUEST`` packet.
 
-**Answer every request.** Under ``SetSessionAdmissionPolicy(MafiaNet::AdmissionPolicy::Interactive)`` a peer that is never answered
+**Answer every request.** A request left unanswered
 holds a connection slot until the timeout expires, and the application never sees it. Make sure
 every code path reaches ``AcceptSession()`` or ``RejectSession()``.
 
@@ -147,7 +142,7 @@ per-IP rate limits, ban checks, connection logging -- do not see them. A deploym
 such defences should keep the timeout short and treat ``SetMaximumIncomingConnections()`` as the
 real bound.
 
-**Interactive mode extends the window.** With interactive mode on, how long a peer can hold a slot
+**Pending requests occupy slots.** How long a peer can hold a slot
 depends on how quickly the application answers. Without a pending pool, answer from the ``Receive()``
 loop rather than deferring behind slow work such as a database lookup or an HTTP call; if validation
 must be slow, reject fast and let the peer retry rather than holding the handshake open.

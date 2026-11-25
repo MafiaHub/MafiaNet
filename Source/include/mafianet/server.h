@@ -13,11 +13,6 @@ namespace detail
 class ServerState;
 }
 
-enum class JoinPolicy
-{
-	Immediate,
-	Manual
-};
 enum class LeaveReason
 {
 	Disconnected,
@@ -143,9 +138,9 @@ struct PlayerLeft
 class RAK_DLL_EXPORT Server
 {
 public:
-	static Result<Server> listen(unsigned short port, unsigned short max_clients, JoinPolicy policy = JoinPolicy::Immediate, AdmissionPolicy admission = AdmissionPolicy::Automatic);
+	static Result<Server> listen(unsigned short port, unsigned short max_clients);
 	/// Take ownership of a peer started with a custom ServerBuilder configuration.
-	explicit Server(Peer peer, JoinPolicy policy = JoinPolicy::Immediate);
+	explicit Server(Peer peer);
 	Server(Server &&) noexcept = default;
 	Server &operator=(Server &&) noexcept = default;
 	Server(const Server &) = delete;

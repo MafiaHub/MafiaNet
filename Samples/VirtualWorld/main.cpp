@@ -27,6 +27,7 @@
 // The sample is non-interactive: it drives the peers, prints what each client
 // sees at each step, and returns 0 only if visibility matched expectations.
 
+#include "../sample_session.h"
 #include "mafianet/peer_interface.h"
 #include "mafianet/replica_manager3.h"
 #include "mafianet/virtual_world.h"
@@ -118,7 +119,7 @@ static void PumpOnce(RakPeerInterface *peers[], int peerCount)
 	for (int i = 0; i < peerCount; i++)
 	{
 		Packet *p;
-		for (p = peers[i]->Receive(); p; peers[i]->DeallocatePacket(p), p = peers[i]->Receive())
+		for (p = Sample::ReceiveAndAcceptRequests(peers[i]); p; peers[i]->DeallocatePacket(p), p = Sample::ReceiveAndAcceptRequests(peers[i]))
 			;
 	}
 }

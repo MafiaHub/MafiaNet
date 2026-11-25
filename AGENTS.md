@@ -262,6 +262,9 @@ peer->Connect("127.0.0.1", 60000, nullptr, 0);
 MafiaNet::Packet* packet;
 while ((packet = peer->Receive()) != nullptr) {
     switch (packet->data[0]) {
+        case ID_SESSION_CONFIG_REQUEST:
+            peer->AcceptSession(packet->guid, nullptr, 0);
+            break;
         case ID_NEW_INCOMING_CONNECTION:
             // Handle new connection
             break;

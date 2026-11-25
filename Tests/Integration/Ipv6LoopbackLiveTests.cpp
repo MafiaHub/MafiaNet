@@ -11,6 +11,7 @@
  *  MMSG_BATCH_MAX so the batched send fills and flushes on Linux.
  */
 
+#include "SessionTestHelpers.h"
 #include "mafianet/guid_util.h"
 #include <gtest/gtest.h>
 
@@ -72,7 +73,7 @@ protected:
 
 	void Drain(RakPeerInterface *peer)
 	{
-		for (Packet *p = peer->Receive(); p != nullptr; p = peer->Receive())
+		for (Packet *p = SessionTestHelpers::ReceiveAndAcceptRequests(peer); p != nullptr; p = SessionTestHelpers::ReceiveAndAcceptRequests(peer))
 			peer->DeallocatePacket(p);
 	}
 

@@ -13,6 +13,7 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
+#include "../sample_session.h"
 #include <cstdio>
 #include <cstring>
 #include <stdlib.h>
@@ -240,7 +241,7 @@ void PrintConnections()
 
 		for (i = 0; i < NUM_PEERS; i++)
 		{
-			packet = rakPeer[i]->Receive();
+			packet = Sample::ReceiveAndAcceptRequests(rakPeer[i]);
 			if (packet)
 			{
 				if (packet->data[0] == ID_CONNECTION_ATTEMPT_FAILED)

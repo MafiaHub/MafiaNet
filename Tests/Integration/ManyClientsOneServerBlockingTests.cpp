@@ -5,6 +5,7 @@
  *  license.txt file in the root directory of this source tree.
  */
 
+#include "SessionTestHelpers.h"
 #include <gtest/gtest.h>
 
 #include "mafianet/peer_interface.h"
@@ -35,7 +36,7 @@ protected:
 			RakPeerInterface::DestroyInstance(destroyList[i]);
 	}
 
-	void WaitForConnectionRequestsToComplete(RakPeerInterface **clientList, int clientNum)
+	void WaitForConnectionRequestsToComplete(RakPeerInterface **clientList, int clientNum, RakPeerInterface *server)
 	{
 		SystemAddress currentSystem;
 		bool msgWasPrinted = false;
@@ -54,6 +55,7 @@ protected:
 					msgWasPrinted = true;
 				}
 
+				SessionTestHelpers::DrainAndAcceptRequests(server);
 				RakSleep(30);
 			}
 		}
@@ -61,7 +63,7 @@ protected:
 
 	void WaitAndPrintResults(RakPeerInterface **clientList, int clientNum, RakPeerInterface *server)
 	{
-		WaitForConnectionRequestsToComplete(clientList, clientNum);
+		WaitForConnectionRequestsToComplete(clientList, clientNum, server);
 
 		Packet *packet;
 

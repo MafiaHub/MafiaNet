@@ -13,6 +13,7 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
+#include "../sample_session.h"
 #include "mafianet/peer_interface.h"
 #include "mafianet/sleep.h"
 #include "mafianet/relay_plugin.h"
@@ -173,7 +174,7 @@ int main(void)
 		}
 
 		Packet *packet;
-		for (packet = peer->Receive(); packet; peer->DeallocatePacket(packet), packet = peer->Receive())
+		for (packet = Sample::ReceiveAndAcceptRequests(peer); packet; peer->DeallocatePacket(packet), packet = Sample::ReceiveAndAcceptRequests(peer))
 		{
 			packet->guid.ToString(str, 64);
 			packet->systemAddress.ToString(true, str2, static_cast<size_t>(64));

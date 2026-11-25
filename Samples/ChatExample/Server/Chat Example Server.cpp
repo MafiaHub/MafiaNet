@@ -254,6 +254,9 @@ int main(void)
 				break;
 
 
+			case ID_SESSION_CONFIG_REQUEST:
+				server->AcceptSession(p->guid, nullptr, 0);
+				break;
 			case ID_NEW_INCOMING_CONNECTION:
 				// Somebody connected.  We have their IP now
 				printf("ID_NEW_INCOMING_CONNECTION from %s with GUID %s\n", MafiaNet::to_string(p->systemAddress).c_str(), MafiaNet::to_string(p->guid).c_str());

@@ -34,8 +34,12 @@ TEST(SystemListLive, AddressGuidPairsStayTogetherDuringSlotReuse)
 		do
 		{
 			for (auto packet : server.incoming())
+			{
+				if (packet.id() == ID_SESSION_CONFIG_REQUEST)
+					server->AcceptSession(packet->guid, nullptr, 0);
 				if (packet.id() == serverEvent && packet->guid == clientGuid)
 					serverObserved = true;
+			}
 			Peer &client = visitor ? *visitor : resident;
 			for (auto packet : client.incoming())
 				if (packet.id() == clientEvent && packet->guid == server->GetMyGUID())

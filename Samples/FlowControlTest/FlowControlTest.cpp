@@ -13,6 +13,7 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
+#include "../sample_session.h"
 #include "mafianet/peer_interface.h"
 #include "mafianet/get_time.h"
 #include "mafianet/message_identifiers.h"
@@ -196,7 +197,7 @@ int main(void)
 
 		// get packets
 		if (rakServer)
-			p = rakServer->Receive();
+			p = Sample::ReceiveAndAcceptRequests(rakServer);
 		else
 			p = rakClient->Receive();
 

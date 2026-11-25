@@ -80,7 +80,6 @@ Players already connected keep playing, and free player slots stay free.
    const unsigned short maxPlayers = 64;
    const unsigned short maxWaiting = 32;
 
-   server->SetSessionAdmissionPolicy(MafiaNet::AdmissionPolicy::Interactive);
    server->SetMaximumPendingSessions(maxWaiting, 4);   // at most 4 waiting from one IP
    server->SetSessionTimeout(45000);                   // how long an answer may take
 

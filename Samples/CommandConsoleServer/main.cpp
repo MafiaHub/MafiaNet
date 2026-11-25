@@ -17,6 +17,7 @@
 /// \brief Test the command console implementations
 
 
+#include "../sample_session.h"
 #include "mafianet/tcp_interface.h"
 #include "mafianet/console_server.h"
 #include "mafianet/command_parser.h"
@@ -75,7 +76,7 @@ void TestCommandServer(MafiaNet::TransportInterface *ti, unsigned short port, Ma
 	{
 		consoleServer.Update();
 		// Ignore raknet packets for this sample.
-		rakPeer->DeallocatePacket(rakPeer->Receive());
+		rakPeer->DeallocatePacket(Sample::ReceiveAndAcceptRequests(rakPeer));
 
 		if (MafiaNet::GetTimeMS() > lastLog + 4000)
 		{

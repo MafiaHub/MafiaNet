@@ -5,6 +5,7 @@
  *  license.txt file in the root directory of this source tree.
  */
 
+#include "SessionTestHelpers.h"
 #include <gtest/gtest.h>
 #include <cstring>
 
@@ -143,7 +144,7 @@ void RunTransfer(unsigned int window)
 	TimeMS entry = GetTimeMS();
 	while ((clientAddress == UNASSIGNED_SYSTEM_ADDRESS || serverAddress == UNASSIGNED_SYSTEM_ADDRESS) && GetTimeMS() - entry < (TimeMS) kConnectTimeoutMs)
 	{
-		for (Packet *p = server->Receive(); p; server->DeallocatePacket(p), p = server->Receive())
+		for (Packet *p = SessionTestHelpers::ReceiveAndAcceptRequests(server); p; server->DeallocatePacket(p), p = SessionTestHelpers::ReceiveAndAcceptRequests(server))
 			if (p->data[0] == ID_NEW_INCOMING_CONNECTION)
 				clientAddress = p->systemAddress;
 		for (Packet *p = client->Receive(); p; client->DeallocatePacket(p), p = client->Receive())

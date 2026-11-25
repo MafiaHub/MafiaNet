@@ -15,7 +15,7 @@ struct WorldLoaded
 
 int main()
 {
-	auto server = Server::listen(60000, 32, JoinPolicy::Manual, AdmissionPolicy::Interactive);
+	auto server = Server::listen(60000, 32);
 	if (!server)
 		return 1;
 	server->on<ConnectionRequested>([](const ConnectionRequest &request)

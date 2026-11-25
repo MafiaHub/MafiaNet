@@ -13,6 +13,7 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
+#include "../sample_session.h"
 #include "mafianet/peer_interface.h"
 #include "mafianet/file_list_transfer.h"
 #include "mafianet/sleep.h"
@@ -203,6 +204,9 @@ int main()
 	printf("File added.\n");
 	RakSleep(100);
 	MafiaNet::Packet *packet1, *packet2;
+#ifndef USE_TCP
+	bool answered = false;
+#endif
 	for (;;)
 	{
 #ifdef USE_TCP
@@ -214,7 +218,19 @@ int main()
 			break;
 		}
 #else
-		// Wait for the connection request to be accepted
+		// Answer the client's request. Leave the incoming connection event for the transfer loop.
+		if (!answered)
+		{
+			if (auto *request = peer1->Receive())
+			{
+				if (request->data[0] == ID_SESSION_CONFIG_REQUEST)
+				{
+					peer1->AcceptSession(request->guid, nullptr, 0);
+					answered = true;
+				}
+				peer1->DeallocatePacket(request);
+			}
+		}
 		packet2 = peer2->Receive();
 		if (packet2 && packet2->data[0] == ID_CONNECTION_REQUEST_ACCEPTED)
 		{
@@ -240,7 +256,7 @@ int main()
 		tcp1.DeallocatePacket(packet1);
 		tcp2.DeallocatePacket(packet2);
 #else
-		packet1 = peer1->Receive();
+		packet1 = Sample::ReceiveAndAcceptRequests(peer1);
 		packet2 = peer2->Receive();
 		if (packet1 && packet1->data[0] == ID_NEW_INCOMING_CONNECTION)
 			flt1.Send(&fileList, peer1, packet1->systemAddress, 0, MafiaNet::Priority::High, 0, &incrementalReadInterface, 2000000);

@@ -17,6 +17,10 @@ TEST(PlayerServerLive, ListenDeliversJoinAndLeaveOnThePollThread)
 	const auto caller = std::this_thread::get_id();
 	std::optional<Player> joined;
 	std::optional<PlayerLeft> left;
+	server->on<ConnectionRequested>([](const ConnectionRequest &request)
+	                                { request.accept(); });
+	server->on<ClientConnected>([](ClientConnection client)
+	                            { client.accept_player(); });
 	server->on<PlayerJoined>([&](Player player)
 	                         {
 		EXPECT_EQ(std::this_thread::get_id(), caller);

@@ -474,10 +474,12 @@ TEST(NetworkThreadReceive, HookCanSeeASenderBeforeTheApplicationSeesItConnect)
 	Pair p;
 	NetworkThreadProbe probe;
 	p.server->AttachPlugin(&probe);
-	p.net.SetReceiveEnabled(p.server, false);
 	char host[64];
 	p.net.AddressOf(p.server).ToString(false, host, sizeof(host));
 	ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, p.client->Connect(host, p.net.AddressOf(p.server).GetPort(), nullptr, 0));
+	ASSERT_TRUE(p.net.RunUntil([&]
+	                           { return p.net.Received(p.server, ID_SESSION_CONFIG_REQUEST); }, 5000, 1));
+	p.net.SetReceiveEnabled(p.server, false);
 	ASSERT_TRUE(p.net.RunUntilReceived(p.client, ID_CONNECTION_REQUEST_ACCEPTED, 5000));
 
 	SendId(p.client, p.net.AddressOf(p.server), ID_NT_CONSUMED);

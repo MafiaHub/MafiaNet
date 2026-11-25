@@ -55,6 +55,9 @@ Common network events to handle:
 
            switch (packet->data[0]) {
                // Connection events
+               case ID_SESSION_CONFIG_REQUEST:
+                   peer->AcceptSession(packet->guid, nullptr, 0);
+                   break;
                case ID_NEW_INCOMING_CONNECTION:  // Server: new client connected
                    OnClientConnected(packet->systemAddress);
                    break;
@@ -121,8 +124,10 @@ moment the connection is reported rather than one round trip later:
 
 .. code-block:: cpp
 
-   // Server, before Startup()
-   server->SetSessionConfig(configJson.c_str(), (unsigned int)configJson.size());
+   // Server, in the packet loop
+   case ID_SESSION_CONFIG_REQUEST:
+       server->AcceptSession(packet->guid, configJson.c_str(), (unsigned int)configJson.size());
+       break;
 
    // Client
    case ID_CONNECTION_REQUEST_ACCEPTED: {
@@ -132,13 +137,11 @@ moment the connection is reported rather than one round trip later:
        break;
    }
 
-To validate each client before answering (build token, protocol version, ban list), turn on
-interactive mode and answer per peer. The client's payload arrives first, so a peer can be refused
+Validate each client before answering, for example by checking its build token. The client's payload arrives first, so a peer can be refused
 without the server disclosing anything:
 
 .. code-block:: cpp
 
-   server->SetSessionAdmissionPolicy(MafiaNet::AdmissionPolicy::Interactive);
 
    case ID_SESSION_CONFIG_REQUEST:
        if (BuildMatches(packet->data + 1, packet->length - 1))

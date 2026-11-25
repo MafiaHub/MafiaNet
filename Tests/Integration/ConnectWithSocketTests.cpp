@@ -5,6 +5,7 @@
  *  license.txt file in the root directory of this source tree.
  */
 
+#include "SessionTestHelpers.h"
 #include <gtest/gtest.h>
 
 #include "mafianet/peer_interface.h"
@@ -107,6 +108,7 @@ TEST_F(ConnectWithSocket, ConnectWithSocketFromGetSocketsAndGetSocket)
 			client->ConnectWithSocket("127.0.0.1", serverAddress.GetPort(), 0, 0, theSocket);
 		}
 
+		SessionTestHelpers::DrainAndAcceptRequests(server);
 		RakSleep(100);
 	}
 
@@ -132,6 +134,7 @@ TEST_F(ConnectWithSocket, ConnectWithSocketFromGetSocketsAndGetSocket)
 			client->ConnectWithSocket("127.0.0.1", serverAddress.GetPort(), 0, 0, theSocket);
 		}
 
+		SessionTestHelpers::DrainAndAcceptRequests(server);
 		RakSleep(100);
 	}
 

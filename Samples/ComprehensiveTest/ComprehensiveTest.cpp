@@ -13,6 +13,7 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
+#include "../sample_session.h"
 #include "mafianet/peer_interface.h"
 
 #include "mafianet/bit_stream.h"
@@ -233,7 +234,7 @@ int main(void)
 		}
 
 		for (unsigned short i = 0; i < NUM_PEERS; i++)
-			peers[i]->DeallocatePacket(peers[i]->Receive());
+			peers[i]->DeallocatePacket(Sample::ReceiveAndAcceptRequests(peers[i]));
 
 #ifdef _WIN32
 		Sleep(0);

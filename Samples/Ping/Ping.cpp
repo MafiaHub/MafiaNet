@@ -18,6 +18,7 @@
 // Filename Ping.cpp
 // Very basic chat engine example
 // ----------------------------------------------------------------------
+#include "../sample_session.h"
 #include "mafianet/guid_util.h"
 #include "mafianet/message_identifiers.h"
 
@@ -134,7 +135,7 @@ int main(void)
 		}
 
 		// Get a packet from either the server or the client
-		p = server->Receive();
+		p = Sample::ReceiveAndAcceptRequests(server);
 
 		if (p == 0)
 		{

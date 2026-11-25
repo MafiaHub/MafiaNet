@@ -13,6 +13,9 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
+#include "../sample_session.h"
+#include "mafianet/get_time.h"
+#include "mafianet/sleep.h"
 #include <cstdio>
 #include <cstring>
 #include <stdlib.h>
@@ -81,11 +84,14 @@ int main(void)
 		rakPeer[peerIndex]->Connect("127.0.0.1", 60000 + peerIndex - 1, 0, 0);
 	}
 
-#ifdef WIN32
-	Sleep(5000);
-#else
-	usleep(5000 * 1000);
-#endif
+	const auto start = MafiaNet::GetTimeMS();
+	while (MafiaNet::GetTimeMS() - start < 5000)
+	{
+		for (auto *peer : rakPeer)
+			while (auto *packet = Sample::ReceiveAndAcceptRequests(peer))
+				peer->DeallocatePacket(packet);
+		RakSleep(10);
+	}
 
 	for (unsigned short i = 0; i < NUM_PEERS; i++)
 		MafiaNet::RakPeerInterface::DestroyInstance(rakPeer[i]);

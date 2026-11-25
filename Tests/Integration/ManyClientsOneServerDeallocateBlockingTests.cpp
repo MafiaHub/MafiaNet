@@ -5,6 +5,7 @@
  *  license.txt file in the root directory of this source tree.
  */
 
+#include "SessionTestHelpers.h"
 #include <gtest/gtest.h>
 
 #include "mafianet/peer_interface.h"
@@ -70,6 +71,7 @@ protected:
 					msgWasPrinted = true;
 				}
 
+				SessionTestHelpers::DrainAndAcceptRequests(server);
 				RakSleep(30);
 			}
 		}

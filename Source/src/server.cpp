@@ -11,8 +11,8 @@ namespace detail
 class ServerState
 {
 public:
-	ServerState(Peer owner, JoinPolicy joinPolicy)
-	    : peer(std::move(owner)), policy(joinPolicy) {}
+	explicit ServerState(Peer owner)
+	    : peer(std::move(owner)) {}
 	RakPeer &transport() const { return *static_cast<RakPeer *>(peer.get()); }
 
 	std::optional<PlayerId> accept(const ClientConnection &connection)
@@ -104,7 +104,6 @@ public:
 		bool closing = false;
 	};
 	Peer peer;
-	JoinPolicy policy;
 	Dispatcher messages;
 	std::unordered_map<PeerGuid, Client> clients;
 	std::deque<Player> joins;
@@ -172,16 +171,16 @@ uint32_t ClientConnection::send_encoded(ServerState &state, const BitStream &bit
 	return state.send(key_, reinterpret_cast<const char *>(bits.GetData()), bits.GetNumberOfBitsUsed(), reliability, priority, channel, false);
 }
 
-Result<Server> Server::listen(unsigned short port, unsigned short max_clients, JoinPolicy policy, AdmissionPolicy admission)
+Result<Server> Server::listen(unsigned short port, unsigned short max_clients)
 {
-	auto started = Peer::server().port(port).max_connections(max_clients).admission_policy(admission).start();
+	auto started = Peer::server().port(port).max_connections(max_clients).start();
 	if (!started)
 		return Result<Server>::err(started.error());
-	return Result<Server>::ok(Server(std::move(*started), policy));
+	return Result<Server>::ok(Server(std::move(*started)));
 }
 
-Server::Server(Peer peer, JoinPolicy policy)
-    : state_(std::make_shared<ServerState>(std::move(peer), policy)) {}
+Server::Server(Peer peer)
+    : state_(std::make_shared<ServerState>(std::move(peer))) {}
 Server::Handlers &Server::handlers()
 {
 	return state_->handlers;
@@ -250,8 +249,6 @@ void Server::poll()
 				state->clients.insert_or_assign(key.guid, ServerState::Client{key.generation});
 				ClientConnection connection(state, key);
 				state->emit<ClientConnected>(connection);
-				if (state->policy == JoinPolicy::Immediate)
-					connection.accept_player();
 				continue;
 			}
 			case ID_CONNECTION_LOST:

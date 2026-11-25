@@ -8,6 +8,7 @@
  *
  */
 
+#include "SessionTestHelpers.h"
 #include "CommonFunctions.h"
 
 CommonFunctions::CommonFunctions(void)
@@ -53,7 +54,7 @@ bool CommonFunctions::ConnectionStateMatchesOptions(RakPeerInterface *peer, Syst
 	}
 }
 
-bool CommonFunctions::WaitAndConnect(RakPeerInterface *peer, const char *ip, unsigned short int port, int millisecondsToWait)
+bool CommonFunctions::WaitAndConnect(RakPeerInterface *peer, RakPeerInterface *server, const char *ip, unsigned short int port, int millisecondsToWait)
 {
 
 	SystemAddress connectToAddress;
@@ -69,6 +70,7 @@ bool CommonFunctions::WaitAndConnect(RakPeerInterface *peer, const char *ip, uns
 		{
 			peer->Connect(ip, port, 0, 0);
 		}
+		SessionTestHelpers::DrainAndAcceptRequests(server);
 
 		RakSleep(100);
 	}

@@ -13,6 +13,7 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
+#include "../sample_session.h"
 #include <cstdio>
 #include "../http_request.h"
 #include "mafianet/format_string.h"
@@ -846,7 +847,7 @@ int main(void)
 	Packet *packet;
 	while (game->phase != Game::EXIT_SAMPLE)
 	{
-		for (packet = rakPeer->Receive(); packet; rakPeer->DeallocatePacket(packet), packet = rakPeer->Receive())
+		for (packet = Sample::ReceiveAndAcceptRequests(rakPeer); packet; rakPeer->DeallocatePacket(packet), packet = Sample::ReceiveAndAcceptRequests(rakPeer))
 		{
 			switch (packet->data[0])
 			{

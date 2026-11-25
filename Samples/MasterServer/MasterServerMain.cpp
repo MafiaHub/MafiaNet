@@ -15,6 +15,7 @@
 
 // This is my own internal test program for the master server but serves as a good example.
 
+#include "../sample_session.h"
 #include "MasterCommon.h"
 #include "MasterServer.h"
 #include "mafianet/peer_interface.h"
@@ -118,13 +119,13 @@ int main(void)
 			ch = 0;
 		}
 
-		p = testGameMasterServer->Receive();
+		p = Sample::ReceiveAndAcceptRequests(testGameMasterServer);
 		while (p)
 		{
 			// Ignore any game packets.  The master server plugin handles everything.
 			testGameMasterServer->DeallocatePacket(p);
 			// Call Receive every update to keep the plugin going
-			p = testGameMasterServer->Receive();
+			p = Sample::ReceiveAndAcceptRequests(testGameMasterServer);
 		}
 
 

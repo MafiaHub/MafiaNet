@@ -17,6 +17,7 @@
 /// \brief Tests connecting two peers at the same time with the internet simulator running.
 
 
+#include "../sample_session.h"
 #include "mafianet/peer_interface.h"
 
 #include "mafianet/packet_logger.h"
@@ -63,7 +64,7 @@ int main()
 		rakPeer1->Connect("127.0.0.1", 2000, 0, 0);
 		rakPeer2->Connect("127.0.0.1", 60000, 0, 0);
 		RakSleep(100);
-		for (packet = rakPeer1->Receive(); packet; rakPeer1->DeallocatePacket(packet), packet = rakPeer1->Receive())
+		for (packet = Sample::ReceiveAndAcceptRequests(rakPeer1); packet; rakPeer1->DeallocatePacket(packet), packet = Sample::ReceiveAndAcceptRequests(rakPeer1))
 		{
 			if (packet->data[0] == ID_NEW_INCOMING_CONNECTION)
 				gotNewIncomingConnection[0]++;
@@ -74,7 +75,7 @@ int main()
 			else if (packet->data[0] == ID_ALREADY_CONNECTED)
 				printf("Got ID_ALREADY_CONNECTED on rakPeer1, (not necessarily a failure)\n");
 		}
-		for (packet = rakPeer2->Receive(); packet; rakPeer2->DeallocatePacket(packet), packet = rakPeer2->Receive())
+		for (packet = Sample::ReceiveAndAcceptRequests(rakPeer2); packet; rakPeer2->DeallocatePacket(packet), packet = Sample::ReceiveAndAcceptRequests(rakPeer2))
 		{
 			if (packet->data[0] == ID_NEW_INCOMING_CONNECTION)
 				gotNewIncomingConnection[1]++;

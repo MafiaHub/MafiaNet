@@ -13,6 +13,7 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
+#include "../sample_session.h"
 #include "mafianet/remote_procedure_call.h"
 #include "mafianet/peer_interface.h"
 #include <stdio.h>
@@ -118,7 +119,7 @@ int main(void)
 
 		RakSleep(1000);
 
-		for (packet = rakPeer->Receive(); packet; rakPeer->DeallocatePacket(packet), packet = rakPeer->Receive())
+		for (packet = Sample::ReceiveAndAcceptRequests(rakPeer); packet; rakPeer->DeallocatePacket(packet), packet = Sample::ReceiveAndAcceptRequests(rakPeer))
 			;
 
 		MafiaNet::BitStream testBs;
@@ -126,7 +127,7 @@ int main(void)
 		//	rpc.Signal("Event1", &testBs, MafiaNet::Priority::High,MafiaNet::Reliability::ReliableOrdered,0,rakPeer->GetSystemAddressFromIndex(0),false, true);
 
 		RakSleep(100);
-		for (packet = rakPeer->Receive(); packet; rakPeer->DeallocatePacket(packet), packet = rakPeer->Receive())
+		for (packet = Sample::ReceiveAndAcceptRequests(rakPeer); packet; rakPeer->DeallocatePacket(packet), packet = Sample::ReceiveAndAcceptRequests(rakPeer))
 			;
 
 		// Needs 2 program instances, because while the call is blocking rakPeer2->Receive() isn't getting called
@@ -144,7 +145,7 @@ int main(void)
 		for (;;)
 		{
 			RakSleep(100);
-			for (packet = rakPeer->Receive(); packet; rakPeer->DeallocatePacket(packet), packet = rakPeer->Receive())
+			for (packet = Sample::ReceiveAndAcceptRequests(rakPeer); packet; rakPeer->DeallocatePacket(packet), packet = Sample::ReceiveAndAcceptRequests(rakPeer))
 				;
 		}
 	}

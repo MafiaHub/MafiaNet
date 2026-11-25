@@ -13,6 +13,7 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
+#include "../sample_session.h"
 #include <cstdio>
 #include <cstring>
 #include <stdlib.h>
@@ -192,7 +193,7 @@ int main(void)
 			break;
 		}
 
-		Packet *p = rakPeer->Receive();
+		Packet *p = Sample::ReceiveAndAcceptRequests(rakPeer);
 		if (p)
 		{
 			switch (p->data[0])

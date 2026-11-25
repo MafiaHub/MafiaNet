@@ -13,6 +13,7 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
+#include "../sample_session.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <memory.h>
@@ -262,7 +263,7 @@ int main(void)
 				ch = 0;
 			}
 
-			p = rakPeer->Receive();
+			p = Sample::ReceiveAndAcceptRequests(rakPeer);
 			while (p)
 			{
 				if (p->data[0] == ID_CONNECTION_REQUEST_ACCEPTED)
@@ -359,7 +360,7 @@ int main(void)
 
 
 				rakPeer->DeallocatePacket(p);
-				p = rakPeer->Receive();
+				p = Sample::ReceiveAndAcceptRequests(rakPeer);
 			}
 
 

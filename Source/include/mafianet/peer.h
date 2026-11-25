@@ -459,7 +459,7 @@ public:
 	// --------------------------------------------------------------------------------------------------------------
 	/// \brief Sets this peer's session-handshake payload.
 	/// \details Exchanged before either side reports a connection: a client sends it in
-	/// ID_SESSION_CONFIG_REQUEST, a server answers with it in ID_SESSION_CONFIG. The bytes are opaque to
+	/// ID_SESSION_CONFIG_REQUEST. The accepting application supplies its own reply to AcceptSession(). The bytes are opaque to
 	/// MafiaNet. Call before Startup()/Connect().
 	/// \param[in] data Payload to send, or 0 for none.
 	/// \param[in] length Length of \a data in bytes; must not exceed MAXIMUM_SESSION_CONFIG_SIZE.
@@ -475,9 +475,6 @@ public:
 	/// \param[out] length Filled in with the payload length; 0 when there is none.
 	/// \return Pointer to the payload owned by the connection, or 0 when there is none.
 	const char *GetRemoteSessionConfig(const AddressOrGUID systemIdentifier, unsigned int *length);
-
-	/// \copydoc RakPeerInterface::SetSessionAdmissionPolicy
-	void SetSessionAdmissionPolicy(AdmissionPolicy policy);
 
 	/// \brief Server: accept a pending session request, sending \a data as this connection's payload.
 	/// \details Only meaningful for a peer that surfaced ID_SESSION_CONFIG_REQUEST. Completes the
@@ -980,10 +977,8 @@ protected:
 	///Store the maximum incoming connection allowed
 	unsigned int maximumIncomingConnections;
 	MafiaNet::BitStream offlinePingResponse;
-	/// Our own session-handshake payload (see SetSessionConfig). On a client it is sent in
-	/// ID_SESSION_CONFIG_REQUEST; on a server it is the default answer in ID_SESSION_CONFIG.
+	/// Payload sent with outgoing ID_SESSION_CONFIG_REQUEST (see SetSessionConfig).
 	MafiaNet::BitStream sessionConfig;
-	std::atomic<AdmissionPolicy> sessionAdmissionPolicy{AdmissionPolicy::Automatic};
 	/// SetMaximumPendingSessions(). 0 total keeps peers mid-handshake in the incoming limit.
 	unsigned short maximumPendingSessions;
 	unsigned short maximumPendingSessionsPerAddress;

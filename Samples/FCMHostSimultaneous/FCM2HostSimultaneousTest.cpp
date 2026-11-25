@@ -13,6 +13,7 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
+#include "../sample_session.h"
 #include <cstdio>
 #include <cstring>
 #include <stdlib.h>
@@ -72,7 +73,7 @@ int main()
 	{
 		for (int i = 0; i < NUM_PEERS; i++)
 		{
-			for (packet = rakPeer[i]->Receive(); packet; rakPeer[i]->DeallocatePacket(packet), packet = rakPeer[i]->Receive())
+			for (packet = Sample::ReceiveAndAcceptRequests(rakPeer[i]); packet; rakPeer[i]->DeallocatePacket(packet), packet = Sample::ReceiveAndAcceptRequests(rakPeer[i]))
 			{
 				switch (packet->data[0])
 				{

@@ -120,6 +120,8 @@ bool Run(const char *title, EncryptionMode serverMode, EncryptionMode clientMode
 		}
 		for (Packet *p = server->Receive(); p; server->DeallocatePacket(p), p = server->Receive())
 		{
+			if (p->data[0] == ID_SESSION_CONFIG_REQUEST)
+				server->AcceptSession(p->guid, nullptr, 0);
 			printf("  server got %s\n", MessageName(p->data[0]));
 			delivered = delivered || p->data[0] == ID_USER_PACKET_ENUM;
 		}

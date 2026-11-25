@@ -17,6 +17,8 @@ several replicas during that join.
        auto server = Server::listen(60000, 32);
        if (!server)
            return 1;
+       server->on<ConnectionRequested>([](const ConnectionRequest &request) { request.accept(); });
+       server->on<ClientConnected>([](ClientConnection client) { client.accept_player(); });
        server->on<PlayerJoined>([](Player player) {
            std::cout << "Joined as player " << static_cast<uint32_t>(player.id()) << '\n';
        });
@@ -39,10 +41,11 @@ handle back to the game thread. Only ``poll()`` should drain the server's packet
 Admission and game join
 -----------------------
 
-The default policy accepts an incoming game client immediately. For a game
-that waits for authentication or loading, pass ``JoinPolicy::Manual`` to
-``Server::listen``. To inspect requests during the session handshake, also pass
-``AdmissionPolicy::Interactive``. These policies control different decisions.
+Every incoming session starts with ``ConnectionRequested``. The application must
+accept or reject it. A request with no handler or no answer stays pending until
+the session timeout. Acceptance produces ``ClientConnected``. Call
+``accept_player()`` there, or retain the connection until login or loading
+finishes. Only that call assigns a player number and produces ``PlayerJoined``.
 
 .. list-table::
    :header-rows: 1
@@ -51,14 +54,14 @@ that waits for authentication or loading, pass ``JoinPolicy::Manual`` to
    * - Callback
      - Meaning
    * - ``ConnectionRequested``
-     - Interactive admission has a request. Inspect its owned binary ``payload()``.
+     - Inspect the request’s binary ``payload()``.
        Retain the request to defer the decision. Use ``status()`` to report progress
        and ``accept()`` or ``reject()`` to queue one final answer.
    * - ``ConnectionAbandoned``
      - A pending request went away. Match its ``ConnectionKey`` to cancel outstanding work.
    * - ``ClientConnected``
      - The incoming session is established. The handler receives a ``ClientConnection``.
-       In manual mode call ``accept_player()`` when the game is ready.
+       Call ``accept_player()`` when the game is ready.
    * - ``PlayerJoined``
      - The join acquired its server-local number. Repeated acceptance returns the
        existing number. The next poll dispatches the callback once, or the current
@@ -91,8 +94,7 @@ zero if the handle expired, the type was unregistered, or queueing failed.
 Use ``server.transport().GetReplication()`` to configure replication and its
 admission policy independently. For an existing server with custom bind or
 identity settings, move the ``Peer`` returned by ``Peer::server().start()`` into
-``Server`` before receiving its first packet. Use
-``ServerBuilder::admission_policy(AdmissionPolicy::Interactive)`` to configure the handshake before startup.
+``Server`` before receiving its first packet.
 
 Build the ``PlayerWelcome`` and ``PlayerLogin`` executables with
 ``MAFIANET_BUILD_SAMPLES=ON``. The first sends a typed welcome containing the

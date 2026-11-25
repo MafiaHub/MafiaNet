@@ -5,6 +5,7 @@
  *  license.txt file in the root directory of this source tree.
  */
 
+#include "SessionTestHelpers.h"
 #include <gtest/gtest.h>
 
 #include <vector>
@@ -190,7 +191,7 @@ TEST_F(RPCContext, HandlersReceiveRegisteredContext)
 			if (p->data[0] == ID_CONNECTION_REQUEST_ACCEPTED)
 				connected = true;
 		}
-		for (p = server->Receive(); p; server->DeallocatePacket(p), p = server->Receive())
+		for (p = SessionTestHelpers::ReceiveAndAcceptRequests(server); p; server->DeallocatePacket(p), p = SessionTestHelpers::ReceiveAndAcceptRequests(server))
 			;
 		RakSleep(10);
 	}

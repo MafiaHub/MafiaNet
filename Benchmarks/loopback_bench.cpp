@@ -46,7 +46,11 @@ void RakPeer_LoopbackRate(benchmark::State &state)
 		for (auto packet : client.incoming())
 			accepted |= packet->data[0] == ID_CONNECTION_REQUEST_ACCEPTED;
 		for (auto packet : server.incoming())
-			incoming |= packet->data[0] == ID_NEW_INCOMING_CONNECTION;
+		{
+			if (packet.id() == ID_SESSION_CONFIG_REQUEST)
+				server->AcceptSession(packet->guid, nullptr, 0);
+			incoming |= packet.id() == ID_NEW_INCOMING_CONNECTION;
+		}
 		std::this_thread::sleep_for(std::chrono::milliseconds(1));
 	}
 	if (!(accepted && incoming))

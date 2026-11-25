@@ -13,6 +13,7 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
+#include "../sample_session.h"
 #include "mafianet/peer_interface.h"
 #include "mafianet/rand.h"                // randomMT
 #include "mafianet/message_identifiers.h" // Enumerations
@@ -176,7 +177,7 @@ int main(void)
 
 		for (;;)
 		{
-			p = server->Receive();
+			p = Sample::ReceiveAndAcceptRequests(server);
 			sender = NUMBER_OF_CLIENTS;
 			if (p == 0)
 			{
