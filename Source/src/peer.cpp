@@ -22,6 +22,7 @@
 #include "mafianet/defines.h"
 #include <cstdlib>
 #include "mafianet/peer.h"
+#include "player_roster.h"
 #include "replication_receive_scope.h"
 #include "mafianet/connect_candidates.h"
 #include "mafianet/session_admission.h"
@@ -284,6 +285,7 @@ STATIC_FACTORY_DEFINITIONS(RakPeerInterface, RakPeer)
 // Constructor
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 RakPeer::RakPeer()
+    : playerRoster(std::make_unique<PlayerRoster>())
 {
 	StringCompressor::AddReference();
 	MafiaNet::StringTable::AddReference();
@@ -380,6 +382,26 @@ RakPeer::~RakPeer()
 	// 		pluginListTS[i]->SetRakPeerInterface(0);
 	// 	for (unsigned int i=0; i < pluginListNTS.size(); i++)
 	// 		pluginListNTS[i]->SetRakPeerInterface(0);
+}
+
+std::optional<PlayerId> RakPeer::AcceptPlayer(PeerGuid guid)
+{
+	return playerRoster->Accept(guid);
+}
+
+std::optional<PlayerId> RakPeer::GetPlayerId(PeerGuid guid) const
+{
+	return playerRoster->FindId(guid);
+}
+
+std::optional<PeerGuid> RakPeer::GetPlayerGuid(PlayerId id) const
+{
+	return playerRoster->FindPeer(id);
+}
+
+void RakPeer::GetPlayerList(std::vector<std::pair<PlayerId, PeerGuid>> &out) const
+{
+	playerRoster->GetPlayerList(out);
 }
 
 RPC &RakPeer::GetRPC()
@@ -1117,6 +1139,7 @@ void RakPeer::Shutdown(unsigned int blockDuration, unsigned char orderingChannel
 #endif // RAKPEER_USER_THREADED!=1
 
 	std::atomic_store(&connectedSystems, std::shared_ptr<const ConnectedSystems>{});
+	playerRoster->Reset();
 
 	//	char c=0;
 	//	unsigned int socketIndex;
@@ -1758,19 +1781,6 @@ void RakPeer::CloseConnection(const AddressOrGUID target, bool sendDisconnection
 	if (closeSocket == nullptr)
 		return;
 	CloseConnectionInternal2(target, sendDisconnectionNotification, false, orderingChannel, disconnectionNotificationPriority, *closeSocket, reasonData);
-
-	// 12/14/09 Return ID_CONNECTION_LOST when calling CloseConnection with sendDisconnectionNotification==false, elsewise it is never returned
-	if (sendDisconnectionNotification == false && GetConnectionState(target) == IS_CONNECTED)
-	{
-		Packet *packet = AllocPacket(sizeof(char));
-		packet->data[0] = ID_CONNECTION_LOST; // DeadConnection
-		packet->guid = target.rakNetGuid == UNASSIGNED_RAKNET_GUID ? GetGuidFromSystemAddress(target.systemAddress) : target.rakNetGuid;
-		packet->systemAddress = address;
-		packet->systemAddress.systemIndex = static_cast<SystemIndex>(remoteSystemListIndex == -1 ? 0 : remoteSystemListIndex);
-		packet->guid.systemIndex = packet->systemAddress.systemIndex;
-		packet->wasGeneratedLocally = true; // else processed twice
-		AddPacketToProducer(packet);
-	}
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -3909,11 +3919,14 @@ bool RakPeer::StoreRemoteSessionConfig(RemoteSystemStruct *remoteSystem, const u
 // Replay the connection packet that was held back while the session handshake ran. This is the single
 // point at which an application learns a connection exists, and by construction it runs only once the
 // remote's session payload is already stored on the slot.
-void RakPeer::ProduceWithheldConnectionPacket(RemoteSystemStruct *remoteSystem, MessageID messageId)
+void RakPeer::ProduceWithheldConnectionPacket(RemoteSystemStruct *remoteSystem)
 {
 	if (remoteSystem == 0)
 		return;
 
+	// A crossed plaintext connection can answer a session request while holding an outgoing
+	// connection notification. The slot's session role determines player eligibility.
+	const bool incoming = !remoteSystem->sessionConfigIsConnectingSide;
 	Packet *packet;
 	if (remoteSystem->withheldConnectionPacketData != 0 && remoteSystem->withheldConnectionPacketLength > 0)
 	{
@@ -3929,7 +3942,7 @@ void RakPeer::ProduceWithheldConnectionPacket(RemoteSystemStruct *remoteSystem, 
 		// The original bytes could not be stashed (allocation failure); the message id alone still tells
 		// the application a connection exists, which is what every caller keys off.
 		packet = AllocPacket(sizeof(MessageID));
-		packet->data[0] = messageId;
+		packet->data[0] = incoming ? MessageID{ID_NEW_INCOMING_CONNECTION} : MessageID{ID_CONNECTION_REQUEST_ACCEPTED};
 		packet->bitSize = sizeof(MessageID) * 8;
 	}
 
@@ -3938,6 +3951,8 @@ void RakPeer::ProduceWithheldConnectionPacket(RemoteSystemStruct *remoteSystem, 
 	packet->guid = remoteSystem->guid;
 	packet->guid.systemIndex = packet->systemAddress.systemIndex;
 	remoteSystem->connectionReportedToApplication = true;
+	if (incoming)
+		playerRoster->Connected(ToPeerGuid(remoteSystem->guid));
 	AddPacketToProducer(packet);
 
 	// Then what the remote sent while we were still finishing the handshake, in arrival order: right
@@ -4045,7 +4060,7 @@ void RakPeer::SendSessionConfigResponse(RemoteSystemStruct *remoteSystem, const 
 
 	SetConnectMode(*remoteSystem, RemoteSystemStruct::CONNECTED);
 	remoteSystem->sessionConfigStartTime = 0;
-	ProduceWithheldConnectionPacket(remoteSystem, (MessageID) ID_NEW_INCOMING_CONNECTION);
+	ProduceWithheldConnectionPacket(remoteSystem);
 
 	PingInternal(remoteSystem->systemAddress, true, MafiaNet::Reliability::Unreliable);
 	quitAndDataEvents.SetEvent();
@@ -4178,6 +4193,7 @@ RakPeer::RemoteSystemStruct *RakPeer::AssignSystemAddressToRemoteSystemList(cons
 			ClearHandshakeIdentity(remoteSystem);
 			remoteSystem->MTUSize = mtuSize;
 			remoteSystem->guid = guid;
+			remoteSystem->departingPlayerId = {};
 			remoteSystem->raceFirstAddress = UNASSIGNED_SYSTEM_ADDRESS;
 			remoteSystem->isActive = true; // This one line causes future incoming packets to go through the reliability layer
 			remoteSystem->handshakeLocalCryptInfo = localCryptInfo;
@@ -4418,9 +4434,20 @@ void RakPeer::ClearRemoteSystemLookup(void)
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void RakPeer::SetConnectMode(RemoteSystemStruct &system, RemoteSystemStruct::ConnectMode mode)
 {
+	if (system.connectMode == RemoteSystemStruct::CONNECTED && mode != RemoteSystemStruct::CONNECTED)
+		system.departingPlayerId = RetirePlayer(system);
 	const auto previous = system.connectMode.exchange(mode);
 	if ((previous == RemoteSystemStruct::CONNECTED) != (mode == RemoteSystemStruct::CONNECTED))
 		PublishConnectedSystems();
+}
+
+PlayerId RakPeer::RetirePlayer(const RemoteSystemStruct &system)
+{
+	// Graceful closes leave CONNECTED before the notification. Timeouts and silent closes
+	// can go straight from CONNECTED to slot removal in the same update.
+	if (system.connectMode == RemoteSystemStruct::CONNECTED && !system.sessionConfigIsConnectingSide)
+		return playerRoster->Disconnected(ToPeerGuid(system.guid));
+	return system.departingPlayerId;
 }
 
 void RakPeer::PublishConnectedSystems()
@@ -6324,8 +6351,25 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 			RakNetSocket2 *closeSocket = bcs->socket;
 			if (closeSocket == nullptr && socketList.size() > 0)
 				closeSocket = socketList[0];
-			if (closeSocket != nullptr)
+			remoteSystem = GetRemoteSystem(bcs->systemIdentifier, true, true);
+			if (closeSocket != nullptr && remoteSystem != nullptr)
+			{
+				// Produce the local silent-close event on the thread that owns the slot.
+				// A racing timeout or a duplicate close can then retire this join only once.
+				if (remoteSystem->connectionReportedToApplication)
+				{
+					packet = AllocPacket(sizeof(MessageID));
+					packet->data[0] = ID_CONNECTION_LOST;
+					packet->guid = remoteSystem->guid;
+					packet->systemAddress = remoteSystem->systemAddress;
+					packet->systemAddress.systemIndex = remoteSystem->remoteSystemIndex;
+					packet->guid.systemIndex = remoteSystem->remoteSystemIndex;
+					packet->playerId = RetirePlayer(*remoteSystem);
+					packet->wasGeneratedLocally = true;
+					AddPacketToProducer(packet);
+				}
 				CloseConnectionInternal2(bcs->systemIdentifier, false, true, bcs->orderingChannel, bcs->priority, *closeSocket);
+			}
 		}
 		else if (bcs->command == BufferedCommandStruct::BCS_CHANGE_SYSTEM_ADDRESS)
 		{
@@ -6630,6 +6674,7 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 				else
 					packet->data[0] = ID_DISCONNECTION_NOTIFICATION; // DeadConnection
 
+				packet->playerId = RetirePlayer(*remoteSystem);
 				if (attachReason)
 					memcpy(packet->data + sizeof(unsigned char), remoteSystem->disconnectReasonData, reasonLength);
 
@@ -6962,7 +7007,7 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 						{
 							SetConnectMode(*remoteSystem, RemoteSystemStruct::CONNECTED);
 							remoteSystem->sessionConfigStartTime = 0;
-							ProduceWithheldConnectionPacket(remoteSystem, (MessageID) ID_CONNECTION_REQUEST_ACCEPTED);
+							ProduceWithheldConnectionPacket(remoteSystem);
 						}
 					}
 				}

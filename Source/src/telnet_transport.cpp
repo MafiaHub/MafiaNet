@@ -207,7 +207,7 @@ Packet *TelnetTransport::Receive(void)
 		if (gotLine && remoteClient->textInput[0])
 		{
 
-			Packet *reassembledLine = (Packet *) std::malloc(sizeof(Packet));
+			Packet *reassembledLine = new Packet;
 			reassembledLine->length = (unsigned int) strlen(remoteClient->textInput);
 			memcpy(remoteClient->lastSentTextInput, remoteClient->textInput, reassembledLine->length + 1);
 			RakAssert(reassembledLine->length < REMOTE_MAX_TEXT_INPUT);
@@ -231,7 +231,7 @@ void TelnetTransport::DeallocatePacket(Packet *packet)
 	if (tcpInterface == 0)
 		return;
 	std::free(packet->data);
-	std::free(packet);
+	delete packet;
 }
 SystemAddress TelnetTransport::HasNewIncomingConnection(void)
 {

@@ -426,6 +426,11 @@ struct RAK_DLL_EXPORT AddressOrGUID
 
 typedef uint64_t NetworkID;
 
+/// Server-local number for one accepted game join. Zero means no player.
+enum class PlayerId : uint32_t
+{
+};
+
 /// This represents a user message from another system.
 struct Packet
 {
@@ -453,6 +458,9 @@ struct Packet
 	/// @internal
 	/// If true, this message is meant for the user, not for the plugins, so do not process it through plugins
 	bool wasGeneratedLocally;
+
+	/// Departing player on a local disconnect or connection-lost notification. Zero otherwise.
+	PlayerId playerId{};
 };
 
 ///  Index of an unassigned player

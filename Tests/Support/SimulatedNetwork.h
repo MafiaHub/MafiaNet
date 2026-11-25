@@ -64,6 +64,7 @@ public:
 		std::vector<unsigned char> data;
 		SystemAddress systemAddress;
 		RakNetGUID guid;
+		PlayerId playerId;
 	};
 
 	explicit SimulatedNetwork(uint32_t seed = 1);

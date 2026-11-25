@@ -257,3 +257,59 @@ See Also
 * :doc:`../advanced/session-handshake-security` - Trust model and denial-of-service limits
 * :doc:`../basics/network-messages` - ``ID_SESSION_CONFIG_*`` message reference
 * :doc:`client-server` - Client-server setup
+
+Player numbers for scripts and admins
+-------------------------------------
+
+The server peer owns a roster of accepted players. Call ``AcceptPlayer`` just
+before reporting a successful game join to scripts. A game that joins immediately
+can do this on ``ID_NEW_INCOMING_CONNECTION``. A game with login or asset
+downloads calls it once those steps succeed. A queued request or abandoned
+download consumes no number.
+
+.. code-block:: cpp
+
+   // In the join handler, after the game's acceptance checks:
+   if (auto id = server->AcceptPlayer(MafiaNet::ToPeerGuid(packet->guid)))
+       OnPlayerJoin(*id);
+   else
+       server->CloseConnection(packet->systemAddress, true);
+
+   // An immediate kick by player number:
+   if (auto guid = server->GetPlayerGuid(MafiaNet::PlayerId{number}))
+       server->CloseConnection(MafiaNet::ToGuid(*guid), true);
+
+   // On ID_DISCONNECTION_NOTIFICATION or ID_CONNECTION_LOST:
+   if (packet->playerId != MafiaNet::PlayerId{})
+       OnPlayerDisconnect(packet->playerId);
+
+The first accepted player gets 1. Repeated acceptance of the same live
+connection returns its existing number. Replacing an avatar preserves it.
+Reconnecting gets a fresh number, even with the same peer GUID. The counter
+wraps after the largest 32-bit unsigned value and skips active numbers.
+``AcceptPlayer`` returns ``std::nullopt`` if the GUID has no established
+incoming connection eligible to join or if all numbers are occupied.
+
+The peer retires a join on disconnect, kick or timeout. The notification
+carries the departing number even if the same GUID has already rejoined.
+Unjoined connections have a zero ``playerId`` on their disconnect packets.
+Shutting down clears the roster. Starting the server again starts numbering
+at 1.
+
+Use ``GetPlayerId(guid)`` for the current join and ``GetPlayerList(out)`` to
+fill a ``std::vector<std::pair<PlayerId, PeerGuid>>`` in ascending player
+number order. These queries return snapshots. The number is server-local.
+Use ``static_cast<uint32_t>(*id)`` for display, the authenticated connection
+for permissions, and the replica's ``NetworkID`` for entity references.
+
+Process joins, disconnects and queued admin commands on the same server loop.
+When queuing a kick, capture the number and its current peer GUID. When the
+command runs, check that the GUID still owns that number:
+
+.. code-block:: cpp
+
+   if (server->GetPlayerId(command.guid) == command.playerId)
+       server->CloseConnection(MafiaNet::ToGuid(command.guid), true);
+
+Discard pending commands for the departing number on disconnect. This also
+handles eventual number reuse after wraparound.
