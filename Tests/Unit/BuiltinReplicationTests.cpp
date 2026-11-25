@@ -13,6 +13,7 @@
 
 #include <algorithm>
 #include <array>
+#include <functional>
 #include <limits>
 #include <type_traits>
 
@@ -868,6 +869,152 @@ TEST(BuiltinReplication, BlockedConnectionResumesWithLatestExplicitState)
 	host.Tick();
 	ASSERT_TRUE(net.RunUntil([&]
 	                         { return copy()->state.open; }, 5000));
+}
+
+TEST(BuiltinReplication, MarkedStateReachesExactlyTheObserversThatHaveTheObject)
+{
+	SimulatedNetwork net(91);
+	auto *server = net.AddPeer(3, 3);
+	std::array<RakPeer *, 3> clients{net.AddPeer(1), net.AddPeer(1), net.AddPeer(1)};
+	auto &host = server->GetReplication();
+	ASSERT_TRUE(host.SetRole(ReplicationRole::Server));
+	for (auto *client : clients)
+		ASSERT_TRUE(client->GetReplication().SetRole(ReplicationRole::Client));
+	for (auto *peer : {server, clients[0], clients[1], clients[2]})
+	{
+		ASSERT_TRUE(peer->GetReplication().RegisterReplica<Door>(doorType, 1));
+		ASSERT_TRUE(peer->GetReplication().SetSnapshotPolicy(doorType, ChangeDetection::Explicit, SnapshotDelivery::Reliable));
+	}
+	host.SetTickMode(ReplicationTickMode::Manual);
+	host.SetSerializeInterval(0);
+	auto &grid = host.GetInterestGrid();
+	ASSERT_TRUE(grid.Configure({{0, 0}, {2, 1}, 1}));
+	Door door, other;
+	ASSERT_TRUE(host.Reference(&door, SpatialScope{{0.5f, 0.5f}}));
+	ASSERT_TRUE(host.Reference(&other, SpatialScope{{1.5f, 0.5f}}));
+	for (auto *client : clients)
+		ASSERT_TRUE(net.Connect(client, server));
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return host.GetConnectionCount() == 3; }, 5000));
+	// Clients 0 and 1 watch the door's cell, client 2 the other one.
+	ASSERT_TRUE(grid.SetObserverCells(ToPeerGuid(clients[0]->GetMyGUID()), {{0, 0}}));
+	ASSERT_TRUE(grid.SetObserverCells(ToPeerGuid(clients[1]->GetMyGUID()), {{0, 0}}));
+	ASSERT_TRUE(grid.SetObserverCells(ToPeerGuid(clients[2]->GetMyGUID()), {{1, 0}}));
+	auto copy = [&](unsigned client, Door &object)
+	{ return static_cast<Door *>(clients[client]->GetReplication().FindReplica(object.GetNetworkID())); };
+	auto stateBytes = [&](unsigned client)
+	{ return host.GetStatistics(ToPeerGuid(clients[client]->GetMyGUID())).stateBytes; };
+	auto settle = [&](const std::function<bool()> &done)
+	{ return net.RunUntil([&]
+		                  { host.Tick();
+		                    return done(); }, 5000, 16); };
+	auto holders = [&](std::array<bool, 3> expected)
+	{
+		for (unsigned i = 0; i < clients.size(); ++i)
+			if ((copy(i, door) != nullptr) != expected[i])
+				return false;
+		return true;
+	};
+	ASSERT_TRUE(settle([&]
+	                   { return holders({true, true, false}) && copy(2, other); }));
+
+	// A mark reaches the two observers that have the door and nobody else.
+	std::array<uint64_t, 3> before{stateBytes(0), stateBytes(1), stateBytes(2)};
+	door.state.open = true;
+	ASSERT_TRUE(host.MarkDirty(door));
+	ASSERT_TRUE(settle([&]
+	                   { return copy(0, door)->state.open && copy(1, door)->state.open; }));
+	EXPECT_GT(stateBytes(0), before[0]);
+	EXPECT_GT(stateBytes(1), before[1]);
+	EXPECT_EQ(stateBytes(2), before[2]);
+
+	// Leaving and entering scope moves the door's observers.
+	ASSERT_TRUE(grid.SetPosition(door.GetNetworkID(), {1.5f, 0.5f}));
+	ASSERT_TRUE(settle([&]
+	                   { return holders({false, false, true}); }));
+	before = {stateBytes(0), stateBytes(1), stateBytes(2)};
+	door.state.open = false;
+	ASSERT_TRUE(host.MarkDirty(door));
+	ASSERT_TRUE(settle([&]
+	                   { return !copy(2, door)->state.open; }));
+	EXPECT_EQ(stateBytes(0), before[0]);
+	EXPECT_EQ(stateBytes(1), before[1]);
+	EXPECT_GT(stateBytes(2), before[2]);
+
+	ASSERT_TRUE(grid.SetPosition(door.GetNetworkID(), {0.5f, 0.5f}));
+	ASSERT_TRUE(settle([&]
+	                   { return holders({true, true, false}); }));
+	before = {stateBytes(0), stateBytes(1), stateBytes(2)};
+	door.state.open = true;
+	ASSERT_TRUE(host.MarkDirty(door));
+	ASSERT_TRUE(settle([&]
+	                   { return copy(0, door)->state.open && copy(1, door)->state.open; }));
+	EXPECT_GT(stateBytes(0), before[0]);
+	EXPECT_GT(stateBytes(1), before[1]);
+	EXPECT_EQ(stateBytes(2), before[2]);
+
+	// A disconnected observer leaves the others marked.
+	clients[1]->CloseConnection(server->GetMyGUID(), true);
+	ASSERT_TRUE(settle([&]
+	                   { return host.GetConnectionCount() == 2; }));
+	door.state.open = false;
+	ASSERT_TRUE(host.MarkDirty(door));
+	ASSERT_TRUE(settle([&]
+	                   { return !copy(0, door)->state.open; }));
+
+	// A destroyed object is no longer marked; its replacement reaches its own observers.
+	ASSERT_TRUE(host.Destroy(&door));
+	EXPECT_FALSE(host.MarkDirty(door));
+	Door replacement;
+	ASSERT_TRUE(host.Reference(&replacement, SpatialScope{{1.5f, 0.5f}}));
+	ASSERT_TRUE(settle([&]
+	                   { return copy(2, replacement) && !copy(0, door); }));
+	before = {stateBytes(0), stateBytes(1), stateBytes(2)};
+	replacement.state.open = true;
+	ASSERT_TRUE(host.MarkDirty(replacement));
+	ASSERT_TRUE(settle([&]
+	                   { return copy(2, replacement)->state.open; }));
+	EXPECT_EQ(stateBytes(0), before[0]);
+	EXPECT_GT(stateBytes(2), before[2]);
+}
+
+TEST(BuiltinReplication, AFailedConstructionIsNotMarkedUntilItsRetrySucceeds)
+{
+	SimulatedNetwork net(92);
+	auto *server = static_cast<RefusingPeer *>(net.AddCustomPeer(std::make_unique<RefusingPeer>(), 1, 1));
+	auto *client = net.AddPeer(1);
+	auto &host = server->GetReplication(), &view = client->GetReplication();
+	ASSERT_TRUE(host.SetRole(ReplicationRole::Server));
+	ASSERT_TRUE(view.SetRole(ReplicationRole::Client));
+	for (auto *r : {&host, &view})
+	{
+		ASSERT_TRUE(r->RegisterReplica<Door>(doorType, 1));
+		ASSERT_TRUE(r->SetSnapshotPolicy(doorType, ChangeDetection::Explicit, SnapshotDelivery::Reliable));
+	}
+	host.SetTickMode(ReplicationTickMode::Manual);
+	host.SetSerializeInterval(0);
+	Door door;
+	ASSERT_TRUE(host.Reference(&door));
+	ASSERT_TRUE(net.Connect(client, server));
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return host.GetConnectionCount() == 1; }, 5000));
+	const auto observer = ToPeerGuid(client->GetMyGUID());
+	server->refuseOnce.insert(ReplicationWire::Kind::Spawn);
+	host.Tick();
+	ASSERT_TRUE(server->refuseOnce.empty());
+	EXPECT_EQ(host.GetStatistics(observer).constructed, 0u);
+	// The refused construction left no observer behind to mark.
+	ASSERT_TRUE(host.MarkDirty(door));
+	auto copy = [&]
+	{ return static_cast<Door *>(view.FindReplica(door.GetNetworkID())); };
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { host.Tick();
+	                           return copy() != nullptr; }, 5000, 16));
+	door.state.open = true;
+	ASSERT_TRUE(host.MarkDirty(door));
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { host.Tick();
+	                           return copy()->state.open; }, 5000, 16));
 }
 
 TEST(BuiltinReplication, AGrantOvertakenByANewerSnapshotPreservesTheNewState)

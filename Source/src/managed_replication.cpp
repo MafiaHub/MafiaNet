@@ -6,6 +6,7 @@
 #include "mafianet/network_id_manager.h"
 #include "mafianet/peer_interface.h"
 #include "mafianet/get_time.h"
+#include "mafianet/vector_util.h"
 #include <algorithm>
 #include <array>
 #include <bitset>
@@ -144,7 +145,10 @@ public:
 				leave.push_back(object);
 
 		for (auto *object : leave)
+		{
 			Forget(object->GetNetworkID());
+			runtime.Unobserve(*object, *this);
+		}
 		FlushRefusedStates();
 		FlushUnconfirmed();
 		++tick;
@@ -191,6 +195,8 @@ public:
 			pending.erase(id);
 			if (runtime.explicitScheduling && runtime.types.at(static_cast<ReplicaTypeId>(object->registeredType)).detection == ChangeDetection::Compare)
 				polled.insert(id);
+			// Update() constructs every entry on this connection as soon as this returns.
+			runtime.Observe(*object, *this);
 		}
 	}
 
@@ -198,7 +204,10 @@ public:
 	void ConstructionFailed(NetworkID id) override
 	{
 		if (auto *replica = runtime.owner.FindReplica(id))
+		{
 			OnDereference(replica, &runtime);
+			runtime.Unobserve(*replica, *this);
+		}
 		Forget(id);
 		--stats.constructed;
 		++stats.deferred;
@@ -701,13 +710,34 @@ bool ManagedReplication::Mark(Replica3 &object)
 	const auto id = object.GetNetworkID();
 	if (owner.FindReplica(id) != &object || object.creatingSystemGUID != GetRakPeerInterface()->GetMyGUID() || types.at(static_cast<ReplicaTypeId>(object.registeredType)).detection != ChangeDetection::Explicit)
 		return false;
-	for (unsigned i = 0; i < GetConnectionCount(); ++i)
+	const auto it = observers.find(&object);
+	if (it == observers.end())
+		return true;
+	for (auto *c : it->second)
 	{
-		auto *c = static_cast<Connection *>(GetConnectionAtIndex(i));
-		if (c->HasReplicaConstructed(&object))
-			c->dirty.insert(id);
+		RakAssert(c->HasReplicaConstructed(&object));
+		c->dirty.insert(id);
 	}
 	return true;
+}
+void ManagedReplication::Observe(const Replica3 &replica, Connection &connection)
+{
+	auto &list = observers[&replica];
+	RakAssert(std::find(list.begin(), list.end(), &connection) == list.end());
+	list.push_back(&connection);
+}
+void ManagedReplication::Unobserve(const Replica3 &replica, Connection &connection)
+{
+	const auto it = observers.find(&replica);
+	if (it == observers.end())
+		return;
+	auto &list = it->second;
+	const auto at = std::find(list.begin(), list.end(), &connection);
+	if (at == list.end())
+		return;
+	SwapRemove(list, static_cast<std::size_t>(at - list.begin()));
+	if (list.empty())
+		observers.erase(it);
 }
 void ManagedReplication::MarkAll()
 {
@@ -1044,7 +1074,14 @@ void ManagedReplication::Disconnected(PeerGuid guid)
 			for (const auto &visit : conn->incoming)
 				Notify(ReplicaEventKind::Disconnected, visit.first, guid);
 	}
-	delete PopConnection(ToGuid(guid));
+	if (auto *connection = static_cast<Connection *>(PopConnection(ToGuid(guid))))
+	{
+		std::vector<Replica3 *> constructed;
+		connection->GetConstructedReplicas(constructed);
+		for (auto *replica : constructed)
+			Unobserve(*replica, *connection);
+		delete connection;
+	}
 	DispatchEvents();
 	if (active && connectionChanged)
 		connectionChanged(guid, false);
@@ -1052,6 +1089,8 @@ void ManagedReplication::Disconnected(PeerGuid guid)
 void ManagedReplication::OnFinalDereference(Replica3 &replica)
 {
 	const auto id = replica.GetNetworkID();
+	// Dereference() has already taken it off every connection's constructed list.
+	observers.erase(&replica);
 	for (unsigned i = 0; i < GetConnectionCount(); ++i)
 	{
 		auto guid = GetConnectionAtIndex(i)->GetRakNetGUID();
@@ -1088,6 +1127,7 @@ void ManagedReplication::Reset()
 	simulationTick = 0;
 	nextClockSample = 0;
 	Clear(false);
+	observers.clear();
 }
 void ManagedReplication::Destroy(Replica3 &replica)
 {

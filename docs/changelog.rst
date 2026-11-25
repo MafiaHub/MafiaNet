@@ -25,13 +25,29 @@ Version 0.27.0
   typed reports. Returning to a cell or transferring control starts with
   a current snapshot. Full snapshots support explicit dirty notifications
   and acknowledged replaceable delivery.
+* ``MarkDirty()`` costs the connections that have the object constructed
+  instead of every connection: the service indexes each object's observers,
+  so a server with hundreds of players marks an object seen by a few of them
+  in constant time.
 
+
+**Network simulator**
+
+* ``ApplyNetworkSimulator()`` (outgoing loss, extra latency and jitter) now works in every build configuration. It used to be compiled into Debug builds only, so a Release game could not reproduce a bad link, and ``IsNetworkSimulatorActive()`` always returned false there. While nothing is set it costs one comparison per outgoing datagram.
 
 **Built-in RPC**
 
 * Use ``peer->GetRPC()`` and ``mafianet/remote_procedure_call.h`` for named calls, signals and callbacks.
   The peer owns the service and runs message filters before RPC handlers.
   See :doc:`guide/rpc` for the migration from RPC4.
+
+**Build**
+
+* MafiaNet can take libsodium from a ``sodium`` target that the parent
+  project defines before ``add_subdirectory()``, or from vcpkg's
+  ``unofficial-sodium`` package with ``-DMAFIANET_USE_UNOFFICIAL_SODIUM=ON``.
+  The installed ``MafiaNetConfig.cmake`` looks for libsodium in the same
+  package as the build. See :doc:`getting-started/building`.
 
 **Removed extensions**
 

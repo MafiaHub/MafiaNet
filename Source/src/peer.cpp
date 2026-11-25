@@ -341,11 +341,9 @@ RakPeer::RakPeer()
 	defaultTimeoutTime = 10000;
 #endif
 
-#ifdef _DEBUG
 	_packetloss = 0.0;
 	_minExtraPing = 0;
 	_extraPingVariance = 0;
-#endif
 
 	packetsOutstanding = 0;
 	shutdownGeneration = 0;
@@ -627,9 +625,7 @@ StartupResult RakPeer::Startup(unsigned int maxConnections, SocketDescriptor *so
 			remoteSystemList[i].connectionReportedToApplication = false;
 			remoteSystemList[i].absorbedOurConnectAttempt = false;
 			remoteSystemList[i].sessionConfigStartTime = 0;
-#ifdef _DEBUG
 			remoteSystemList[i].reliabilityLayer.ApplyNetworkSimulator(_packetloss, _minExtraPing, _extraPingVariance);
-#endif
 
 			// All entries in activeSystemList have valid pointers all the time.
 			activeSystemList[i] = &remoteSystemList[i];
@@ -3234,14 +3230,6 @@ void RakPeer::ReleaseSockets(std::vector<RakNetSocket2 *> &sockets)
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void RakPeer::ApplyNetworkSimulator(float packetloss, unsigned short minExtraPing, unsigned short extraPingVariance)
 {
-#ifndef _DEBUG
-	// unused parameters
-	(void) packetloss;
-	(void) minExtraPing;
-	(void) extraPingVariance;
-#endif
-
-#ifdef _DEBUG
 	if (remoteSystemList)
 	{
 		unsigned short i;
@@ -3253,7 +3241,6 @@ void RakPeer::ApplyNetworkSimulator(float packetloss, unsigned short minExtraPin
 	_packetloss = packetloss;
 	_minExtraPing = minExtraPing;
 	_extraPingVariance = extraPingVariance;
-#endif
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -3268,11 +3255,7 @@ void RakPeer::SetPerConnectionOutgoingBandwidthLimit(unsigned maxBitsPerSecond)
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 bool RakPeer::IsNetworkSimulatorActive(void)
 {
-#ifdef _DEBUG
 	return _packetloss > 0 || _minExtraPing > 0 || _extraPingVariance > 0;
-#else
-	return false;
-#endif
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------

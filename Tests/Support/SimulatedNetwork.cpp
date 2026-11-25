@@ -186,14 +186,18 @@ RakPeer *SimulatedNetwork::StartPeer(RakPeer *peer, unsigned int maxConnections,
 	if (hostNumber == 0)
 		hostNumber = nextHost++;
 	char host[32];
-	std::snprintf(host, sizeof(host), family == Family::V4 ? "10.0.0.%u" : "2001:db8::%x", hostNumber);
+	// 10.0.0.<n> for the first 255 hosts; larger networks carry into the third octet.
+	if (family == Family::V4)
+		std::snprintf(host, sizeof(host), "10.0.%u.%u", hostNumber / 256, hostNumber % 256);
+	else
+		std::snprintf(host, sizeof(host), "2001:db8::%x", hostNumber);
 	// Skip the OS address enumeration: the peer reports this address as
 	// its own, so handshakes carry the same bytes on every machine.
 	peer->SetInternalID(SystemAddress(host, port ? port : 60000), 0);
 	if (family == Family::DualStack)
 	{
 		char host4[32];
-		std::snprintf(host4, sizeof(host4), "10.0.0.%u", hostNumber);
+		std::snprintf(host4, sizeof(host4), "10.0.%u.%u", hostNumber / 256, hostNumber % 256);
 		pendingIpv4Alias = SystemAddress(host4, port ? port : 60000);
 		peer->SetInternalID(pendingIpv4Alias, 1);
 		ipv4Aliases[peer] = pendingIpv4Alias;

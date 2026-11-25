@@ -473,8 +473,8 @@ install(DIRECTORY include/
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
 
-# Generate and install config. The config records which libraries were built and which libsodium
-# flavour they were built against (see MafiaNetConfig.cmake.in).
+# Generate and install config. The config records which libraries were built, which package provided
+# libsodium and which libsodium flavour they were built against (see MafiaNetConfig.cmake.in).
 set(MAFIANET_CONFIG_HAS_SHARED ${MAFIANET_BUILD_SHARED})
 set(MAFIANET_CONFIG_HAS_STATIC ${MAFIANET_BUILD_STATIC})
 if(sodium_USE_STATIC_LIBS)
@@ -482,6 +482,7 @@ if(sodium_USE_STATIC_LIBS)
 else()
     set(MAFIANET_CONFIG_SODIUM_STATIC OFF)
 endif()
+set(MAFIANET_CONFIG_SODIUM_PACKAGE ${MAFIANET_SODIUM_PACKAGE})
 configure_package_config_file(
     ${PROJECT_SOURCE_DIR}/cmake/MafiaNetConfig.cmake.in
     ${CMAKE_CURRENT_BINARY_DIR}/MafiaNetConfig.cmake
