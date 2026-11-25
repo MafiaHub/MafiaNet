@@ -18,6 +18,10 @@ Version 0.27.0
   typed reports. Returning to a cell or transferring control starts with
   a current snapshot. Full snapshots support explicit dirty notifications
   and acknowledged replaceable delivery.
+* ``MarkDirty()`` costs the connections that have the object constructed
+  instead of every connection: the service indexes each object's observers,
+  so a server with hundreds of players marks an object seen by a few of them
+  in constant time.
 
 
 **Network simulator**
