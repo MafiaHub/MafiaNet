@@ -27,6 +27,8 @@
 #include "mafianet/types.h"
 #include "mafianet/session_crypto.h"
 #include "mafianet/export.h"
+#include <optional>
+#include <utility>
 #include <vector>
 #include "mafianet/socket2.h"
 
@@ -68,6 +70,17 @@ public:
 
 	/// Built-in object replication, available before and after startup.
 	virtual ReplicationManager &GetReplication() = 0;
+
+	/// Accept an established incoming connection as a player. Repeated calls return its ID.
+	/// Returns nullopt for an unknown, outgoing or closing connection, or when IDs are exhausted.
+	virtual std::optional<PlayerId> AcceptPlayer(PeerGuid guid) = 0;
+
+	/// Look up an active game join. Departing players are identified by Packet::playerId.
+	virtual std::optional<PlayerId> GetPlayerId(PeerGuid guid) const = 0;
+	virtual std::optional<PeerGuid> GetPlayerGuid(PlayerId id) const = 0;
+
+	/// Replace out with a snapshot of active game joins sorted by player number.
+	virtual void GetPlayerList(std::vector<std::pair<PlayerId, PeerGuid>> &out) const = 0;
 
 	///Destructor
 	virtual ~RakPeerInterface() {}

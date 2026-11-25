@@ -51,6 +51,7 @@ namespace MafiaNet
 class HuffmanEncodingTree;
 class RakNetSocket2Factory;
 class PluginInterface2;
+class PlayerRoster;
 
 // Sucks but this struct has to be outside the class.  Inside and DevCPP won't let you refer to the struct as RakPeer::RemoteSystemIndex while GCC
 // forces you to do RakPeer::RemoteSystemIndex
@@ -75,6 +76,10 @@ public:
 	RakPeer();
 	RPC &GetRPC();
 	ReplicationManager &GetReplication() { return replication; }
+	std::optional<PlayerId> AcceptPlayer(PeerGuid guid);
+	std::optional<PlayerId> GetPlayerId(PeerGuid guid) const;
+	std::optional<PeerGuid> GetPlayerGuid(PlayerId id) const;
+	void GetPlayerList(std::vector<std::pair<PlayerId, PeerGuid>> &out) const;
 
 	/// Delay between starting successive candidates of a raced Connect() on a
 	/// dual-stack socket (RFC 8305 section 5, "Connection Attempt Delay").
@@ -892,6 +897,8 @@ public:
 		// Written only by the network thread, but read lock-free from user threads (Send()'s
 		// session-handshake gate, GetConnectionState, GetSystemList...), hence atomic.
 		std::atomic<ConnectMode> connectMode;
+		// Network thread only. Captured when a connection leaves CONNECTED.
+		PlayerId departingPlayerId{};
 	};
 
 protected:
@@ -1009,8 +1016,10 @@ protected:
 	ConnectedSystem FindDatagramTarget(const AddressOrGUID target) const;
 	DatagramSendResult QueueDatagram(const char *data, uint64_t bits, Priority priority, Reliability reliability, char orderingChannel, const AddressOrGUID target);
 	std::shared_ptr<const ConnectedSystems> connectedSystems;
+	std::unique_ptr<PlayerRoster> playerRoster;
 	void SetConnectMode(RemoteSystemStruct &system, RemoteSystemStruct::ConnectMode mode);
 	void PublishConnectedSystems();
+	PlayerId RetirePlayer(const RemoteSystemStruct &system);
 
 	// Use a hash, with binaryAddress plus port mod length as the index
 	RemoteSystemIndex **remoteSystemLookup;

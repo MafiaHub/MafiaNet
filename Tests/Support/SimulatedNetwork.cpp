@@ -427,6 +427,7 @@ void SimulatedNetwork::Step(uint32_t ms)
 				message.data.assign(packet->data, packet->data + packet->length);
 				message.systemAddress = packet->systemAddress;
 				message.guid = packet->guid;
+				message.playerId = packet->playerId;
 				inboxes[peer].push_back(std::move(message));
 				peer->DeallocatePacket(packet);
 			}
