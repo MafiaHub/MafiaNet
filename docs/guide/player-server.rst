@@ -14,10 +14,13 @@ several replicas during that join.
    int main()
    {
        using namespace MafiaNet;
-       auto server = Server::listen(60000, 32);
+       auto server = Server::listen(60000, {32});
        if (!server)
            return 1;
-       server->on<ConnectionRequested>([](const ConnectionRequest &request) { request.accept(); });
+       server->on<ConnectionRequested>([](const ConnectionRequest &request) {
+           if (request.accept() == SessionAcceptResult::Full)
+               request.reject("Server full");
+       });
        server->on<ClientConnected>([](ClientConnection client) { client.accept_player(); });
        server->on<PlayerJoined>([](Player player) {
            std::cout << "Joined as player " << static_cast<uint32_t>(player.id()) << '\n';
@@ -54,7 +57,7 @@ finishes. Only that call assigns a player number and produces ``PlayerJoined``.
    * - Callback
      - Meaning
    * - ``ConnectionRequested``
-     - Inspect the request’s binary ``payload()``.
+     - Inspect the remote endpoint with ``address()`` and the binary login data with ``payload()``.
        Retain the request to defer the decision. Use ``status()`` to report progress
        and ``accept()`` or ``reject()`` to queue one final answer.
    * - ``ConnectionAbandoned``
@@ -80,6 +83,10 @@ deferred operations. The server also checks the connection generation when
 applying a queued send, kick or admission decision. A reconnect with the same
 GUID gets its own generation. Keys are local to the server instance. Destroying
 the server expires its handles and clears its roster.
+
+Use ``server.pending_requests()`` to inspect unanswered requests in callback
+order. A full server can still check a whitelist, send queue updates, and admit
+reserved callers. See :doc:`admission-queue` for capacity sizing and retry handling.
 
 Messages and replication
 ------------------------

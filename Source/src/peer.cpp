@@ -293,7 +293,6 @@ RakPeer::RakPeer()
 
 	defaultMTUSize = mtuSizes[NUM_MTU_SIZES - 1];
 	trackFrequencyTable = false;
-	maximumIncomingConnections = 0;
 	maximumNumberOfPeers = 0;
 	//remoteSystemListSize=0;
 	remoteSystemList = 0;
@@ -308,8 +307,6 @@ RakPeer::RakPeer()
 	nextRaceGroup = 1;
 	manualUpdate = false;
 	incomingDatagramEventHandler = 0;
-	maximumPendingSessions = 0;
-	maximumPendingSessionsPerAddress = 0;
 	sessionTimeout = 0;
 
 
@@ -581,8 +578,9 @@ StartupResult RakPeer::Startup(unsigned int maxConnections, SocketDescriptor *so
 	if (maximumNumberOfPeers == 0)
 	{
 		// Don't allow more incoming connections than we have peers.
-		if (maximumIncomingConnections > maxConnections)
-			maximumIncomingConnections = maxConnections;
+		const auto capacity = playerRoster->Capacity();
+		if (capacity.connected > maxConnections)
+			playerRoster->SetIncoming(maxConnections, capacity.reserved);
 
 		maximumNumberOfPeers = maxConnections;
 		// 04/19/2006 - Don't overallocate because I'm no longer allowing connected pings.
@@ -863,9 +861,9 @@ bool RakPeer::GetSessionKeysForTesting(const SystemAddress &remote, SessionKeys 
 // Parameters:
 // numberAllowed - Maximum number of incoming connections allowed.
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-void RakPeer::SetMaximumIncomingConnections(unsigned short numberAllowed)
+void RakPeer::SetMaximumIncomingConnections(unsigned short numberAllowed, unsigned short reserved)
 {
-	maximumIncomingConnections = numberAllowed;
+	playerRoster->SetIncoming(numberAllowed, reserved);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -874,7 +872,7 @@ void RakPeer::SetMaximumIncomingConnections(unsigned short numberAllowed)
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 unsigned int RakPeer::GetMaximumIncomingConnections(void) const
 {
-	return maximumIncomingConnections;
+	return playerRoster->Capacity().connected;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -2567,12 +2565,9 @@ const char *RakPeer::GetRemoteSessionConfig(const AddressOrGUID systemIdentifier
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-void RakPeer::AcceptSession(const AddressOrGUID systemIdentifier, const char *data, unsigned int length)
+SessionAcceptResult RakPeer::AcceptSession(const AddressOrGUID systemIdentifier, const char *data, unsigned int length, ConnectionSlot slot)
 {
-	RakAssert(length <= MAXIMUM_SESSION_CONFIG_SIZE);
-	if (length > MAXIMUM_SESSION_CONFIG_SIZE)
-		length = MAXIMUM_SESSION_CONFIG_SIZE;
-	QueueSessionDecision(systemIdentifier, true, data, length);
+	return QueueSessionCommand(systemIdentifier, detail::SessionDecision::Accept, data, length, 0, slot);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -2584,14 +2579,13 @@ void RakPeer::RejectSession(const AddressOrGUID systemIdentifier, const char *re
 	RakAssert(reasonLength <= MAXIMUM_SESSION_CONFIG_SIZE);
 	if (reasonLength > MAXIMUM_SESSION_CONFIG_SIZE)
 		reasonLength = MAXIMUM_SESSION_CONFIG_SIZE;
-	QueueSessionDecision(systemIdentifier, false, reason, reasonLength);
+	QueueSessionCommand(systemIdentifier, detail::SessionDecision::Reject, reason, reasonLength);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void RakPeer::SetMaximumPendingSessions(unsigned short total, unsigned short perAddress)
 {
-	maximumPendingSessions = total;
-	maximumPendingSessionsPerAddress = total != 0 ? perAddress : 0;
+	playerRoster->SetPending(total, perAddress);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -2606,23 +2600,30 @@ void RakPeer::SendSessionStatus(const AddressOrGUID systemIdentifier, const char
 	RakAssert(length <= MAXIMUM_SESSION_CONFIG_SIZE);
 	if (length > MAXIMUM_SESSION_CONFIG_SIZE)
 		length = MAXIMUM_SESSION_CONFIG_SIZE;
-	QueueSessionCommand(systemIdentifier, BufferedCommandStruct::BCS_SESSION_STATUS, data, length);
+	QueueSessionCommand(systemIdentifier, detail::SessionDecision::Status, data, length);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 // Hand an application's accept/reject over to the network thread. Applying it here would send on the
 // connection and mutate connectMode from the user thread, which the rest of RakPeer never does.
-void RakPeer::QueueSessionDecision(const AddressOrGUID systemIdentifier, bool accept, const char *data, unsigned int length)
+SessionAcceptResult RakPeer::QueueSessionCommand(const AddressOrGUID systemIdentifier, detail::SessionDecision decision, const char *data, unsigned int length, uint64_t generation, ConnectionSlot slot)
+try
 {
-	QueueSessionCommand(systemIdentifier, accept ? BufferedCommandStruct::BCS_SESSION_ACCEPT : BufferedCommandStruct::BCS_SESSION_REJECT, data, length);
-}
-
-// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-bool RakPeer::QueueSessionCommand(const AddressOrGUID systemIdentifier, int command, const char *data, unsigned int length, uint64_t generation)
-{
+	if (length > MAXIMUM_SESSION_CONFIG_SIZE || (length && !data))
+		return SessionAcceptResult::InvalidPayload;
 	auto bcs = std::make_unique<BufferedCommandStruct>();
-	bcs->command = (decltype(bcs->command)) command;
-	bcs->generation = generation;
+	switch (decision)
+	{
+	case detail::SessionDecision::Accept:
+		bcs->command = BufferedCommandStruct::BCS_SESSION_ACCEPT;
+		break;
+	case detail::SessionDecision::Reject:
+		bcs->command = BufferedCommandStruct::BCS_SESSION_REJECT;
+		break;
+	case detail::SessionDecision::Status:
+		bcs->command = BufferedCommandStruct::BCS_SESSION_STATUS;
+		break;
+	}
 	bcs->systemIdentifier = systemIdentifier;
 	bcs->numberOfBitsToSend = BYTES_TO_BITS(length);
 	bcs->broadcast = false;
@@ -2636,16 +2637,20 @@ bool RakPeer::QueueSessionCommand(const AddressOrGUID systemIdentifier, int comm
 		bcs->data = (char *) std::malloc(length);
 		if (bcs->data)
 			memcpy(bcs->data, data, length);
-		else if (generation)
-			return false;
 		else
-			bcs->numberOfBitsToSend = 0;
+			return SessionAcceptResult::OutOfMemory;
 	}
-	if (generation && !playerRoster->Answer(ToPeerGuid(systemIdentifier.rakNetGuid), generation, command != BufferedCommandStruct::BCS_SESSION_STATUS))
-		return false;
-	bufferedCommands.Push(std::move(bcs));
-	quitAndDataEvents.SetEvent();
-	return true;
+	const auto result = playerRoster->Answer(systemIdentifier, generation, decision, slot, [&](uint64_t currentGeneration)
+	                                         {
+		bcs->generation = currentGeneration;
+		bufferedCommands.Push(std::move(bcs)); });
+	if (result == SessionAcceptResult::Accepted)
+		quitAndDataEvents.SetEvent();
+	return result;
+}
+catch (const std::bad_alloc &)
+{
+	return SessionAcceptResult::OutOfMemory;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -4035,6 +4040,7 @@ void RakPeer::ProduceSessionAbandoned(RemoteSystemStruct *remoteSystem)
 	if (remoteSystem == 0 || remoteSystem->weInitiatedTheConnection || remoteSystem->sessionConfigAwaitingLocalDecision == false)
 		return;
 
+	playerRoster->Disconnected(ToPeerGuid(remoteSystem->guid), remoteSystem->generation);
 	// Once only: the flag is what made the request the application's to answer.
 	remoteSystem->sessionConfigAwaitingLocalDecision = false;
 
@@ -4443,6 +4449,8 @@ void RakPeer::SetConnectMode(RemoteSystemStruct &system, RemoteSystemStruct::Con
 {
 	if (system.connectMode == RemoteSystemStruct::CONNECTED && mode != RemoteSystemStruct::CONNECTED)
 		system.departingPlayerId = RetirePlayer(system);
+	if (system.connectMode == RemoteSystemStruct::EXCHANGING_SESSION_DATA && mode != RemoteSystemStruct::CONNECTED && mode != RemoteSystemStruct::EXCHANGING_SESSION_DATA)
+		playerRoster->Disconnected(ToPeerGuid(system.guid), system.generation);
 	const auto previous = system.connectMode.exchange(mode);
 	if ((previous == RemoteSystemStruct::CONNECTED) != (mode == RemoteSystemStruct::CONNECTED))
 		PublishConnectedSystems();
@@ -4575,38 +4583,26 @@ SystemAddress RakPeer::GetLoopbackAddress(void) const
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 bool RakPeer::AllowIncomingConnections(void) const
 {
-	// Counts peers still running the session handshake as well as fully established ones.
-	// GetNumberOfRemoteInitiatedConnections() deliberately reports only CONNECTED peers -- that is what
-	// an application means by "players" -- but admission control must not share that view: a peer parked
-	// in EXCHANGING_SESSION_DATA already owns a slot, and counting only CONNECTED would let peers that
-	// stall the handshake push the real total past SetMaximumIncomingConnections().
-	if (remoteSystemList == 0 || endThreads == true)
-		return false;
-
 	return AllowIncomingConnection(UNASSIGNED_SYSTEM_ADDRESS);
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 bool RakPeer::AllowIncomingConnection(const SystemAddress &address) const
 {
-	if (remoteSystemList == 0 || endThreads == true)
+	if (remoteSystemList == nullptr || endThreads || activeSystemListSize >= maximumNumberOfPeers)
 		return false;
 
-	SessionAdmission::Limits limits;
-	limits.maxIncoming = GetMaximumIncomingConnections();
-	limits.maxPending = maximumPendingSessions;
-	limits.maxPendingPerAddress = maximumPendingSessionsPerAddress;
-
-	SessionAdmission::Counts counts;
-	CountRemoteInitiatedPeers(address, counts.connected, counts.exchanging, counts.pending, counts.pendingFromAddress);
-	return SessionAdmission::MayStartConnecting(limits, counts);
+	const auto limits = playerRoster->Capacity();
+	unsigned int pending, pendingFromAddress;
+	CountRemoteInitiatedPeers(address, pending, pendingFromAddress);
+	return limits.allows_pending(pending, pendingFromAddress);
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 // A pending peer is one that asked to connect and is not CONNECTED yet: still proving the transport
 // (UNVERIFIED_SENDER, HANDLING_CONNECTION_REQUEST) or in the session handshake. A peer being torn down is
 // in none of these, so a refusal frees its share of the pool at once rather than after the ack.
-void RakPeer::CountRemoteInitiatedPeers(const SystemAddress &address, unsigned int &connected, unsigned int &exchanging, unsigned int &pending, unsigned int &pendingFromAddress) const
+void RakPeer::CountRemoteInitiatedPeers(const SystemAddress &address, unsigned int &pending, unsigned int &pendingFromAddress) const
 {
-	connected = exchanging = pending = pendingFromAddress = 0;
+	pending = pendingFromAddress = 0;
 	for (unsigned int i = 0; i < activeSystemListSize; i++)
 	{
 		const RemoteSystemStruct *system = activeSystemList[i];
@@ -4615,13 +4611,7 @@ void RakPeer::CountRemoteInitiatedPeers(const SystemAddress &address, unsigned i
 
 		switch (system->connectMode)
 		{
-		case RemoteSystemStruct::CONNECTED:
-			connected++;
-			break;
 		case RemoteSystemStruct::EXCHANGING_SESSION_DATA:
-			exchanging++;
-			// A peer in the handshake is pending too.
-			[[fallthrough]];
 		case RemoteSystemStruct::UNVERIFIED_SENDER:
 		case RemoteSystemStruct::HANDLING_CONNECTION_REQUEST:
 			pending++;
@@ -6307,22 +6297,7 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 				sessionSystem->sessionConfigAwaitingLocalDecision = false;
 				const unsigned int sessionPayloadLength = (unsigned int) BITS_TO_BYTES(bcs->numberOfBitsToSend);
 				if (bcs->command == BufferedCommandStruct::BCS_SESSION_ACCEPT)
-				{
-					// With a pending pool the handshake may have started while the server was full, so the
-					// incoming limit is enforced here. The application should check first; this is the backstop
-					// that keeps two accepts racing one free slot from both getting it.
-					SessionAdmission::Limits limits;
-					limits.maxIncoming = GetMaximumIncomingConnections();
-					limits.maxPending = maximumPendingSessions;
-					limits.maxPendingPerAddress = maximumPendingSessionsPerAddress;
-					SessionAdmission::Counts counts;
-					if (SessionAdmission::UsesPendingPool(limits))
-						CountRemoteInitiatedPeers(UNASSIGNED_SYSTEM_ADDRESS, counts.connected, counts.exchanging, counts.pending, counts.pendingFromAddress);
-					if (SessionAdmission::MayAccept(limits, counts))
-						SendSessionConfigResponse(sessionSystem, bcs->data, sessionPayloadLength);
-					else
-						SendSessionConfigRejection(sessionSystem, 0, 0);
-				}
+					SendSessionConfigResponse(sessionSystem, bcs->data, sessionPayloadLength);
 				else
 					SendSessionConfigRejection(sessionSystem, bcs->data, sessionPayloadLength);
 			}
@@ -6972,7 +6947,7 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 							// Let the application decide. The connection stays unreported until it calls
 							// AcceptSession() or RejectSession(), or the handshake times out below.
 							remoteSystem->sessionConfigAwaitingLocalDecision = true;
-							playerRoster->Pending(ToPeerGuid(remoteSystem->guid), remoteSystem->generation);
+							playerRoster->Pending(ToPeerGuid(remoteSystem->guid), remoteSystem->generation, systemAddress);
 							packet = AllocPacket(byteSize, message.release());
 							packet->connectionGeneration = remoteSystem->generation;
 							packet->bitSize = bitSize;

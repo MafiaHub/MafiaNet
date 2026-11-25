@@ -15,15 +15,29 @@ struct WorldLoaded
 
 int main()
 {
-	auto server = Server::listen(60000, 32);
+	auto server = Server::listen(60000, {32});
 	if (!server)
 		return 1;
-	server->on<ConnectionRequested>([](const ConnectionRequest &request)
-	                                {
-		if (request.payload() == "world-v1")
-			request.accept();
-		else
-			request.reject("Unsupported world version"); });
+	const auto check_world = [](const ConnectionRequest &request)
+	{
+		if (request.payload() != "world-v1")
+		{
+			request.reject("Unsupported world version");
+			return;
+		}
+		if (request.accept() == SessionAcceptResult::Full)
+			request.status("Waiting for a slot");
+	};
+	server->on<ConnectionRequested>(check_world);
+	// Only validated requests remain here. A disconnect or an abandoned claim can release capacity.
+	const auto retry_waiting = [&](const auto &)
+	{
+		for (const auto &request : server->pending_requests())
+			if (request.accept() == SessionAcceptResult::Full)
+				break;
+	};
+	server->on<ClientDisconnected>(retry_waiting);
+	server->on<ConnectionAbandoned>(retry_waiting);
 	server->on<ClientConnected>([](ClientConnection connection)
 	                            { std::cout << "Waiting for client " << static_cast<uint64_t>(connection.key().guid) << " to finish loading\n"; });
 	server->messages().on<WorldLoaded>(ID_USER_PACKET_ENUM, [&](const WorldLoaded &message, const Sender &sender)

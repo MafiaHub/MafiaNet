@@ -40,8 +40,7 @@ What MafiaNet guarantees
   connection without a reply. The connecting side fails its attempt: it reports
   ``ID_CONNECTION_ATTEMPT_FAILED`` once and closes the connection with
   ``ID_DISCONNECTION_NOTIFICATION``, so the accepting side, which has already reported the
-  connection, sees it end at once instead of timing out. Build both ends with the same limit: ``AcceptSession()`` and
-  ``SetSessionConfig()`` clamp to the *sender's* limit, so a server built with a larger one than its
+  connection, sees it end at once instead of timing out. Build both ends with the same limit: both sending APIs enforce the *sender's* limit, so a server built with a larger one than its
   clients can send a payload they refuse.
 * **No length underflow.** The receive loop only dispatches frames of at least one byte, so the
   payload length (frame size minus the one-byte id) cannot wrap.
@@ -134,28 +133,13 @@ large payloads, lower ``MAXIMUM_SESSION_CONFIG_SIZE`` at build time. A connectio
 messages while its handshake finishes (see above); only peers you connect to can make you hold
 them, never peers connecting to you, even one that forges the connecting role.
 
-**Slots.** A peer can complete the transport handshake and then simply not send its payload,
-occupying a slot for the timeout duration. This is bounded by ``SetMaximumIncomingConnections()``
-(handshaking peers are counted) and by ``SetTimeoutTime()``, but note the application is **not**
-notified about these peers, so application-level defences keyed on ``ID_NEW_INCOMING_CONNECTION`` --
-per-IP rate limits, ban checks, connection logging -- do not see them. A deployment that relies on
-such defences should keep the timeout short and treat ``SetMaximumIncomingConnections()`` as the
-real bound.
-
-**Pending requests occupy slots.** How long a peer can hold a slot
-depends on how quickly the application answers. Without a pending pool, answer from the ``Receive()``
-loop rather than deferring behind slow work such as a database lookup or an HTTP call; if validation
-must be slow, reject fast and let the peer retry rather than holding the handshake open.
-
-**A pending pool takes the handshake out of the player slots.** ``SetMaximumPendingSessions(total,
-perAddress)`` counts every peer that is not yet connected -- from its first open-connection request,
-not only once it sends its payload -- against ``total`` instead of against
-``SetMaximumIncomingConnections()``, and bounds how many of them one IP may hold. A flood of stalled
-or slow handshakes then exhausts the pool and is refused there, while connected players keep their
-slots and the connected count (``NumberOfConnections()``) never includes a peer that is only
-waiting. This is what makes slow, interactive admission safe to deploy. ``SetSessionTimeout()`` still
-bounds how long any one of them may wait, and ``ID_SESSION_CONFIG_ABANDONED`` lets the application
-drop the work it was doing for one that left. See :doc:`../guide/admission-queue`.
+**Waiting capacity.** Each incoming transport handshake occupies a pending slot.
+``ServerCapacity::pending`` bounds simultaneous handshakes and
+``pending_per_address`` bounds the share from one IP. An exhausted pool refuses
+new arrivals. A request starts consuming connected capacity when the application
+successfully accepts it. Configure ``SetSessionTimeout()`` for the maximum gap
+between status updates. Handle ``ConnectionAbandoned`` to cancel outstanding
+whitelist work. See :doc:`../guide/admission-queue`.
 
 Not addressed here
 ------------------

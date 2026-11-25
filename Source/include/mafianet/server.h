@@ -11,6 +11,7 @@ namespace MafiaNet
 namespace detail
 {
 class ServerState;
+struct PendingSession;
 }
 
 enum class LeaveReason
@@ -31,19 +32,19 @@ struct ConnectionKey
 class RAK_DLL_EXPORT ConnectionRequest
 {
 public:
-	ConnectionKey key() const { return key_; }
-	const std::string &payload() const { return payload_; }
-	bool accept(std::string_view response = {}) const;
+	ConnectionKey key() const;
+	const std::string &payload() const;
+	const SystemAddress &address() const;
+	SessionAcceptResult accept(ConnectionSlot slot = ConnectionSlot::Public, std::string_view response = {}) const;
 	bool reject(std::string_view reason = {}) const;
 	bool status(std::string_view update) const;
 
 private:
 	friend class Server;
-	ConnectionRequest(std::weak_ptr<detail::ServerState> state, ConnectionKey key, std::string payload)
-	    : state_(std::move(state)), key_(key), payload_(std::move(payload)) {}
+	ConnectionRequest(std::weak_ptr<detail::ServerState> state, std::shared_ptr<const detail::PendingSession> request)
+	    : state_(std::move(state)), request_(std::move(request)) {}
 	std::weak_ptr<detail::ServerState> state_;
-	ConnectionKey key_;
-	std::string payload_;
+	std::shared_ptr<const detail::PendingSession> request_;
 };
 
 /// A connected client can exchange login messages before the game accepts a player.
@@ -138,7 +139,7 @@ struct PlayerLeft
 class RAK_DLL_EXPORT Server
 {
 public:
-	static Result<Server> listen(unsigned short port, unsigned short max_clients);
+	static Result<Server> listen(unsigned short port, ServerCapacity capacity);
 	/// Take ownership of a peer started with a custom ServerBuilder configuration.
 	explicit Server(Peer peer);
 	Server(Server &&) noexcept = default;
@@ -158,6 +159,8 @@ public:
 	/// Recover the exact connection that sent a dispatched message, including a pre-join login.
 	std::optional<ClientConnection> connection(const Sender &sender) const;
 	std::optional<Player> player(PlayerId id) const;
+	/// Unanswered requests in callback order. Full requests stay here until answered or abandoned.
+	std::vector<ConnectionRequest> pending_requests() const;
 	/// Snapshot of accepted players in ascending number order.
 	std::vector<Player> players() const;
 

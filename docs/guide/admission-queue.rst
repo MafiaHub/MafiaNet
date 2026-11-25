@@ -1,314 +1,94 @@
-Admission and Queues
-====================
+Whitelist checks, queues and reserved slots
+==========================================
 
-A server often has to decide whether a client may join before it lets the client in: check a
-whitelist or a ban list, validate a one-time ticket against a web service, or hold the client in a
-queue until a slot frees up. MafiaNet lets the server make that decision **before either side reports
-a connection**, with the waiting clients kept out of the player slots entirely.
-
-This page explains how the pieces fit together and walks through a complete queue. The primitives
-are the interactive session handshake (:doc:`../basics/connecting`) plus four additions built for
-exactly this:
-
-.. list-table::
-   :header-rows: 1
-   :widths: 40 60
-
-   * - API
-     - Role
-   * - ``SetMaximumPendingSessions(total, perAddress)``
-     - Waiting clients live in a pool of their own instead of in the player slots.
-   * - ``SetSessionTimeout(ms)``
-     - How long a request may wait for its answer, on either end.
-   * - ``SendSessionStatus(guid, data, length)``
-     - Tell a waiting client what is happening; restarts the timeout on both ends.
-   * - ``ID_SESSION_CONFIG_STATUS``
-     - What the client receives from ``SendSessionStatus()``.
-   * - ``ID_SESSION_CONFIG_ABANDONED``
-     - Tells the server a request it was holding went away unanswered.
-
-Why not decide after connecting?
---------------------------------
-
-The obvious approach -- accept the connection, then check the client and kick it if it fails -- has
-two problems.
-
-* **The client already got in.** By the time it is kicked it has been told it is connected, has
-  received whatever the server sends on connect, and may have started loading. A refused player
-  sees the world flash up and then get torn down.
-* **Waiting costs a slot.** A connected client holds one of the ``SetMaximumIncomingConnections()``
-  slots and appears in ``NumberOfConnections()`` for as long as the check takes. A slow database
-  lookup, a queue, or an attacker who connects and never finishes, all hold slots that real players
-  need, and inflate the player count a server list shows.
-
-Deciding inside the session handshake fixes the first: nothing is reported, and nothing but
-handshake traffic crosses the connection, until the server answers. The pending pool fixes the
-second.
-
-How the pending pool works
---------------------------
-
-Every remote peer that asked to connect but is not yet ``CONNECTED`` is **pending** -- from its first
-open-connection request, through the transport handshake, to the session handshake waiting on your
-answer. Without a pool, pending peers in the session handshake count against
-``SetMaximumIncomingConnections()`` alongside connected ones, which is the historic behaviour and
-stays the default.
-
-With a pool:
-
-* **Pending peers count against the pool**, ``total`` of them at once, at most ``perAddress`` from any
-  one IP address. A newcomer that would exceed either is refused at the transport with
-  ``ID_NO_FREE_INCOMING_CONNECTIONS``, exactly as a full server always refused one.
-* **The incoming limit counts connected peers only.** ``NumberOfConnections()`` and
-  ``GetSystemList()`` never include a pending peer, so neither does anything built on them -- a
-  status command, a server browser's player count.
-* **A handshake may start while the server is full.** That is what makes a queue possible: the
-  client waits in the pool while every player slot is taken.
-* **Acceptance is bounded by the incoming limit.** An ``AcceptSession()`` that would take the
-  connected count past ``SetMaximumIncomingConnections()`` refuses the peer instead (the client sees
-  ``ID_CONNECTION_ATTEMPT_FAILED`` with no reason). Check ``NumberOfConnections()`` yourself first and
-  refuse with a reason of your own; the library check is the backstop for two accepts racing one
-  free slot.
-
-A flood of clients that connect and stall -- or just a long queue -- fills the pool and nothing else.
-Players already connected keep playing, and free player slots stay free.
-
-``Startup()`` allocates one connection structure per slot, so it must leave room for both:
+A listening game server has two budgets. A new arrival uses one pending slot
+while the game checks its credentials. Acceptance claims one connected slot,
+including while the network thread finishes the handshake. A connected client
+gets a player number when the game calls ``accept_player()``.
 
 .. code-block:: cpp
 
-   const unsigned short maxPlayers = 64;
-   const unsigned short maxWaiting = 32;
+   ServerCapacity capacity;
+   capacity.connected = 64;
+   capacity.reserved = 4;
+   capacity.pending = 32;
+   capacity.pending_per_address = 4;
+   auto server = Server::listen(60000, capacity);
 
-   server->SetMaximumPendingSessions(maxWaiting, 4);   // at most 4 waiting from one IP
-   server->SetSessionTimeout(45000);                   // how long an answer may take
+This server can hold 64 connected clients and another 32 pending handshakes.
+Up to 60 public clients can connect. A reserved caller can use any available
+connected slot. For example, four connected staff still leave room for 60
+public clients. All 64 could also be staff. The per-address limit counts
+waiting handshakes sharing one IP, including clients behind the same NAT.
+The default waiting budget is 32 with an unrestricted per-address share.
 
-   MafiaNet::SocketDescriptor sd(60000, 0);
-   server->Startup(maxPlayers + maxWaiting, &sd, 1);   // room for players AND waiting clients
-   server->SetMaximumIncomingConnections(maxPlayers);  // players only
+Deciding who gets in
+--------------------
 
-.. note::
-
-   The per-address share is per IP, not per player. Players behind one NAT -- a household, a LAN
-   party, some mobile carriers -- share an address. Keep ``perAddress`` above 1 unless you mean to
-   allow one waiting client per network.
-
-The life of a waiting request
------------------------------
-
-.. code-block:: text
-
-   client                                          server
-     | -- open connection (transport) ------------->|  counted in the pending pool
-     | -- ID_SESSION_CONFIG_REQUEST (payload) ----->|  surfaced to the application
-     |<-- ID_SESSION_CONFIG_STATUS (0..n) -----------|  SendSessionStatus(); timeout restarts
-     |                                               |
-     |<-- ID_SESSION_CONFIG --------------------------|  AcceptSession(): now CONNECTED
-     |    ID_CONNECTION_REQUEST_ACCEPTED              |  ID_NEW_INCOMING_CONNECTION
-     |                                               |
-     |    or                                          |
-     |<-- ID_SESSION_CONFIG_REJECTED (reason) --------|  RejectSession(): never connected
-     |    ID_CONNECTION_ATTEMPT_FAILED + reason       |
-     |                                               |
-     |    or the client leaves / the timeout passes   |
-     |    ID_CONNECTION_ATTEMPT_FAILED                |  ID_SESSION_CONFIG_ABANDONED
-
-While a request waits:
-
-* ``GetConnectionState(guid)`` reports ``IS_CONNECTING`` on both ends.
-* ``Send()`` to the waiting guid returns 0, and broadcasts skip it: the application has not been
-  told this connection exists. Handshake messages, status included, go out regardless.
-* Application data the waiting client pushes at the server is dropped, not delivered.
-
-Every request ends exactly one way on the server: you answer it, or you receive
-``ID_SESSION_CONFIG_ABANDONED`` for it -- once, and never for a request you already answered.
-Answering after that does nothing.
-
-Timeouts
---------
-
-``SetSessionTimeout()`` bounds how long a request may go without an answer. It replaces the
-connection timeout for the session handshake only; 0, the default, keeps using the connection
-timeout. **Every** ``SendSessionStatus()`` restarts it, on the server when it is sent and on the
-client when it arrives, so a queue that updates its clients regularly is never timed out however long
-they wait.
-
-Set it on both ends. Whichever end runs out first ends the attempt: a server prepared to wait 45
-seconds does not help a client that gives up after the 10-second default. Clients should be generous
--- the server decides, and a dead server is caught by the ordinary connection timeout anyway:
+Register a ``ConnectionRequested`` handler before polling. Every incoming client
+that reaches this stage follows the same pipeline. Inspect ``request.address()``
+and the opaque bytes in ``request.payload()``. For an asynchronous whitelist
+lookup, retain the request, post the verified result back to the game thread,
+and apply it to that handle. Use the verified account's privileges to choose
+the slot class. A claimed identity in the incoming payload is client input.
 
 .. code-block:: cpp
 
-   client->SetSessionTimeout(120000);
-   client->Connect("game.example.com", 60000, nullptr, 0);
-
-When the server's timeout passes, the client gets ``ID_CONNECTION_ATTEMPT_FAILED`` with no reason and
-the server gets ``ID_SESSION_CONFIG_ABANDONED``. If you want the client to read why, refuse it
-yourself before the library's timeout does, and keep the library's value as the backstop.
-
-Status messages
----------------
-
-``SendSessionStatus()`` sends an opaque payload -- a UTF-8 line, a JSON object, a queue position as
-bytes -- to a client whose request is still waiting. The client receives it as
-``ID_SESSION_CONFIG_STATUS`` with the payload at ``packet->data + 1``:
-
-.. code-block:: cpp
-
-   // client
-   case ID_SESSION_CONFIG_STATUS: {
-       const std::string status((const char *)packet->data + 1, packet->length - 1);
-       ShowConnectingScreen(status);   // "You are 3rd in the queue"
-       break;
+   // Called on the game thread when the whitelist lookup completes.
+   void on_whitelist_result(ConnectionRequest request, bool allowed, bool staff)
+   {
+       if (!allowed) {
+           request.reject("This account is not on the whitelist");
+           return;
+       }
+       auto slot = staff ? ConnectionSlot::Reserved : ConnectionSlot::Public;
+       if (request.accept(slot) == SessionAcceptResult::Full)
+           request.status("Verified. Waiting for a slot");
    }
 
-Status is sent reliably and in order. It is ignored for a request that is no longer waiting, so a
-status racing an accept is simply dropped. It is bounded by ``MAXIMUM_SESSION_CONFIG_SIZE``. A client
-cannot send one to a server: the server ignores it.
+An accepted request consumes capacity before the next call to ``poll()``.
+Two callbacks competing for one free slot can therefore act on the result immediately.
+``Full`` leaves the request open. ``Expired`` means the request was answered,
+the client left, or the server closed. ``InvalidPayload`` and ``OutOfMemory``
+leave the decision open. Both acceptance and rejection remove a decided request
+from ``pending_requests()``. Losing a pending client also removes it and
+produces ``ConnectionAbandoned`` with the original connection key.
 
-A complete queue
-----------------
+Serving the queue
+-----------------
 
-The pattern: every request goes into a FIFO; each tick the server lets in as many as there are free
-slots, tells everyone still waiting where they stand, and forgets anyone who left.
+``server.pending_requests()`` returns a snapshot in callback order. It includes
+clients still undergoing a whitelist check. The game keeps verified privileges
+under the original ``ConnectionKey`` and chooses which verified requests to retry.
+Retry after whitelist results, ``ClientDisconnected``, or ``ConnectionAbandoned``
+if a handshake ended after claiming capacity:
 
 .. code-block:: cpp
 
-   struct Waiting {
-       MafiaNet::RakNetGUID guid;
-       MafiaNet::TimeMS lastStatus = 0;
-   };
-   std::deque<Waiting> queue;
-   unsigned int pendingAccepts = 0;   // accepted, not yet reported as ID_NEW_INCOMING_CONNECTION
-
-   void OnPacket(MafiaNet::Packet *packet) {
-       switch (packet->data[0]) {
-       case ID_SESSION_CONFIG_REQUEST: {
-           // The client's session payload rides the request: who it is, a ticket, a build id.
-           if (!IsAllowed(packet->data + 1, packet->length - 1)) {
-               server->RejectSession(packet->guid, "You are not on the whitelist.");
-               break;
-           }
-           queue.push_back({packet->guid});
-           break;
-       }
-       case ID_SESSION_CONFIG_ABANDONED:
-           // Gave up or timed out. Drop it; everyone behind moves up.
-           queue.erase(std::remove_if(queue.begin(), queue.end(), [&](const Waiting &w) { return w.guid == packet->guid; }), queue.end());
-           break;
-       case ID_NEW_INCOMING_CONNECTION:
-           // An accepted request became a connection: it is counted by NumberOfConnections() now.
-           --pendingAccepts;
-           break;
-       }
+   for (const ConnectionRequest &request : server.pending_requests()) {
+       // Game-owned lookup returns optional<ConnectionSlot> for verified requests.
+       if (auto slot = verified_slot(request.key()))
+           request.accept(*slot);
    }
 
-   void Tick() {
-       // Let in whoever fits.
-       while (!queue.empty() && server->NumberOfConnections() + pendingAccepts < maxPlayers) {
-           server->AcceptSession(queue.front().guid, sessionConfig.data(), (unsigned int)sessionConfig.size());
-           ++pendingAccepts;
-           queue.pop_front();
-       }
+Continue past a full public request when a later staff member may use a reserved
+slot. The game can report queue position through ``request.status(text)``.
+The client receives ``ID_SESSION_CONFIG_STATUS``. Each update restarts the session
+timeout at both ends. Choose an update interval shorter than both timeouts.
+An earlier unanswered request times out if neither a decision nor a status arrives.
 
-       // Tell the rest where they stand, well inside the session timeout.
-       const MafiaNet::TimeMS now = MafiaNet::GetTimeMS();
-       for (size_t i = 0; i < queue.size(); ++i) {
-           if (now - queue[i].lastStatus < 5000)
-               continue;
-           const std::string status = "You are " + std::to_string(i + 1) + " in the queue.";
-           server->SendSessionStatus(queue[i].guid, status.data(), (unsigned int)status.size());
-           queue[i].lastStatus = now;
-       }
-   }
+Using RakPeerInterface directly
+------------------------------
 
-Things to note in that loop:
+``Peer::server().capacity(capacity).start()`` sizes both populations. For manual
+startup, configure ``SetMaximumPendingSessions(pending, perAddress)`` and
+``SetMaximumIncomingConnections(connected, reserved)``, then pass the sum of
+connected and pending capacities to ``Startup()``. The physical slot limit is
+65,535. A full pending pool or transport returns ``ID_NO_FREE_INCOMING_CONNECTIONS``
+before delivering an application request.
 
-* **Count accepts in flight.** ``AcceptSession()`` is queued to the network thread, so
-  ``NumberOfConnections()`` does not include a peer you accepted a moment ago. Without
-  ``pendingAccepts`` two ticks can accept into the same free slot; the library refuses the second,
-  but that player is then turned away instead of kept waiting.
-* **Status doubles as the keep-alive.** Each one restarts both timeouts, so the interval only has to
-  be comfortably shorter than ``SetSessionTimeout()``. A client that stops getting status is timed
-  out and shows up as ``ID_SESSION_CONFIG_ABANDONED``.
-* **The pool bounds the queue.** Once ``total`` clients wait, the next one is refused with
-  ``ID_NO_FREE_INCOMING_CONNECTIONS`` before it ever reaches ``ID_SESSION_CONFIG_REQUEST``. Size the
-  pool for the longest queue you are willing to hold.
-* **Never block the receive loop.** A decision that needs a database or an HTTP call is started
-  when the request arrives and answered when the result comes back; the request waits in the pool
-  meanwhile, with status to keep it alive if the call is slow.
-
-Security notes
---------------
-
-* The client's session payload, and anything in it, is untrusted input. Validate it before use; see
-  :doc:`../advanced/session-handshake-security`.
-* The pool is a bound, not a filter: anyone who can reach the port can occupy a pending slot until
-  it is answered or times out. Keep the timeout proportionate, keep the per-address share small, and
-  refuse early -- a request refused on arrival frees its slot at once.
-* Status is visible to the waiting client only. Do not put anything in it you would not show a
-  player who is about to be refused.
-
-See Also
---------
-
-* :doc:`../basics/connecting` - The session handshake and interactive mode
-* :doc:`../advanced/session-handshake-security` - Trust model and denial-of-service limits
-* :doc:`../basics/network-messages` - ``ID_SESSION_CONFIG_*`` message reference
-* :doc:`client-server` - Client-server setup
-
-Player numbers for scripts and admins
--------------------------------------
-
-The server peer owns a roster of accepted players. Call ``AcceptPlayer`` just
-before reporting a successful game join to scripts. A game that joins immediately
-can do this on ``ID_NEW_INCOMING_CONNECTION``. A game with login or asset
-downloads calls it once those steps succeed. A queued request or abandoned
-download consumes no number.
-
-.. code-block:: cpp
-
-   // In the join handler, after the game's acceptance checks:
-   if (auto id = server->AcceptPlayer(MafiaNet::ToPeerGuid(packet->guid)))
-       OnPlayerJoin(*id);
-   else
-       server->CloseConnection(packet->systemAddress, true);
-
-   // An immediate kick by player number:
-   if (auto guid = server->GetPlayerGuid(MafiaNet::PlayerId{number}))
-       server->CloseConnection(MafiaNet::ToGuid(*guid), true);
-
-   // On ID_DISCONNECTION_NOTIFICATION or ID_CONNECTION_LOST:
-   if (packet->playerId != MafiaNet::PlayerId{})
-       OnPlayerDisconnect(packet->playerId);
-
-The first accepted player gets 1. Repeated acceptance of the same live
-connection returns its existing number. Replacing an avatar preserves it.
-Reconnecting gets a fresh number, even with the same peer GUID. The counter
-wraps after the largest 32-bit unsigned value and skips active numbers.
-``AcceptPlayer`` returns ``std::nullopt`` if the GUID has no established
-incoming connection eligible to join or if all numbers are occupied.
-
-The peer retires a join on disconnect, kick or timeout. The notification
-carries the departing number even if the same GUID has already rejoined.
-Unjoined connections have a zero ``playerId`` on their disconnect packets.
-Shutting down clears the roster. Starting the server again starts numbering
-at 1.
-
-Use ``GetPlayerId(guid)`` for the current join and ``GetPlayerList(out)`` to
-fill a ``std::vector<std::pair<PlayerId, PeerGuid>>`` in ascending player
-number order. These queries return snapshots. The number is server-local.
-Use ``static_cast<uint32_t>(*id)`` for display, the authenticated connection
-for permissions, and the replica's ``NetworkID`` for entity references.
-
-Process joins, disconnects and queued admin commands on the same server loop.
-When queuing a kick, capture the number and its current peer GUID. When the
-command runs, check that the GUID still owns that number:
-
-.. code-block:: cpp
-
-   if (server->GetPlayerId(command.guid) == command.playerId)
-       server->CloseConnection(MafiaNet::ToGuid(command.guid), true);
-
-Discard pending commands for the departing number on disconnect. This also
-handles eventual number reuse after wraparound.
+Answer ``ID_SESSION_CONFIG_REQUEST`` using ``AcceptSession()`` or
+``RejectSession()``. The raw accept returns the same result and observes the same
+reservations. Raw address and GUID calls select the request current at the time
+of the call. Retain a ``ConnectionRequest`` when doing asynchronous work that
+can outlive a reconnect. Use ``SendSessionStatus()`` to update a waiting client.

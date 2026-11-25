@@ -46,7 +46,7 @@ int main()
 	}
 	if (!registered || !replication)
 		return 1;
-	auto server = MafiaNet::Server::listen(0, 1);
+	auto server = MafiaNet::Server::listen(0, {1});
 	if (!server)
 		return 1;
 	server->on<MafiaNet::PlayerJoined>([](MafiaNet::Player player) { player.disconnect(); });

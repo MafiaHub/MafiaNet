@@ -357,10 +357,10 @@ against the incoming limit, which then bounds connected peers only:
    // While deciding, tell the peer what is happening; this also restarts the timeout on both ends.
    server->SendSessionStatus(guid, "You are 3rd in the queue", 24);
 
-A handshake may start while the server is full, which is what makes a queue possible. An
-``AcceptSession()`` that would exceed the incoming limit refuses the peer instead, so check
-``NumberOfConnections()`` before accepting and refuse with a reason of your own. The client should
-call ``SetSessionTimeout()`` too, generously: whichever end gives up first ends the attempt.
+A full server can still receive session requests. When capacity is exhausted,
+``AcceptSession()`` returns ``SessionAcceptResult::Full`` and keeps the request pending.
+Send a status update and retry when a slot is available. Configure the session
+timeout on both ends to allow enough time between updates.
 
 :doc:`../guide/admission-queue` walks through a complete queue built on this.
 

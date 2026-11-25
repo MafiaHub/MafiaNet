@@ -52,23 +52,11 @@ public:
 		return receipt;
 	}
 
-	enum class Decision
-	{
-		Accept,
-		Reject,
-		Status
-	};
-	bool answer(ConnectionKey key, Decision decision, std::string_view data)
+	SessionAcceptResult answer(ConnectionKey key, SessionDecision decision, std::string_view data, ConnectionSlot slot = ConnectionSlot::Public)
 	{
 		if (data.size() > MAXIMUM_SESSION_CONFIG_SIZE)
-			return false;
-		using Command = RakPeer::BufferedCommandStruct;
-		auto command = Command::BCS_SESSION_ACCEPT;
-		if (decision == Decision::Reject)
-			command = Command::BCS_SESSION_REJECT;
-		else if (decision == Decision::Status)
-			command = Command::BCS_SESSION_STATUS;
-		return transport().QueueSessionCommand(ToGuid(key.guid), command, data.data(), static_cast<unsigned int>(data.size()), key.generation);
+			return SessionAcceptResult::InvalidPayload;
+		return transport().QueueSessionCommand(ToGuid(key.guid), decision, data.data(), static_cast<unsigned int>(data.size()), key.generation, slot);
 	}
 
 	std::optional<Player> find_player(const std::shared_ptr<ServerState> &owner, PlayerId id) const
@@ -85,6 +73,9 @@ public:
 			return std::nullopt;
 		return Player(ClientConnection(owner, key), id);
 	}
+
+	std::vector<PendingSessionPtr> pending_requests() const { return transport().playerRoster->PendingRequests(); }
+	void publish(const PendingSessionPtr &request) { transport().playerRoster->Publish(request); }
 
 	std::vector<Player> players(const std::shared_ptr<ServerState> &owner) const
 	{
@@ -121,22 +112,35 @@ public:
 
 using detail::ServerState;
 
-bool ConnectionRequest::accept(std::string_view data) const
+ConnectionKey ConnectionRequest::key() const
+{
+	return {request_->guid, request_->generation};
+}
+const SystemAddress &ConnectionRequest::address() const
+{
+	return request_->address;
+}
+const std::string &ConnectionRequest::payload() const
+{
+	return request_->payload;
+}
+
+SessionAcceptResult ConnectionRequest::accept(ConnectionSlot slot, std::string_view data) const
 {
 	auto state = state_.lock();
-	return state && state->answer(key_, ServerState::Decision::Accept, data);
+	return state ? state->answer(key(), detail::SessionDecision::Accept, data, slot) : SessionAcceptResult::Expired;
 }
 
 bool ConnectionRequest::reject(std::string_view reason) const
 {
 	auto state = state_.lock();
-	return state && state->answer(key_, ServerState::Decision::Reject, reason);
+	return state && state->answer(key(), detail::SessionDecision::Reject, reason) == SessionAcceptResult::Accepted;
 }
 
 bool ConnectionRequest::status(std::string_view update) const
 {
 	auto state = state_.lock();
-	return state && state->answer(key_, ServerState::Decision::Status, update);
+	return state && state->answer(key(), detail::SessionDecision::Status, update) == SessionAcceptResult::Accepted;
 }
 
 std::optional<PlayerId> ClientConnection::accept_player() const
@@ -171,9 +175,9 @@ uint32_t ClientConnection::send_encoded(ServerState &state, const BitStream &bit
 	return state.send(key_, reinterpret_cast<const char *>(bits.GetData()), bits.GetNumberOfBitsUsed(), reliability, priority, channel, false);
 }
 
-Result<Server> Server::listen(unsigned short port, unsigned short max_clients)
+Result<Server> Server::listen(unsigned short port, ServerCapacity capacity)
 {
-	auto started = Peer::server().port(port).max_connections(max_clients).start();
+	auto started = Peer::server().port(port).capacity(capacity).start();
 	if (!started)
 		return Result<Server>::err(started.error());
 	return Result<Server>::ok(Server(std::move(*started)));
@@ -196,6 +200,16 @@ RakPeerInterface &Server::transport()
 std::optional<Player> Server::player(PlayerId id) const
 {
 	return state_->find_player(state_, id);
+}
+
+std::vector<ConnectionRequest> Server::pending_requests() const
+{
+	std::vector<ConnectionRequest> result;
+	auto pending = state_->pending_requests();
+	result.reserve(pending.size());
+	for (auto &request : pending)
+		result.push_back(ConnectionRequest(state_, std::move(request)));
+	return result;
 }
 
 std::vector<Player> Server::players() const
@@ -239,8 +253,12 @@ void Server::poll()
 			switch (packet->data[0])
 			{
 			case ID_SESSION_CONFIG_REQUEST:
-				state->emit<ConnectionRequested>(ConnectionRequest(state, key, std::string(reinterpret_cast<const char *>(packet->data + 1), packet->length - 1)));
+			{
+				auto request = std::make_shared<detail::PendingSession>(detail::PendingSession{key.guid, key.generation, packet->systemAddress, std::string(reinterpret_cast<const char *>(packet->data + 1), packet->length - 1)});
+				state->publish(request);
+				state->emit<ConnectionRequested>(ConnectionRequest(state, std::move(request)));
 				continue;
+			}
 			case ID_SESSION_CONFIG_ABANDONED:
 				state->emit<ConnectionAbandoned>({key});
 				continue;

@@ -17,9 +17,9 @@ struct CommandQueueAccess : RakPeer
 TEST(PlayerServer, OldLoginAndPlayerCannotTargetTheSameGuidAfterReconnect)
 {
 	SimulatedNetwork net;
-	auto &server = net.AddServer(1);
+	auto &server = net.AddServer({1});
 	server.on<ConnectionRequested>([](const ConnectionRequest &request)
-	                               { EXPECT_TRUE(request.accept()); });
+	                               { EXPECT_EQ(request.accept(), SessionAcceptResult::Accepted); });
 	auto *host = static_cast<RakPeer *>(&server.transport());
 	auto *client = net.AddPeer(1);
 	std::vector<ClientConnection> connections;
@@ -69,7 +69,7 @@ TEST(PlayerServer, OldLoginAndPlayerCannotTargetTheSameGuidAfterReconnect)
 TEST(PlayerServer, MissingRequestHandlerLeavesSessionPendingUntilTimeout)
 {
 	SimulatedNetwork net;
-	auto &server = net.AddServer(1);
+	auto &server = net.AddServer({1});
 	auto *host = static_cast<RakPeer *>(&server.transport());
 	auto *client = net.AddPeer(1);
 	host->SetSessionTimeout(100);
@@ -91,7 +91,7 @@ TEST(PlayerServer, MissingRequestHandlerLeavesSessionPendingUntilTimeout)
 TEST(PlayerServer, RequestCanDeferAndAbandonWithoutAllocatingAPlayer)
 {
 	SimulatedNetwork net;
-	auto &server = net.AddServer(1);
+	auto &server = net.AddServer({1});
 	server.on<ClientConnected>([](ClientConnection client)
 	                           { EXPECT_TRUE(client.accept_player()); });
 	auto *host = static_cast<RakPeer *>(&server.transport());
@@ -113,7 +113,7 @@ TEST(PlayerServer, RequestCanDeferAndAbandonWithoutAllocatingAPlayer)
 	EXPECT_EQ(requests[0].payload(), "login");
 	EXPECT_TRUE(requests[0].status("waiting"));
 	ASSERT_TRUE(net.RunUntilReceived(client, ID_SESSION_CONFIG_STATUS, 5000));
-	ASSERT_TRUE(requests[0].accept());
+	ASSERT_EQ(requests[0].accept(), SessionAcceptResult::Accepted);
 	auto &queue = CommandQueueAccess::queue(*host);
 	auto delayedDecision = queue.TryPop();
 	ASSERT_TRUE(delayedDecision);
@@ -121,7 +121,8 @@ TEST(PlayerServer, RequestCanDeferAndAbandonWithoutAllocatingAPlayer)
 	ASSERT_TRUE(net.RunUntil([&]
 	                         { server.poll(); return !abandoned.empty(); }, 5000));
 	EXPECT_TRUE(joined.empty());
-	EXPECT_FALSE(requests[0].accept());
+	EXPECT_TRUE(server.pending_requests().empty());
+	EXPECT_EQ(requests[0].accept(), SessionAcceptResult::Expired);
 	ASSERT_TRUE(net.RunUntilReceived(client, ID_CONNECTION_ATTEMPT_FAILED, 5000));
 	ASSERT_EQ(net.StartConnect(client, host), CONNECTION_ATTEMPT_STARTED);
 	ASSERT_TRUE(net.RunUntil([&]
@@ -130,7 +131,7 @@ TEST(PlayerServer, RequestCanDeferAndAbandonWithoutAllocatingAPlayer)
 	net.Step(10);
 	EXPECT_FALSE(net.Received(client, ID_CONNECTION_REQUEST_ACCEPTED));
 	EXPECT_FALSE(requests[0].reject("obsolete"));
-	EXPECT_TRUE(requests[1].accept());
+	EXPECT_EQ(requests[1].accept(), SessionAcceptResult::Accepted);
 	EXPECT_FALSE(requests[1].reject("already accepted"));
 	ASSERT_TRUE(net.RunUntil([&]
 	                         { server.poll(); return !joined.empty(); }, 5000));
@@ -152,11 +153,11 @@ constexpr MessageID greetingId = ID_USER_PACKET_ENUM;
 TEST(PlayerServer, QueuedSendAndKickAreDroppedAtExecutionAfterReconnect)
 {
 	SimulatedNetwork net;
-	auto &server = net.AddServer(1);
+	auto &server = net.AddServer({1});
 	server.on<ClientConnected>([](ClientConnection client)
 	                           { EXPECT_TRUE(client.accept_player()); });
 	server.on<ConnectionRequested>([](const ConnectionRequest &request)
-	                               { EXPECT_TRUE(request.accept()); });
+	                               { EXPECT_EQ(request.accept(), SessionAcceptResult::Accepted); });
 	auto *host = static_cast<RakPeer *>(&server.transport());
 	auto *client = net.AddPeer(1);
 	std::vector<Player> players;
@@ -206,9 +207,9 @@ TEST(PlayerServer, QueuedSendAndKickAreDroppedAtExecutionAfterReconnect)
 TEST(PlayerServer, PollDispatchesLoginAndSnapshotsAnUnjoinedDisconnect)
 {
 	SimulatedNetwork net;
-	auto &server = net.AddServer(1);
+	auto &server = net.AddServer({1});
 	server.on<ConnectionRequested>([](const ConnectionRequest &request)
-	                               { EXPECT_TRUE(request.accept()); });
+	                               { EXPECT_EQ(request.accept(), SessionAcceptResult::Accepted); });
 	auto *host = static_cast<RakPeer *>(&server.transport());
 	auto *client = net.AddPeer(1);
 	std::vector<std::string> events;
@@ -250,11 +251,11 @@ TEST(PlayerServer, HandlesExpireWhenServerIsDestroyed)
 	std::optional<Player> saved;
 	{
 		SimulatedNetwork net;
-		auto &server = net.AddServer(1);
+		auto &server = net.AddServer({1});
 		server.on<ClientConnected>([](ClientConnection client)
 		                           { EXPECT_TRUE(client.accept_player()); });
 		server.on<ConnectionRequested>([](const ConnectionRequest &request)
-		                               { EXPECT_TRUE(request.accept()); });
+		                               { EXPECT_EQ(request.accept(), SessionAcceptResult::Accepted); });
 		auto *host = static_cast<RakPeer *>(&server.transport());
 		auto *client = net.AddPeer(1);
 		server.on<PlayerJoined>([&](Player player)
@@ -271,9 +272,9 @@ TEST(PlayerServer, HandlesExpireWhenServerIsDestroyed)
 TEST(PlayerServer, DisconnectInConnectedHandlerLeavesPlayerRosterEmpty)
 {
 	SimulatedNetwork net;
-	auto &server = net.AddServer(1);
+	auto &server = net.AddServer({1});
 	server.on<ConnectionRequested>([](const ConnectionRequest &request)
-	                               { EXPECT_TRUE(request.accept()); });
+	                               { EXPECT_EQ(request.accept(), SessionAcceptResult::Accepted); });
 	auto *host = static_cast<RakPeer *>(&server.transport());
 	auto *client = net.AddPeer(1);
 	server.on<ClientConnected>([](ClientConnection connection)
@@ -288,9 +289,9 @@ TEST(PlayerServer, DisconnectInConnectedHandlerLeavesPlayerRosterEmpty)
 TEST(PlayerServer, PlayerListContainsOnlyAcceptedSessionsInNumberOrder)
 {
 	SimulatedNetwork net;
-	auto &server = net.AddServer(3);
+	auto &server = net.AddServer({3});
 	server.on<ConnectionRequested>([](const ConnectionRequest &request)
-	                               { EXPECT_TRUE(request.accept()); });
+	                               { EXPECT_EQ(request.accept(), SessionAcceptResult::Accepted); });
 	auto *host = static_cast<RakPeer *>(&server.transport());
 	std::vector<ClientConnection> clients;
 	server.on<ClientConnected>([&](ClientConnection client)
@@ -317,13 +318,13 @@ TEST(PlayerServer, PlayerListContainsOnlyAcceptedSessionsInNumberOrder)
 TEST(PlayerServer, RefusedRequestReturnsReasonAndNeverCreatesAClient)
 {
 	SimulatedNetwork net;
-	auto &server = net.AddServer(1);
+	auto &server = net.AddServer({1});
 	auto *host = static_cast<RakPeer *>(&server.transport());
 	auto *client = net.AddPeer(1);
 	server.on<ConnectionRequested>([](const ConnectionRequest &request)
 	                               {
 		EXPECT_TRUE(request.reject("world mismatch"));
-		EXPECT_FALSE(request.accept()); });
+		EXPECT_EQ(request.accept(), SessionAcceptResult::Expired); });
 	server.on<ClientConnected>([](ClientConnection)
 	                           { ADD_FAILURE() << "Refused session became connected"; });
 	ASSERT_EQ(net.StartConnect(client, host), CONNECTION_ATTEMPT_STARTED);
@@ -332,4 +333,66 @@ TEST(PlayerServer, RefusedRequestReturnsReasonAndNeverCreatesAClient)
 	const auto &data = net.Find(client, ID_CONNECTION_ATTEMPT_FAILED)->data;
 	EXPECT_EQ(std::string(data.begin() + 1, data.end()), "world mismatch");
 	EXPECT_TRUE(server.players().empty());
+}
+
+TEST(PlayerServer, WhitelistAndReservedSlotsShareOnePendingQueue)
+{
+	SimulatedNetwork net;
+	ServerCapacity capacity{2};
+	capacity.pending = 4;
+	capacity.reserved = 1;
+	auto &server = net.AddServer(capacity);
+	auto *host = static_cast<RakPeer *>(&server.transport());
+	std::vector<ConnectionRequest> requests;
+	std::vector<ClientConnection> clients;
+	server.on<ConnectionRequested>([&](const ConnectionRequest &request)
+	                               { requests.push_back(request); });
+	server.on<ClientConnected>([&](ClientConnection client)
+	                           { clients.push_back(client); });
+	auto arrive = [&](RakPeer *peer)
+	{
+		const auto before = requests.size();
+		return net.StartConnect(peer, host) == CONNECTION_ATTEMPT_STARTED &&
+		       net.RunUntil([&]
+		                    { server.poll(); return requests.size() > before; }, 5000);
+	};
+	auto *first = net.AddPeer(1);
+	auto *waiting = net.AddPeer(1);
+	auto *staff = net.AddPeer(1);
+	ASSERT_TRUE(arrive(first));
+	ASSERT_TRUE(arrive(waiting));
+	ASSERT_TRUE(arrive(staff));
+	auto queue = server.pending_requests();
+	ASSERT_EQ(queue.size(), 3u);
+	for (unsigned i = 0; i < queue.size(); ++i)
+		EXPECT_EQ(queue[i].key(), requests[i].key());
+	EXPECT_EQ(requests.front().address(), net.AddressOf(first));
+	EXPECT_TRUE(clients.empty());
+	EXPECT_TRUE(server.players().empty());
+
+	const std::string oversized(MAXIMUM_SESSION_CONFIG_SIZE + 1, 'x');
+	EXPECT_EQ(requests[0].accept(ConnectionSlot::Public, oversized), SessionAcceptResult::InvalidPayload);
+	EXPECT_EQ(server.pending_requests().size(), 3u);
+
+	// All three decisions happen before the network thread runs again.
+	ASSERT_EQ(requests[0].accept(), SessionAcceptResult::Accepted);
+	EXPECT_EQ(requests[1].accept(), SessionAcceptResult::Full);
+	ASSERT_EQ(requests[2].accept(ConnectionSlot::Reserved), SessionAcceptResult::Accepted);
+	queue = server.pending_requests();
+	ASSERT_EQ(queue.size(), 1u);
+	EXPECT_EQ(queue.front().key(), requests[1].key());
+	ASSERT_TRUE(queue.front().status("waiting"));
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { server.poll(); return clients.size() == 2 && net.Received(waiting, ID_SESSION_CONFIG_STATUS); }, 5000));
+	EXPECT_TRUE(server.players().empty());
+	ASSERT_TRUE(arrive(net.AddPeer(1)));
+	EXPECT_EQ(requests.back().accept(ConnectionSlot::Reserved), SessionAcceptResult::Full);
+	EXPECT_TRUE(requests.back().reject("whitelist"));
+	ASSERT_TRUE(clients.front().disconnect());
+	ASSERT_TRUE(net.RunUntilReceived(first, ID_DISCONNECTION_NOTIFICATION, 5000));
+	ASSERT_EQ(requests[1].accept(), SessionAcceptResult::Accepted);
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { server.poll(); return clients.size() == 3; }, 5000));
+	EXPECT_EQ(clients.back().accept_player(), PlayerId{1});
+	EXPECT_TRUE(server.pending_requests().empty());
 }

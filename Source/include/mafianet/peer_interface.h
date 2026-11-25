@@ -26,6 +26,7 @@
 #include "mafianet/replication_manager.h"
 #include "mafianet/types.h"
 #include "mafianet/session_crypto.h"
+#include "mafianet/session_admission.h"
 #include "mafianet/export.h"
 #include <optional>
 #include <utility>
@@ -154,7 +155,7 @@ public:
 	/// it will be reduced to the maximum number of peers allowed.
 	/// Defaults to 0, meaning by default, nobody can connect to you
 	/// \param[in] numberAllowed Maximum number of incoming connections allowed.
-	virtual void SetMaximumIncomingConnections(unsigned short numberAllowed) = 0;
+	virtual void SetMaximumIncomingConnections(unsigned short numberAllowed, unsigned short reserved = 0) = 0;
 
 	/// Returns the value passed to SetMaximumIncomingConnections()
 	/// \return the maximum number of incoming connections, which is always <= maxConnections
@@ -467,11 +468,13 @@ public:
 
 	/// Server: accept a pending session request, sending \a data as this connection's payload.
 	/// \details Completes the handshake and surfaces the withheld ID_NEW_INCOMING_CONNECTION. Only
-	/// meaningful for a peer that surfaced ID_SESSION_CONFIG_REQUEST; ignored otherwise.
+	/// meaningful for a peer that surfaced ID_SESSION_CONFIG_REQUEST.
+	/// Accepted claims capacity immediately. Full leaves the same request open for status, rejection or retry.
+	/// Reserved callers can claim any available slot. Expired means the request already ended.
 	/// \param[in] systemIdentifier The peer whose request to accept
 	/// \param[in] data This connection's session payload, or 0 for none
 	/// \param[in] length The length of data in bytes, at most MAXIMUM_SESSION_CONFIG_SIZE
-	virtual void AcceptSession(const AddressOrGUID systemIdentifier, const char *data, unsigned int length) = 0;
+	virtual SessionAcceptResult AcceptSession(const AddressOrGUID systemIdentifier, const char *data, unsigned int length, ConnectionSlot slot = ConnectionSlot::Public) = 0;
 
 	/// Server: refuse a pending session request.
 	/// \details The client reports ID_CONNECTION_ATTEMPT_FAILED and neither side ever reports a connection.
@@ -479,16 +482,10 @@ public:
 	/// \param[in] reason Delivered to the client in ID_SESSION_CONFIG_REJECTED; may be 0
 	virtual void RejectSession(const AddressOrGUID systemIdentifier, const char *reason) = 0;
 
-	/// Server: hold peers in the session handshake in a pool of their own instead of in the incoming limit.
-	/// \details By default a peer mid-handshake counts against SetMaximumIncomingConnections(), so peers that
-	/// stall the handshake take the slots of the players it is meant for. With a pool, every remote-initiated
-	/// peer that is not yet CONNECTED -- from its first open-connection request until the application
-	/// answers -- counts against  total instead, and at most  perAddress of them may come from one IP.
-	/// SetMaximumIncomingConnections() then bounds CONNECTED peers only: a handshake starts even while it is
-	/// full, so an interactive server can queue, and an AcceptSession() that would exceed it refuses the peer
-	/// instead. Startup()'s maxConnections must leave room for both, i.e. at least incoming +  total.
-	/// \param[in] total Peers that may be in the handshake at once; 0 restores the default accounting
-	/// \param[in] perAddress Of those, how many may share one IP address; 0 for no per-address bound
+	/// Bound concurrent incoming handshakes from the transport exchange through the application's decision.
+	/// The default is 32 waiting peers. Set total to zero to close the waiting queue.
+	/// perAddress limits waiting peers sharing an IP (zero allows the whole pool).
+	/// With raw Startup(), allocate room for connected plus pending peers.
 	virtual void SetMaximumPendingSessions(unsigned short total, unsigned short perAddress) = 0;
 
 	/// Bounds how long a session handshake may wait for its answer, instead of the connection timeout.

@@ -55,6 +55,7 @@ class PlayerRoster;
 namespace detail
 {
 class ServerState;
+enum class SessionDecision;
 }
 
 // Sucks but this struct has to be outside the class.  Inside and DevCPP won't let you refer to the struct as RakPeer::RemoteSystemIndex while GCC
@@ -155,7 +156,7 @@ public:
 	///
 	/// Defaults to 0, meaning by default, nobody can connect to you
 	/// \param[in] numberAllowed Maximum number of incoming connections allowed.
-	void SetMaximumIncomingConnections(unsigned short numberAllowed);
+	void SetMaximumIncomingConnections(unsigned short numberAllowed, unsigned short reserved = 0);
 
 	/// \brief Returns the value passed to SetMaximumIncomingConnections().
 	/// \return Maximum number of incoming connections, which is always <= maxConnections
@@ -479,7 +480,7 @@ public:
 	/// \brief Server: accept a pending session request, sending \a data as this connection's payload.
 	/// \details Only meaningful for a peer that surfaced ID_SESSION_CONFIG_REQUEST. Completes the
 	/// handshake and surfaces the withheld ID_NEW_INCOMING_CONNECTION.
-	void AcceptSession(const AddressOrGUID systemIdentifier, const char *data, unsigned int length);
+	SessionAcceptResult AcceptSession(const AddressOrGUID systemIdentifier, const char *data, unsigned int length, ConnectionSlot slot = ConnectionSlot::Public);
 
 	/// \brief Server: refuse a pending session request.
 	/// \details The client reports ID_CONNECTION_ATTEMPT_FAILED and neither side ever reports a
@@ -972,14 +973,9 @@ protected:
 	//05/02/06 Just using maximumNumberOfPeers instead
 	///Store the maximum number of peers able to connect, including reserved connection slots for pings, etc.
 	//unsigned short remoteSystemListSize;
-	///Store the maximum incoming connection allowed
-	unsigned int maximumIncomingConnections;
 	MafiaNet::BitStream offlinePingResponse;
 	/// Payload sent with outgoing ID_SESSION_CONFIG_REQUEST (see SetSessionConfig).
 	MafiaNet::BitStream sessionConfig;
-	/// SetMaximumPendingSessions(). 0 total keeps peers mid-handshake in the incoming limit.
-	unsigned short maximumPendingSessions;
-	unsigned short maximumPendingSessionsPerAddress;
 	/// SetSessionTimeout(). 0 uses the connection timeout.
 	MafiaNet::TimeMS sessionTimeout;
 	///Local Player ID
@@ -1351,14 +1347,11 @@ private:
 	void SendSessionConfigResponse(RemoteSystemStruct *remoteSystem, const char *data, unsigned int length);
 	/// Refuse a pending session request and drop the connection once the refusal is acknowledged.
 	void SendSessionConfigRejection(RemoteSystemStruct *remoteSystem, const char *reason, unsigned int reasonLength);
-	/// Queue an application session decision for the network thread (see BCS_SESSION_ACCEPT).
-	void QueueSessionDecision(const AddressOrGUID systemIdentifier, bool accept, const char *data, unsigned int length);
-	/// Queue any session command (accept, reject, status) with a copy of its payload.
 	/// Server: tell the application a session request it was holding is gone (ID_SESSION_CONFIG_ABANDONED).
 	void ProduceSessionAbandoned(RemoteSystemStruct *remoteSystem);
-	bool QueueSessionCommand(const AddressOrGUID systemIdentifier, int command, const char *data, unsigned int length, uint64_t generation = 0);
+	SessionAcceptResult QueueSessionCommand(const AddressOrGUID systemIdentifier, detail::SessionDecision decision, const char *data, unsigned int length, uint64_t generation = 0, ConnectionSlot slot = ConnectionSlot::Public);
 	/// Counts remote-initiated peers for SessionAdmission; pendingFromAddress is for \a address, or 0 when unassigned.
-	void CountRemoteInitiatedPeers(const SystemAddress &address, unsigned int &connected, unsigned int &exchanging, unsigned int &pending, unsigned int &pendingFromAddress) const;
+	void CountRemoteInitiatedPeers(const SystemAddress &address, unsigned int &pending, unsigned int &pendingFromAddress) const;
 	/// True when a directed application send must be refused because the target is still running the
 	/// session handshake and so has not been reported to the application yet.
 	bool IsExchangingSessionData(const AddressOrGUID systemIdentifier);

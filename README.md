@@ -121,11 +121,14 @@ Linux, flip the `#if defined(__linux__)` batching guards in `socket2.cpp`,
 int main()
 {
     using namespace MafiaNet;
-    auto server = Server::listen(60000, 32);
+    auto server = Server::listen(60000, {32});
     if (!server)
         return 1;
 
-    server->on<ConnectionRequested>([](const ConnectionRequest &request) { request.accept(); });
+    server->on<ConnectionRequested>([](const ConnectionRequest &request) {
+        if (request.accept() == SessionAcceptResult::Full)
+            request.reject("Server full");
+    });
     server->on<ClientConnected>([](ClientConnection client) { client.accept_player(); });
     server->on<PlayerJoined>([](Player player) {
         std::cout << "Player " << static_cast<uint32_t>(player.id()) << " joined\n";
@@ -138,7 +141,7 @@ int main()
 }
 ```
 
-Every incoming connection requires an answer. Calling `accept_player()` assigns its player number. A game can wait for login or loading before making that call. See the [player server guide](docs/guide/player-server.rst), the [welcome example](Samples/PlayerWelcome/main.cpp), or the [manual join example](Samples/PlayerLogin/main.cpp). For clients and peer-to-peer networking, see the [client/server guide](docs/guide/client-server.rst).
+Every incoming connection requires an answer. Calling `accept_player()` assigns its player number. A game can wait for login or loading before making that call. Pending requests use a separate capacity budget. A full server can check a whitelist, keep a queue and admit reserved clients. See the [queue and reserved slots guide](docs/guide/admission-queue.rst). See the [player server guide](docs/guide/player-server.rst), the [welcome example](Samples/PlayerWelcome/main.cpp), or the [manual join example](Samples/PlayerLogin/main.cpp). For clients and peer-to-peer networking, see the [client/server guide](docs/guide/client-server.rst).
 
 ## Features
 

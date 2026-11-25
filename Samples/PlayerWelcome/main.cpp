@@ -13,11 +13,13 @@ struct Welcome
 
 int main()
 {
-	auto server = Server::listen(60000, 32);
+	auto server = Server::listen(60000, {32});
 	if (!server)
 		return 1;
 	server->on<ConnectionRequested>([](const ConnectionRequest &request)
-	                                { request.accept(); });
+	                                {
+		if (request.accept() == SessionAcceptResult::Full)
+			request.reject("Server full"); });
 	server->on<ClientConnected>([](ClientConnection client)
 	                            { client.accept_player(); });
 	server->messages().register_message<Welcome>(ID_USER_PACKET_ENUM);

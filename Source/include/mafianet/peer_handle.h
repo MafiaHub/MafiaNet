@@ -328,10 +328,17 @@ public:
 		return *this;
 	}
 
-	/// Maximum simultaneous connections; also the incoming-connection cap.
+	/// Maximum connected clients. The pending budget is allocated in addition.
 	ServerBuilder &max_connections(unsigned int n)
 	{
-		maxConnections_ = n;
+		capacity_.connected = n;
+		return *this;
+	}
+
+	/// Size the connected and waiting populations together before opening the socket.
+	ServerBuilder &capacity(ServerCapacity limits)
+	{
+		capacity_ = limits;
 		return *this;
 	}
 
@@ -375,6 +382,13 @@ public:
 	/// StartupResult (PeerStage::Startup) otherwise.
 	Result<Peer> start()
 	{
+		if (!capacity_.valid())
+		{
+			PeerError e;
+			e.stage = PeerStage::Startup;
+			e.startup = INVALID_MAX_CONNECTIONS;
+			return Result<Peer>::err(e);
+		}
 		Peer peer;
 		SocketDescriptor sd(port_, host_.empty() ? nullptr : host_.c_str());
 		if (!peer->SetEncryptionMode(encryption_) || (hasIdentityKey_ && !peer->SetIdentityKey(identityKey_)))
@@ -384,7 +398,11 @@ public:
 			e.startup = STARTUP_OTHER_FAILURE;
 			return Result<Peer>::err(e);
 		}
-		StartupResult sr = peer->Startup(maxConnections_, &sd, 1);
+		if (!password_.empty())
+			peer->SetIncomingPassword(password_.c_str(), (int) password_.size());
+		peer->SetMaximumPendingSessions(static_cast<unsigned short>(capacity_.pending), static_cast<unsigned short>(capacity_.pending_per_address));
+		peer->SetMaximumIncomingConnections(static_cast<unsigned short>(capacity_.connected), static_cast<unsigned short>(capacity_.reserved));
+		StartupResult sr = peer->Startup(capacity_.connected + capacity_.pending, &sd, 1);
 		if (sr != RAKNET_STARTED)
 		{
 			PeerError e;
@@ -392,15 +410,12 @@ public:
 			e.startup = sr;
 			return Result<Peer>::err(e);
 		}
-		if (!password_.empty())
-			peer->SetIncomingPassword(password_.c_str(), (int) password_.size());
-		peer->SetMaximumIncomingConnections((unsigned short) maxConnections_);
 		return Result<Peer>::ok(std::move(peer));
 	}
 
 private:
 	unsigned short port_ = 0;
-	unsigned int maxConnections_ = 1;
+	ServerCapacity capacity_;
 	std::string host_;
 	std::string password_;
 	EncryptionMode encryption_ = EncryptionMode::Required;

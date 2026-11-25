@@ -589,9 +589,8 @@ TEST_F(SessionConfigSim, RemotePayloadIsNulTerminatedPastItsLength)
 	EXPECT_EQ((size_t) length, std::strlen(config));
 }
 
-// Admission control must see peers that are still running the session handshake: they already own a
-// slot, so counting only CONNECTED peers would let stalled handshakes push past the incoming limit.
-TEST_F(SessionConfigSim, StalledHandshakeStillConsumesAnIncomingSlot)
+// A raw listening peer has a pending pool by default.
+TEST_F(SessionConfigSim, DefaultPendingPoolKeepsAStalledHandshakeOutOfTheIncomingLimit)
 {
 	RakPeer *server = AddServer(8, 1, 60000);
 
@@ -603,9 +602,9 @@ TEST_F(SessionConfigSim, StalledHandshakeStillConsumesAnIncomingSlot)
 
 	RakPeer *second = AddClient();
 	ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, StartConnect(second, server));
-	ASSERT_TRUE(WaitFor(second, ID_NO_FREE_INCOMING_CONNECTIONS))
-	    << "a peer stalled in the session handshake did not count against the incoming limit";
-	EXPECT_EQ(1u, Count(server, ID_SESSION_CONFIG_REQUEST));
+	ASSERT_TRUE(Until([&]
+	                  { return Count(server, ID_SESSION_CONFIG_REQUEST) == 2; }, kConnectTimeoutMs));
+	EXPECT_EQ(server->NumberOfConnections(), 0u);
 }
 
 // A complete connection lifecycle behaves identically whether or not a session payload is configured.
@@ -880,9 +879,8 @@ TEST_F(SessionConfigSim, PendingPoolSlotIsFreedByADecision)
 	EXPECT_FALSE(Has(server, ID_SESSION_CONFIG_ABANDONED)) << "a peer the application refused was reported as abandoned";
 }
 
-// With a pool the handshake may start on a full server, but an AcceptSession() that would overfill it is
-// refused rather than honoured.
-TEST_F(SessionConfigSim, AcceptSessionCannotOverfillTheIncomingLimit)
+// A full server keeps the same request alive until the application retries.
+TEST_F(SessionConfigSim, FullAcceptKeepsRequestAvailableForStatusAndRetry)
 {
 	RakPeer *server = AddPooledServer(1, 4, 0);
 	RakPeer *client = AddClient(60000);
@@ -901,17 +899,22 @@ TEST_F(SessionConfigSim, AcceptSessionCannotOverfillTheIncomingLimit)
 	    << "a full server with a pool refused to even start the handshake; second saw " << IdList(Inbox(second));
 	const RakNetGUID secondGuid = Inbox(server).back().guid;
 
-	server->AcceptSession(secondGuid, nullptr, 0);
-	ASSERT_TRUE(WaitFor(second, ID_CONNECTION_ATTEMPT_FAILED)) << "an accept past the incoming limit was honoured";
+	EXPECT_EQ(server->AcceptSession(secondGuid, nullptr, 0), SessionAcceptResult::Full);
+	server->SendSessionStatus(secondGuid, "waiting", 7);
+	ASSERT_TRUE(WaitFor(second, ID_SESSION_CONFIG_STATUS));
 
 	Pump(1000);
 	EXPECT_EQ(1u, Count(server, ID_NEW_INCOMING_CONNECTION)) << "the server reported a connection past its limit";
 	EXPECT_FALSE(Has(second, ID_CONNECTION_REQUEST_ACCEPTED));
 	EXPECT_EQ(1u, server->NumberOfConnections());
+	client->CloseConnection(net.AddressOf(server), true);
+	ASSERT_TRUE(WaitFor(server, ID_DISCONNECTION_NOTIFICATION));
+	server->AcceptSession(secondGuid, nullptr, 0);
+	EXPECT_TRUE(WaitFor(second, ID_CONNECTION_REQUEST_ACCEPTED));
 }
 
-// SetMaximumPendingSessions(0, ...) restores the historic accounting exactly.
-TEST_F(SessionConfigSim, ClearingThePoolRestoresTheDefaultAccounting)
+// Zero pending capacity closes the queue to new arrivals.
+TEST_F(SessionConfigSim, ZeroPendingCapacityClosesTheWaitingQueue)
 {
 	RakPeer *server = AddServer(8, 1, 60000);
 	server->SetMaximumPendingSessions(4, 0);
@@ -920,12 +923,11 @@ TEST_F(SessionConfigSim, ClearingThePoolRestoresTheDefaultAccounting)
 	RakPeer *client = AddClient();
 	ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, StartConnect(client, server));
 
-	RakNetGUID stalledGuid;
-	ASSERT_TRUE(WaitForRequest(server, stalledGuid));
+	ASSERT_TRUE(WaitFor(client, ID_NO_FREE_INCOMING_CONNECTIONS));
 
 	RakPeer *second = AddClient(60000);
 	ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, StartConnect(second, server));
-	ASSERT_TRUE(WaitFor(second, ID_NO_FREE_INCOMING_CONNECTIONS)) << "without a pool a stalled handshake must still hold its incoming slot";
+	ASSERT_TRUE(WaitFor(second, ID_NO_FREE_INCOMING_CONNECTIONS));
 }
 
 // The session timeout replaces the connection timeout for the handshake, on both ends, and the server is
@@ -1323,7 +1325,7 @@ protected:
 
 	// An ID_SESSION_CONFIG carrying `payloadBytes` bytes, as AcceptSession() sends it, but of
 	// any size: a server built with a larger MAXIMUM_SESSION_CONFIG_SIZE than this binary sends one this binary
-	// must refuse (AcceptSession clamps to the sender's own limit, not the receiver's).
+	// must refuse (AcceptSession enforces the sender's own limit, not the receiver's).
 	void InjectSessionConfig(RakPeer *from, const RakPeer *to, unsigned int payloadBytes, Reliability reliability = Reliability::ReliableOrdered)
 	{
 		std::vector<unsigned char> payload(payloadBytes, 0x5A);

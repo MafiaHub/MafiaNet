@@ -74,7 +74,7 @@ public:
 	SimulatedNetwork(const SimulatedNetwork &) = delete;
 	SimulatedNetwork &operator=(const SimulatedNetwork &) = delete;
 
-	Server &AddServer(unsigned short slots);
+	Server &AddServer(ServerCapacity capacity);
 
 	// Test application decision for raw peers. Handshake tests can retain requests in the inbox instead.
 	std::function<void(RakPeer &, const Packet &)> onSessionRequest = [](RakPeer &peer, const Packet &request)
