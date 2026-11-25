@@ -306,7 +306,7 @@ protected:
 	RakPeer *AddPooledServer(unsigned short maxIncoming, unsigned short pool, unsigned short perAddress, TimeMS timeoutMs = 60000)
 	{
 		RakPeer *peer = AddServer((unsigned int) maxIncoming + pool, maxIncoming, timeoutMs);
-		peer->SetSessionConfigInteractive(true);
+		peer->SetSessionAdmissionPolicy(AdmissionPolicy::Interactive);
 		peer->SetMaximumPendingSessions(pool, perAddress);
 		return peer;
 	}
@@ -436,7 +436,7 @@ TEST_F(SessionConfigSim, InteractiveAcceptGatesBothConnectionPackets)
 {
 	RakPeer *server = AddServer(8, 8);
 	RakPeer *client = AddClient();
-	server->SetSessionConfigInteractive(true);
+	server->SetSessionAdmissionPolicy(AdmissionPolicy::Interactive);
 	client->SetSessionConfig(kClientPayload, (unsigned int) std::strlen(kClientPayload));
 	ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, StartConnect(client, server));
 
@@ -468,12 +468,32 @@ TEST_F(SessionConfigSim, InteractiveAcceptGatesBothConnectionPackets)
 	ExpectPayload(fromServer, length, kServerPayload, std::strlen(kServerPayload));
 }
 
+TEST_F(SessionConfigSim, ChangingAdmissionPolicyOnlyAffectsNewRequests)
+{
+	auto *server = AddServer(2, 2);
+	auto *pending = AddClient();
+	server->SetSessionAdmissionPolicy(AdmissionPolicy::Interactive);
+	ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, StartConnect(pending, server));
+	RakNetGUID pendingGuid;
+	ASSERT_TRUE(WaitForRequest(server, pendingGuid));
+
+	server->SetSessionAdmissionPolicy(AdmissionPolicy::Automatic);
+	auto *next = AddClient();
+	ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, StartConnect(next, server));
+	ASSERT_TRUE(WaitForBoth(next, ID_CONNECTION_REQUEST_ACCEPTED, server, ID_NEW_INCOMING_CONNECTION));
+	EXPECT_EQ(1u, Count(server, ID_SESSION_CONFIG_REQUEST));
+	EXPECT_FALSE(Has(pending, ID_CONNECTION_REQUEST_ACCEPTED));
+
+	server->AcceptSession(pendingGuid, nullptr, 0);
+	EXPECT_TRUE(WaitFor(pending, ID_CONNECTION_REQUEST_ACCEPTED));
+}
+
 // A rejected peer must never see a connection, and must be told why.
 TEST_F(SessionConfigSim, InteractiveRejectFailsTheConnectionAttempt)
 {
 	RakPeer *server = AddServer(8, 8);
 	RakPeer *client = AddClient();
-	server->SetSessionConfigInteractive(true);
+	server->SetSessionAdmissionPolicy(AdmissionPolicy::Interactive);
 	ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, StartConnect(client, server));
 
 	RakNetGUID clientGuid;
@@ -506,7 +526,7 @@ TEST_F(SessionConfigSim, UnansweredHandshakeTimesOut)
 {
 	RakPeer *server = AddServer(8, 8);
 	RakPeer *client = AddClient();
-	server->SetSessionConfigInteractive(true);
+	server->SetSessionAdmissionPolicy(AdmissionPolicy::Interactive);
 	const uint32_t begin = NowMs();
 	ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, StartConnect(client, server));
 
@@ -529,7 +549,7 @@ TEST_F(SessionConfigSim, ServerIgnoresSessionRepliesSentByAClient)
 {
 	RakPeer *server = AddServer(8, 8);
 	RakPeer *client = AddClient();
-	server->SetSessionConfigInteractive(true);
+	server->SetSessionAdmissionPolicy(AdmissionPolicy::Interactive);
 	ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, StartConnect(client, server));
 
 	RakNetGUID clientGuid;
@@ -585,7 +605,7 @@ TEST_F(SessionConfigSim, RemotePayloadIsNulTerminatedPastItsLength)
 TEST_F(SessionConfigSim, StalledHandshakeStillConsumesAnIncomingSlot)
 {
 	RakPeer *server = AddServer(8, 1, 60000);
-	server->SetSessionConfigInteractive(true); // never answered, so the first client parks mid-handshake
+	server->SetSessionAdmissionPolicy(AdmissionPolicy::Interactive); // never answered, so the first client parks mid-handshake
 	RakPeer *client = AddClient();
 	ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, StartConnect(client, server));
 
@@ -708,7 +728,7 @@ TEST_F(SessionConfigSim, ApplicationTrafficIsBlockedUntilTheHandshakeCompletes)
 {
 	RakPeer *server = AddServer(8, 8);
 	RakPeer *client = AddClient();
-	server->SetSessionConfigInteractive(true);
+	server->SetSessionAdmissionPolicy(AdmissionPolicy::Interactive);
 	ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, StartConnect(client, server));
 
 	RakNetGUID clientGuid;
@@ -745,7 +765,7 @@ TEST_F(SessionConfigSim, InboundApplicationDataDuringHandshakeIsNotDelivered)
 {
 	RakPeer *server = AddServer(8, 8);
 	RakPeer *client = AddClient();
-	server->SetSessionConfigInteractive(true);
+	server->SetSessionAdmissionPolicy(AdmissionPolicy::Interactive);
 	ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, StartConnect(client, server));
 
 	RakNetGUID clientGuid;
@@ -907,7 +927,7 @@ TEST_F(SessionConfigSim, ClearingThePoolRestoresTheDefaultAccounting)
 	RakPeer *server = AddServer(8, 1, 60000);
 	server->SetMaximumPendingSessions(4, 0);
 	server->SetMaximumPendingSessions(0, 0);
-	server->SetSessionConfigInteractive(true);
+	server->SetSessionAdmissionPolicy(AdmissionPolicy::Interactive);
 	RakPeer *client = AddClient();
 	ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, StartConnect(client, server));
 
@@ -1274,7 +1294,7 @@ protected:
 	{
 		RakPeer *server = AddServer(8, 8);
 		RakPeer *client = AddClient();
-		server->SetSessionConfigInteractive(true);
+		server->SetSessionAdmissionPolicy(AdmissionPolicy::Interactive);
 		ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, StartConnect(client, server));
 		RakNetGUID clientGuid;
 		ASSERT_TRUE(WaitForRequest(server, clientGuid));
@@ -1294,7 +1314,7 @@ protected:
 	{
 		server = AddServer(8, 8, timeoutMs);
 		client = AddClient(timeoutMs);
-		server->SetSessionConfigInteractive(true);
+		server->SetSessionAdmissionPolicy(AdmissionPolicy::Interactive);
 		ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, StartConnect(client, server));
 		ASSERT_TRUE(WaitForRequest(server, clientGuid));
 	}
@@ -1643,7 +1663,7 @@ TEST_F(SessionHeldMessagesSim, CloseConnectionWhileHoldingDeliversNothing)
 TEST_F(SessionHeldMessagesSim, ShutdownWhileHoldingDeliversNothing)
 {
 	RakPeer *server = AddServer(8, 8, 60000);
-	server->SetSessionConfigInteractive(true);
+	server->SetSessionAdmissionPolicy(AdmissionPolicy::Interactive);
 	RakPeer *client = AddManualClient("10.0.9.1", 60000, 60000);
 	ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, StartConnect(client, server));
 	RakNetGUID clientGuid;

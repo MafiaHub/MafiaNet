@@ -3,6 +3,13 @@ Changelog
 
 All notable changes to MafiaNet are documented here.
 
+Unreleased
+----------
+
+* Session admission now uses the same ``AdmissionPolicy`` in ``Server::listen``,
+  ``ServerBuilder::admission_policy`` and ``RakPeerInterface::SetSessionAdmissionPolicy``.
+  The boolean setter has been removed. See :doc:`guide/player-server`.
+
 Version 0.27.0
 --------------
 

@@ -321,7 +321,7 @@ payload arrives first, so the server can refuse without ever having disclosed it
 
 .. code-block:: cpp
 
-   server->SetSessionConfigInteractive(true);
+   server->SetSessionAdmissionPolicy(MafiaNet::AdmissionPolicy::Interactive);
 
    case ID_SESSION_CONFIG_REQUEST:
        if (BuildTokenMatches(packet->data + 1, packet->length - 1)) {
@@ -350,7 +350,7 @@ against the incoming limit, which then bounds connected peers only:
 
 .. code-block:: cpp
 
-   server->SetSessionConfigInteractive(true);
+   server->SetSessionAdmissionPolicy(MafiaNet::AdmissionPolicy::Interactive);
    server->SetMaximumPendingSessions(32, 4);        // 32 may wait, at most 4 from one IP
    server->SetSessionTimeout(45000);                // how long an answer may take
    server->Startup(maxPlayers + 32, &sd, 1);        // room for both

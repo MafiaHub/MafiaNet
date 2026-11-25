@@ -42,6 +42,13 @@ struct RakNetBandwidth;
 class RouterInterface;
 class NetworkIDManager;
 
+/// How the server answers incoming session requests.
+enum class AdmissionPolicy
+{
+	Automatic,
+	Interactive
+};
+
 enum class DatagramSendStatus
 {
 	Queued,
@@ -465,13 +472,11 @@ public:
 	/// \return Pointer to the payload owned by that connection, or 0 when there is none
 	virtual const char *GetRemoteSessionConfig(const AddressOrGUID systemIdentifier, unsigned int *length) = 0;
 
-	/// Server: decide each client's session answer individually instead of replying automatically.
-	/// \details With this on, ID_SESSION_CONFIG_REQUEST is surfaced to the application and the connection
-	/// stays unreported until AcceptSession() or RejectSession() is called for that peer. Off by default, in
-	/// which case the payload set by SetSessionConfig() answers every client and no application code is
-	/// required. A peer that is never answered is timed out like any other incomplete connection attempt.
-	/// \param[in] interactive Whether to surface ID_SESSION_CONFIG_REQUEST for a per-client decision
-	virtual void SetSessionConfigInteractive(bool interactive) = 0;
+	/// Select the admission policy for subsequent incoming session requests.
+	/// Automatic (the default) replies with the payload from SetSessionConfig().
+	/// Interactive delivers ID_SESSION_CONFIG_REQUEST to Receive(). The session stays pending
+	/// until AcceptSession(), RejectSession(), or timeout. Changing policy leaves pending decisions open.
+	virtual void SetSessionAdmissionPolicy(AdmissionPolicy policy) = 0;
 
 	/// Server: accept a pending session request, sending \a data as this connection's payload.
 	/// \details Completes the handshake and surfaces the withheld ID_NEW_INCOMING_CONNECTION. Only

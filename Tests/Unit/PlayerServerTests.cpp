@@ -66,7 +66,7 @@ TEST(PlayerServer, OldLoginAndPlayerCannotTargetTheSameGuidAfterReconnect)
 TEST(PlayerServer, RequestCanDeferAndAbandonWithoutAllocatingAPlayer)
 {
 	SimulatedNetwork net;
-	auto &server = net.AddServer(1, JoinPolicy::Immediate, true);
+	auto &server = net.AddServer(1, JoinPolicy::Immediate, AdmissionPolicy::Interactive);
 	auto *host = static_cast<RakPeer *>(&server.transport());
 	auto *client = net.AddPeer(1);
 	std::vector<ConnectionRequest> requests;
@@ -274,7 +274,7 @@ TEST(PlayerServer, PlayerListContainsOnlyAcceptedSessionsInNumberOrder)
 TEST(PlayerServer, RefusedRequestReturnsReasonAndNeverCreatesAClient)
 {
 	SimulatedNetwork net;
-	auto &server = net.AddServer(1, JoinPolicy::Immediate, true);
+	auto &server = net.AddServer(1, JoinPolicy::Immediate, AdmissionPolicy::Interactive);
 	auto *host = static_cast<RakPeer *>(&server.transport());
 	auto *client = net.AddPeer(1);
 	server.on<ConnectionRequested>([](const ConnectionRequest &request)

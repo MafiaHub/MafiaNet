@@ -124,7 +124,7 @@ is established and authenticated.
 and the answer being queued; a GUID cannot. Use ``packet->guid`` from the
 ``ID_SESSION_CONFIG_REQUEST`` packet.
 
-**Answer every request.** Under ``SetSessionConfigInteractive(true)`` a peer that is never answered
+**Answer every request.** Under ``SetSessionAdmissionPolicy(MafiaNet::AdmissionPolicy::Interactive)`` a peer that is never answered
 holds a connection slot until the timeout expires, and the application never sees it. Make sure
 every code path reaches ``AcceptSession()`` or ``RejectSession()``.
 

@@ -75,7 +75,7 @@ public:
 	SimulatedNetwork(const SimulatedNetwork &) = delete;
 	SimulatedNetwork &operator=(const SimulatedNetwork &) = delete;
 
-	Server &AddServer(unsigned short slots, JoinPolicy policy, bool interactive = false);
+	Server &AddServer(unsigned short slots, JoinPolicy policy, AdmissionPolicy admission = AdmissionPolicy::Automatic);
 
 	// A started peer bound to 10.0.0.<n>:<port> (port 0 picks one).
 	RakPeer *AddPeer(unsigned int maxConnections, unsigned short maxIncoming = 0, unsigned short port = 0);

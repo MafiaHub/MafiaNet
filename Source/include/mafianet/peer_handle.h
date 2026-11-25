@@ -365,9 +365,9 @@ public:
 		return *this;
 	}
 
-	ServerBuilder &interactive_admission(bool enabled = true)
+	ServerBuilder &admission_policy(AdmissionPolicy policy)
 	{
-		interactive_ = enabled;
+		admission_ = policy;
 		return *this;
 	}
 
@@ -390,7 +390,7 @@ public:
 			e.startup = STARTUP_OTHER_FAILURE;
 			return Result<Peer>::err(e);
 		}
-		peer->SetSessionConfigInteractive(interactive_);
+		peer->SetSessionAdmissionPolicy(admission_);
 		StartupResult sr = peer->Startup(maxConnections_, &sd, 1);
 		if (sr != RAKNET_STARTED)
 		{
@@ -411,7 +411,7 @@ private:
 	std::string host_;
 	std::string password_;
 	EncryptionMode encryption_ = EncryptionMode::Required;
-	bool interactive_ = false;
+	AdmissionPolicy admission_ = AdmissionPolicy::Automatic;
 	bool hasIdentityKey_ = false;
 	uint8_t identityKey_[kIdentitySecretKeyBytes] = {};
 };

@@ -137,10 +137,10 @@ TEST_F(PeerFixture, AcceptAndRejectAreNoOpsForUnknownSystem)
 	SUCCEED();
 }
 
-TEST_F(PeerFixture, SessionConfigInteractiveTogglesWithoutStartup)
+TEST_F(PeerFixture, SessionAdmissionPolicyCanBeSetBeforeStartup)
 {
-	peer->SetSessionConfigInteractive(true);
-	peer->SetSessionConfigInteractive(false);
+	peer->SetSessionAdmissionPolicy(AdmissionPolicy::Interactive);
+	peer->SetSessionAdmissionPolicy(AdmissionPolicy::Automatic);
 	SUCCEED();
 }
 

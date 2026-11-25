@@ -138,7 +138,7 @@ without the server disclosing anything:
 
 .. code-block:: cpp
 
-   server->SetSessionConfigInteractive(true);
+   server->SetSessionAdmissionPolicy(MafiaNet::AdmissionPolicy::Interactive);
 
    case ID_SESSION_CONFIG_REQUEST:
        if (BuildMatches(packet->data + 1, packet->length - 1))

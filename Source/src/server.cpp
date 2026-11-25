@@ -174,7 +174,7 @@ uint32_t ClientConnection::send_encoded(ServerState &state, const BitStream &bit
 
 Result<Server> Server::listen(unsigned short port, unsigned short max_clients, JoinPolicy policy, AdmissionPolicy admission)
 {
-	auto started = Peer::server().port(port).max_connections(max_clients).interactive_admission(admission == AdmissionPolicy::Interactive).start();
+	auto started = Peer::server().port(port).max_connections(max_clients).admission_policy(admission).start();
 	if (!started)
 		return Result<Server>::err(started.error());
 	return Result<Server>::ok(Server(std::move(*started), policy));

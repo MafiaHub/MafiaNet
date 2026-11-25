@@ -18,11 +18,6 @@ enum class JoinPolicy
 	Immediate,
 	Manual
 };
-enum class AdmissionPolicy
-{
-	Automatic,
-	Interactive
-};
 enum class LeaveReason
 {
 	Disconnected,

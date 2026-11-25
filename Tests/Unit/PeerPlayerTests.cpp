@@ -41,7 +41,7 @@ TEST(PeerPlayers, DeferredSessionCannotJoinBeforeAdmission)
 	auto *server = net.AddPeer(1, 1);
 	auto *client = net.AddPeer(1);
 	const auto guid = ToPeerGuid(client->GetMyGUID());
-	server->SetSessionConfigInteractive(true);
+	server->SetSessionAdmissionPolicy(AdmissionPolicy::Interactive);
 	ASSERT_EQ(net.StartConnect(client, server), CONNECTION_ATTEMPT_STARTED);
 	ASSERT_TRUE(net.RunUntilReceived(server, ID_SESSION_CONFIG_REQUEST, 5000));
 	EXPECT_FALSE(server->AcceptPlayer(guid));

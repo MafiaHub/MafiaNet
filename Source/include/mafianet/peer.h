@@ -476,12 +476,8 @@ public:
 	/// \return Pointer to the payload owned by the connection, or 0 when there is none.
 	const char *GetRemoteSessionConfig(const AddressOrGUID systemIdentifier, unsigned int *length);
 
-	/// \brief Server: decide each client's session answer individually instead of replying automatically.
-	/// \details With this on, ID_SESSION_CONFIG_REQUEST is surfaced to the application and the connection
-	/// stays unreported until AcceptSession() or RejectSession() is called for that peer. Off by default,
-	/// in which case the payload set by SetSessionConfig() answers every client and no application code is
-	/// required.
-	void SetSessionConfigInteractive(bool interactive);
+	/// \copydoc RakPeerInterface::SetSessionAdmissionPolicy
+	void SetSessionAdmissionPolicy(AdmissionPolicy policy);
 
 	/// \brief Server: accept a pending session request, sending \a data as this connection's payload.
 	/// \details Only meaningful for a peer that surfaced ID_SESSION_CONFIG_REQUEST. Completes the
@@ -829,8 +825,7 @@ public:
 		unsigned char *remoteSessionConfigData;
 		unsigned int remoteSessionConfigLength;
 
-		// Set while connectMode==EXCHANGING_SESSION_DATA and SetSessionConfigInteractive(true) is in effect:
-		// the server surfaced ID_SESSION_CONFIG_REQUEST and is waiting for AcceptSession()/RejectSession().
+		// An interactive request was delivered and still awaits an application decision.
 		bool sessionConfigAwaitingLocalDecision;
 
 		// True when WE initiated this connection, i.e. we are the peer that will report
@@ -988,9 +983,7 @@ protected:
 	/// Our own session-handshake payload (see SetSessionConfig). On a client it is sent in
 	/// ID_SESSION_CONFIG_REQUEST; on a server it is the default answer in ID_SESSION_CONFIG.
 	MafiaNet::BitStream sessionConfig;
-	/// When true a server surfaces ID_SESSION_CONFIG_REQUEST and waits for AcceptSession()/RejectSession()
-	/// instead of answering automatically with sessionConfig.
-	bool sessionConfigInteractive;
+	std::atomic<AdmissionPolicy> sessionAdmissionPolicy{AdmissionPolicy::Automatic};
 	/// SetMaximumPendingSessions(). 0 total keeps peers mid-handshake in the incoming limit.
 	unsigned short maximumPendingSessions;
 	unsigned short maximumPendingSessionsPerAddress;

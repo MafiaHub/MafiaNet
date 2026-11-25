@@ -92,7 +92,7 @@ Use ``server.transport().GetReplication()`` to configure replication and its
 admission policy independently. For an existing server with custom bind or
 identity settings, move the ``Peer`` returned by ``Peer::server().start()`` into
 ``Server`` before receiving its first packet. Use
-``ServerBuilder::interactive_admission()`` to configure the handshake before startup.
+``ServerBuilder::admission_policy(AdmissionPolicy::Interactive)`` to configure the handshake before startup.
 
 Build the ``PlayerWelcome`` and ``PlayerLogin`` executables with
 ``MAFIANET_BUILD_SAMPLES=ON``. The first sends a typed welcome containing the

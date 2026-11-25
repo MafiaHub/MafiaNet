@@ -308,7 +308,6 @@ RakPeer::RakPeer()
 	nextRaceGroup = 1;
 	manualUpdate = false;
 	incomingDatagramEventHandler = 0;
-	sessionConfigInteractive = false;
 	maximumPendingSessions = 0;
 	maximumPendingSessionsPerAddress = 0;
 	sessionTimeout = 0;
@@ -2572,9 +2571,9 @@ const char *RakPeer::GetRemoteSessionConfig(const AddressOrGUID systemIdentifier
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-void RakPeer::SetSessionConfigInteractive(bool interactive)
+void RakPeer::SetSessionAdmissionPolicy(AdmissionPolicy policy)
 {
-	sessionConfigInteractive = interactive;
+	sessionAdmissionPolicy.store(policy, std::memory_order_relaxed);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -7008,7 +7007,7 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 							// Oversized payload is a protocol violation; drop without answering.
 							SetConnectMode(*remoteSystem, RemoteSystemStruct::DISCONNECT_ASAP_SILENTLY);
 						}
-						else if (sessionConfigInteractive)
+						else if (sessionAdmissionPolicy.load(std::memory_order_relaxed) == AdmissionPolicy::Interactive)
 						{
 							// Let the application decide. The connection stays unreported until it calls
 							// AcceptSession() or RejectSession(), or the handshake times out below.
