@@ -3,6 +3,7 @@
 #include "mafianet/remote_procedure_call.h"
 #include "mafianet/snapshot_replica.h"
 #include "mafianet/peer_interface.h"
+#include "mafianet/server.h"
 
 #include <cstdint>
 #include <cstdio>
@@ -44,6 +45,13 @@ int main()
 		return 1;
 	}
 	if (!registered || !replication)
+		return 1;
+	auto server = MafiaNet::Server::listen(0, {1});
+	if (!server)
+		return 1;
+	server->on<MafiaNet::PlayerJoined>([](MafiaNet::Player player) { player.disconnect(); });
+	server->poll();
+	if (!server->players().empty())
 		return 1;
 	std::printf("MafiaNet consumer OK\n");
 	return 0;

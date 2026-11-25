@@ -69,7 +69,8 @@ bool PumpUntil(const std::vector<Peer *> &peers, Pred pred)
 	{
 		for (Peer *peer : peers)
 			for (auto pkt : peer->incoming())
-				(void) pkt;
+				if (pkt.id() == ID_SESSION_CONFIG_REQUEST)
+					(*peer)->AcceptSession(pkt->guid, nullptr, 0);
 		if (pred())
 			return true;
 		RakSleep(30);

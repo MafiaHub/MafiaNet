@@ -38,10 +38,11 @@ TEST(PlayerRoster, UnassignedGuidCannotBecomeAPlayer)
 TEST(PeerPlayers, DeferredSessionCannotJoinBeforeAdmission)
 {
 	SimulatedNetwork net;
+	net.onSessionRequest = {};
 	auto *server = net.AddPeer(1, 1);
 	auto *client = net.AddPeer(1);
 	const auto guid = ToPeerGuid(client->GetMyGUID());
-	server->SetSessionConfigInteractive(true);
+
 	ASSERT_EQ(net.StartConnect(client, server), CONNECTION_ATTEMPT_STARTED);
 	ASSERT_TRUE(net.RunUntilReceived(server, ID_SESSION_CONFIG_REQUEST, 5000));
 	EXPECT_FALSE(server->AcceptPlayer(guid));
@@ -117,11 +118,11 @@ TEST(PeerPlayers, QueuedKickNotificationKeepsOldIdAfterSameGuidReconnects)
 	ASSERT_TRUE(net.RunUntil([&]
 	                         { return !server->GetPlayerId(guid); }, 5000));
 	net.Inbox(client).clear();
+	net.SetReceiveEnabled(server, true);
 	ASSERT_EQ(net.StartConnect(client, server), CONNECTION_ATTEMPT_STARTED);
 	ASSERT_TRUE(net.RunUntilReceived(client, ID_CONNECTION_REQUEST_ACCEPTED, 5000));
 	ASSERT_EQ(server->AcceptPlayer(guid), PlayerId{2});
 
-	net.SetReceiveEnabled(server, true);
 	ASSERT_TRUE(net.RunUntilReceived(server, ID_DISCONNECTION_NOTIFICATION, 5000));
 	EXPECT_EQ(net.Find(server, ID_DISCONNECTION_NOTIFICATION)->playerId, PlayerId{1});
 	EXPECT_FALSE(server->GetPlayerGuid(PlayerId{1}));
@@ -189,7 +190,7 @@ TEST(PeerPlayers, TimeoutRetiresPlayerBeforeNotificationIsConsumed)
 	EXPECT_FALSE(server->GetPlayerGuid(PlayerId{1}));
 }
 
-TEST(PeerPlayers, CrossedOutgoingPlaintextConnectionsDoNotConsumePlayerNumbers)
+TEST(PeerPlayers, CrossedPlaintextConnectionsHaveOneAcceptingPeer)
 {
 	SimulatedNetwork net;
 	net.SetNewPeerEncryptionMode(EncryptionMode::Plaintext);
@@ -200,10 +201,13 @@ TEST(PeerPlayers, CrossedOutgoingPlaintextConnectionsDoNotConsumePlayerNumbers)
 
 	ASSERT_EQ(net.StartConnect(first, second), CONNECTION_ATTEMPT_STARTED);
 	ASSERT_EQ(net.StartConnect(second, first), CONNECTION_ATTEMPT_STARTED);
-	ASSERT_TRUE(net.RunUntilReceived(first, ID_CONNECTION_REQUEST_ACCEPTED, 5000));
-	ASSERT_TRUE(net.RunUntilReceived(second, ID_CONNECTION_REQUEST_ACCEPTED, 5000));
-	EXPECT_FALSE(first->AcceptPlayer(secondGuid));
-	EXPECT_FALSE(second->AcceptPlayer(firstGuid));
+	auto *accepting = first->GetMyGUID().g > second->GetMyGUID().g ? first : second;
+	auto *connecting = accepting == first ? second : first;
+	ASSERT_TRUE(net.RunUntilReceived(accepting, ID_NEW_INCOMING_CONNECTION, 5000));
+	ASSERT_TRUE(net.RunUntilReceived(connecting, ID_CONNECTION_REQUEST_ACCEPTED, 5000));
+	EXPECT_TRUE(net.Received(accepting, ID_SESSION_CONFIG_REQUEST));
+	EXPECT_FALSE(net.Received(connecting, ID_SESSION_CONFIG_REQUEST));
+	EXPECT_FALSE(connecting->AcceptPlayer(ToPeerGuid(accepting->GetMyGUID())));
 
 	first->CloseConnection(ToGuid(secondGuid), true);
 	ASSERT_TRUE(net.RunUntilReceived(first, ID_DISCONNECTION_NOTIFICATION, 5000));

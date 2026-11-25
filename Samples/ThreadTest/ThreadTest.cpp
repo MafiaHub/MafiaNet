@@ -17,6 +17,7 @@
 /// \brief Tests multiple readers and writers on the same instance of RakPeer.
 
 
+#include "../sample_session.h"
 #include "mafianet/peer_interface.h"
 
 #include "mafianet/get_time.h"
@@ -64,9 +65,9 @@ RAK_THREAD_DECLARATION(ConsumerThread)
 	{
 		//		printf("Thread %u reading...\n", i);
 		if (i & 1)
-			p = peer1->Receive();
+			p = Sample::ReceiveAndAcceptRequests(peer1);
 		else
-			p = peer2->Receive();
+			p = Sample::ReceiveAndAcceptRequests(peer2);
 		//	printf("Thread %u done reading...\n", i);
 
 		if (p)

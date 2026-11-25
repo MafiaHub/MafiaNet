@@ -13,6 +13,7 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
+#include "../sample_session.h"
 #include "mafianet/get_time.h"
 #include "mafianet/peer_interface.h"
 #include "mafianet/message_identifiers.h"
@@ -106,7 +107,7 @@ int main(void)
 	while (1)
 	{
 		// Process packets
-		p = rakPeer->Receive();
+		p = Sample::ReceiveAndAcceptRequests(rakPeer);
 		while (p)
 		{
 			if (p->data[0] == ID_NEW_INCOMING_CONNECTION)
@@ -115,7 +116,7 @@ int main(void)
 				printf("ID_CONNECTION_REQUEST_ACCEPTED\n");
 
 			rakPeer->DeallocatePacket(p);
-			p = rakPeer->Receive();
+			p = Sample::ReceiveAndAcceptRequests(rakPeer);
 		}
 
 

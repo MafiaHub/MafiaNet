@@ -137,13 +137,6 @@ TEST_F(PeerFixture, AcceptAndRejectAreNoOpsForUnknownSystem)
 	SUCCEED();
 }
 
-TEST_F(PeerFixture, SessionConfigInteractiveTogglesWithoutStartup)
-{
-	peer->SetSessionConfigInteractive(true);
-	peer->SetSessionConfigInteractive(false);
-	SUCCEED();
-}
-
 TEST(SessionConfigMessageIds, AreBelowUserPacketEnum)
 {
 	EXPECT_LT((int) ID_SESSION_CONFIG_REQUEST, (int) ID_USER_PACKET_ENUM);

@@ -13,6 +13,7 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
+#include "../sample_session.h"
 #include "mafianet/peer_interface.h"
 #include <stdio.h>
 #include "mafianet/kbhit.h"
@@ -45,7 +46,7 @@ void ReadAllPackets(void)
 {
 	char str[64], str2[64];
 	Packet *packet;
-	for (packet = rakPeer->Receive(); packet; rakPeer->DeallocatePacket(packet), packet = rakPeer->Receive())
+	for (packet = Sample::ReceiveAndAcceptRequests(rakPeer); packet; rakPeer->DeallocatePacket(packet), packet = Sample::ReceiveAndAcceptRequests(rakPeer))
 	{
 		packet->guid.ToString(str, 64);
 		packet->systemAddress.ToString(true, str2, static_cast<size_t>(64));

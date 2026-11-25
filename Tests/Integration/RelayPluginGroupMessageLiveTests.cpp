@@ -73,6 +73,8 @@ bool PumpUntil(std::vector<Peer *> peers, Pred pred, std::vector<unsigned char> 
 		{
 			for (auto pkt : peers[i]->incoming())
 			{
+				if (pkt.id() == ID_SESSION_CONFIG_REQUEST)
+					(*peers[i])->AcceptSession(pkt->guid, nullptr, 0);
 				if (clientRelayEvents && i > 0 && pkt->length >= 2 && pkt->data[0] == ID_RELAY_PLUGIN)
 					clientRelayEvents->push_back(pkt->data[1]);
 			}

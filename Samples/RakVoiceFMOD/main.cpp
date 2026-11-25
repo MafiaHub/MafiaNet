@@ -16,6 +16,7 @@
 #define INTERACTIVE
 
 #if defined(INTERACTIVE)
+#include "../sample_session.h"
 #include "mafianet/kbhit.h"
 #endif
 
@@ -226,7 +227,7 @@ int main(void)
 
 #endif
 
-		p = rakPeer->Receive();
+		p = Sample::ReceiveAndAcceptRequests(rakPeer);
 		while (p)
 		{
 			if (p->data[0] == ID_CONNECTION_REQUEST_ACCEPTED)
@@ -244,7 +245,7 @@ int main(void)
 			}
 
 			rakPeer->DeallocatePacket(p);
-			p = rakPeer->Receive();
+			p = Sample::ReceiveAndAcceptRequests(rakPeer);
 		}
 
 		fmodSystem->update();

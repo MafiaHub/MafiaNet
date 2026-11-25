@@ -13,6 +13,7 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
+#include "../sample_session.h"
 #include "mafianet/peer_interface.h"
 #include "mafianet/get_time.h"
 #include "mafianet/message_identifiers.h"
@@ -271,7 +272,7 @@ int main()
 		}
 		else
 		{
-			packet = receiver->Receive();
+			packet = Sample::ReceiveAndAcceptRequests(receiver);
 			while (packet)
 			{
 				switch (packet->data[0])
@@ -316,7 +317,7 @@ int main()
 
 
 				receiver->DeallocatePacket(packet);
-				packet = receiver->Receive();
+				packet = Sample::ReceiveAndAcceptRequests(receiver);
 			}
 		}
 

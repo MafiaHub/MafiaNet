@@ -275,6 +275,9 @@ TEST_F(LoopbackSoak, ThreadedPeersUnderTrafficChurnAndRealCrossConnects)
 				const bool current = remote >= 0 && byAddress.count(packet->systemAddress) != 0 && byAddress[packet->systemAddress] == remote;
 				switch (packet->data[0])
 				{
+				case ID_SESSION_CONFIG_REQUEST:
+					peer->AcceptSession(packet->guid, nullptr, 0);
+					break;
 				case ID_CONNECTION_REQUEST_ACCEPTED:
 				case ID_NEW_INCOMING_CONNECTION:
 					if (!current)

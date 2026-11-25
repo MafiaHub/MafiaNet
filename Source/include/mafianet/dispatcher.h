@@ -143,6 +143,14 @@ public:
 		return id;
 	}
 
+	/// Register an outgoing message without installing a receive callback.
+	template <class T>
+	void register_message(MessageID id)
+	{
+		typeIds_[std::type_index(typeid(T))] = id;
+		handlers_.try_emplace(id);
+	}
+
 	/// \brief Register \a handler for a bare identifier \a id.
 	/// \details Use for engine notifications (ID_NEW_INCOMING_CONNECTION,
 	/// ID_DISCONNECTION_NOTIFICATION, ...) or for messages you decode by hand.
@@ -183,7 +191,7 @@ public:
 
 		const MessageID id = static_cast<MessageID>(packet.data[idOffset]);
 		const auto it = handlers_.find(id);
-		if (it == handlers_.end())
+		if (it == handlers_.end() || !it->second)
 			return false;
 
 		it->second(packet, idOffset + sizeof(MessageID));

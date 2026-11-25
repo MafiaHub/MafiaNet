@@ -49,9 +49,8 @@ Exchanged after the transport connection is established but before either side r
    * - ID
      - Description
    * - ``ID_SESSION_CONFIG_REQUEST``
-     - Client to server: the connecting peer's session payload. Surfaced to the application only
-       under ``SetSessionConfigInteractive(true)``, which must then answer with ``AcceptSession()``
-       or ``RejectSession()``.
+     - Every incoming request delivers the client's session payload to the server. Answer it with
+       ``AcceptSession()`` or ``RejectSession()``.
    * - ``ID_SESSION_CONFIG``
      - Server to client: the accepting peer's session payload. Consumed internally; read it with
        ``GetRemoteSessionConfig()``. Ignored if a client sends it to a server.

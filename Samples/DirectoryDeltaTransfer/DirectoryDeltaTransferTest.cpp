@@ -13,6 +13,7 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
+#include "../sample_session.h"
 #include "mafianet/get_time.h"
 #include "mafianet/peer_interface.h"
 #include "mafianet/message_identifiers.h"
@@ -178,7 +179,7 @@ int main(void)
 #ifdef USE_TCP
 		p = tcp1.Receive();
 #else
-		p = rakPeer->Receive();
+		p = Sample::ReceiveAndAcceptRequests(rakPeer);
 #endif
 
 #ifdef USE_TCP
@@ -226,7 +227,7 @@ int main(void)
 			else if (p->data[0] == ID_CONNECTION_ATTEMPT_FAILED)
 				printf("ID_CONNECTION_ATTEMPT_FAILED\n");
 			rakPeer->DeallocatePacket(p);
-			p = rakPeer->Receive();
+			p = Sample::ReceiveAndAcceptRequests(rakPeer);
 #endif
 		}
 

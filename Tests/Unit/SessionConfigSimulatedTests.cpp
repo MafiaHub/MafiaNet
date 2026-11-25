@@ -80,7 +80,7 @@ public:
 		(peer->*&SendGateBypass::SendBuffered)(
 		    (const char *) bs.GetData(), bs.GetNumberOfBitsUsed(), Priority::Immediate,
 		    reliability, orderingChannel, target, false,
-		    RemoteSystemStruct::NO_ACTION, 0, true);
+		    RemoteSystemStruct::NO_ACTION, 0, true, 0);
 	}
 };
 
@@ -158,6 +158,17 @@ std::string IdList(const std::vector<Message> &inbox)
 class SessionConfigSim : public ::testing::Test
 {
 protected:
+	void SetUp() override { net.onSessionRequest = {}; }
+
+	void ReplyToRequests(RakPeer *server, std::string response = {})
+	{
+		net.onSessionRequest = [server, response = std::move(response)](RakPeer &peer, const Packet &request)
+		{
+			EXPECT_EQ(&peer, server);
+			peer.AcceptSession(request.guid, response.data(), static_cast<unsigned int>(response.size()));
+		};
+	}
+
 	void TearDown() override
 	{
 		// Peers the fixture drives itself go before the network the fixture owns.
@@ -306,7 +317,7 @@ protected:
 	RakPeer *AddPooledServer(unsigned short maxIncoming, unsigned short pool, unsigned short perAddress, TimeMS timeoutMs = 60000)
 	{
 		RakPeer *peer = AddServer((unsigned int) maxIncoming + pool, maxIncoming, timeoutMs);
-		peer->SetSessionConfigInteractive(true);
+
 		peer->SetMaximumPendingSessions(pool, perAddress);
 		return peer;
 	}
@@ -336,13 +347,12 @@ bool CarriesText(const Message *message, const char *text)
 }
 } // namespace
 
-// Static mode: no application code beyond SetSessionConfig. Each peer can read the other's payload at
-// the instant its connection packet surfaces.
-TEST_F(SessionConfigSim, StaticExchangeDeliversBothPayloads)
+// Both peers can read the remote payload as soon as the connection is reported.
+TEST_F(SessionConfigSim, AcceptanceDeliversBothPayloads)
 {
 	RakPeer *server = AddServer(8, 8);
 	RakPeer *client = AddClient();
-	server->SetSessionConfig(kServerPayload, (unsigned int) std::strlen(kServerPayload));
+	ReplyToRequests(server, kServerPayload);
 	client->SetSessionConfig(kClientPayload, (unsigned int) std::strlen(kClientPayload));
 	ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, StartConnect(client, server));
 
@@ -369,12 +379,11 @@ TEST_F(SessionConfigSim, StaticExchangeDeliversBothPayloads)
 	    << "client " << IdList(Inbox(client)) << " server " << IdList(Inbox(server));
 }
 
-// Static-mode gating: the server's connection packet is withheld while the library waits for the
-// client's payload. In static mode correct code and code that released the packet at transport-up are
+// The server replies as soon as it receives the request. Correct code and a premature notification are
 // indistinguishable to a poll, so this asserts the slot invariant "reported implies the whole payload is
 // stored" between every pair of update cycles. The client payload is large enough to need many
 // datagrams, so the handshake spends a long, observable time in the gated state.
-TEST_F(SessionConfigSim, StaticModeWithholdsTheConnectionUntilTheClientPayloadArrives)
+TEST_F(SessionConfigSim, ConnectionWaitsForTheCompleteClientPayload)
 {
 	std::string bigPayload;
 	bigPayload.reserve(48000);
@@ -383,7 +392,7 @@ TEST_F(SessionConfigSim, StaticModeWithholdsTheConnectionUntilTheClientPayloadAr
 
 	RakPeer *server = AddServer(8, 8);
 	RakPeer *client = AddClient();
-	server->SetSessionConfig(kServerPayload, (unsigned int) std::strlen(kServerPayload));
+	ReplyToRequests(server, kServerPayload);
 	client->SetSessionConfig(bigPayload.data(), (unsigned int) bigPayload.size());
 	ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, StartConnect(client, server));
 
@@ -418,6 +427,7 @@ TEST_F(SessionConfigSim, StaticModeWithholdsTheConnectionUntilTheClientPayloadAr
 TEST_F(SessionConfigSim, EmptyPayloadsStillConnect)
 {
 	RakPeer *server = AddServer(8, 8);
+	ReplyToRequests(server);
 	RakPeer *client = AddClient();
 	ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, StartConnect(client, server));
 	ASSERT_TRUE(WaitForBoth(client, ID_CONNECTION_REQUEST_ACCEPTED, server, ID_NEW_INCOMING_CONNECTION));
@@ -430,13 +440,12 @@ TEST_F(SessionConfigSim, EmptyPayloadsStillConnect)
 	EXPECT_EQ(0u, length);
 }
 
-// The load-bearing assertion. In interactive mode the server holds the decision, so neither peer may
+// The load-bearing assertion. The server holds the decision, so neither peer may
 // report a connection until it answers.
-TEST_F(SessionConfigSim, InteractiveAcceptGatesBothConnectionPackets)
+TEST_F(SessionConfigSim, EveryIncomingConnectionWaitsForAnExplicitAnswer)
 {
 	RakPeer *server = AddServer(8, 8);
 	RakPeer *client = AddClient();
-	server->SetSessionConfigInteractive(true);
 	client->SetSessionConfig(kClientPayload, (unsigned int) std::strlen(kClientPayload));
 	ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, StartConnect(client, server));
 
@@ -469,11 +478,11 @@ TEST_F(SessionConfigSim, InteractiveAcceptGatesBothConnectionPackets)
 }
 
 // A rejected peer must never see a connection, and must be told why.
-TEST_F(SessionConfigSim, InteractiveRejectFailsTheConnectionAttempt)
+TEST_F(SessionConfigSim, ExplicitRejectionFailsTheConnectionAttempt)
 {
 	RakPeer *server = AddServer(8, 8);
 	RakPeer *client = AddClient();
-	server->SetSessionConfigInteractive(true);
+
 	ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, StartConnect(client, server));
 
 	RakNetGUID clientGuid;
@@ -506,7 +515,7 @@ TEST_F(SessionConfigSim, UnansweredHandshakeTimesOut)
 {
 	RakPeer *server = AddServer(8, 8);
 	RakPeer *client = AddClient();
-	server->SetSessionConfigInteractive(true);
+
 	const uint32_t begin = NowMs();
 	ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, StartConnect(client, server));
 
@@ -529,7 +538,7 @@ TEST_F(SessionConfigSim, ServerIgnoresSessionRepliesSentByAClient)
 {
 	RakPeer *server = AddServer(8, 8);
 	RakPeer *client = AddClient();
-	server->SetSessionConfigInteractive(true);
+
 	ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, StartConnect(client, server));
 
 	RakNetGUID clientGuid;
@@ -568,7 +577,7 @@ TEST_F(SessionConfigSim, RemotePayloadIsNulTerminatedPastItsLength)
 	RakPeer *server = AddServer(8, 8);
 	RakPeer *client = AddClient();
 	const char payload[] = "no-trailing-nul";
-	server->SetSessionConfig(payload, (unsigned int) std::strlen(payload));
+	ReplyToRequests(server, payload);
 	ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, StartConnect(client, server));
 	ASSERT_TRUE(WaitFor(client, ID_CONNECTION_REQUEST_ACCEPTED));
 
@@ -580,12 +589,11 @@ TEST_F(SessionConfigSim, RemotePayloadIsNulTerminatedPastItsLength)
 	EXPECT_EQ((size_t) length, std::strlen(config));
 }
 
-// Admission control must see peers that are still running the session handshake: they already own a
-// slot, so counting only CONNECTED peers would let stalled handshakes push past the incoming limit.
-TEST_F(SessionConfigSim, StalledHandshakeStillConsumesAnIncomingSlot)
+// A raw listening peer has a pending pool by default.
+TEST_F(SessionConfigSim, DefaultPendingPoolKeepsAStalledHandshakeOutOfTheIncomingLimit)
 {
 	RakPeer *server = AddServer(8, 1, 60000);
-	server->SetSessionConfigInteractive(true); // never answered, so the first client parks mid-handshake
+
 	RakPeer *client = AddClient();
 	ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, StartConnect(client, server));
 
@@ -594,9 +602,9 @@ TEST_F(SessionConfigSim, StalledHandshakeStillConsumesAnIncomingSlot)
 
 	RakPeer *second = AddClient();
 	ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, StartConnect(second, server));
-	ASSERT_TRUE(WaitFor(second, ID_NO_FREE_INCOMING_CONNECTIONS))
-	    << "a peer stalled in the session handshake did not count against the incoming limit";
-	EXPECT_EQ(1u, Count(server, ID_SESSION_CONFIG_REQUEST));
+	ASSERT_TRUE(Until([&]
+	                  { return Count(server, ID_SESSION_CONFIG_REQUEST) == 2; }, kConnectTimeoutMs));
+	EXPECT_EQ(server->NumberOfConnections(), 0u);
 }
 
 // A complete connection lifecycle behaves identically whether or not a session payload is configured.
@@ -614,9 +622,9 @@ TEST_P(SessionConfigSimPipeline, FullConnectionLifecycleBehavesIdentically)
 
 	RakPeer *server = AddServer(8, 8);
 	RakPeer *client = AddClient();
+	ReplyToRequests(server, withConfig ? kServerPayload : "");
 	if (withConfig)
 	{
-		server->SetSessionConfig(kServerPayload, expectedServerLen);
 		client->SetSessionConfig(kClientPayload, expectedClientLen);
 	}
 
@@ -708,7 +716,7 @@ TEST_F(SessionConfigSim, ApplicationTrafficIsBlockedUntilTheHandshakeCompletes)
 {
 	RakPeer *server = AddServer(8, 8);
 	RakPeer *client = AddClient();
-	server->SetSessionConfigInteractive(true);
+
 	ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, StartConnect(client, server));
 
 	RakNetGUID clientGuid;
@@ -745,7 +753,7 @@ TEST_F(SessionConfigSim, InboundApplicationDataDuringHandshakeIsNotDelivered)
 {
 	RakPeer *server = AddServer(8, 8);
 	RakPeer *client = AddClient();
-	server->SetSessionConfigInteractive(true);
+
 	ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, StartConnect(client, server));
 
 	RakNetGUID clientGuid;
@@ -871,9 +879,8 @@ TEST_F(SessionConfigSim, PendingPoolSlotIsFreedByADecision)
 	EXPECT_FALSE(Has(server, ID_SESSION_CONFIG_ABANDONED)) << "a peer the application refused was reported as abandoned";
 }
 
-// With a pool the handshake may start on a full server, but an AcceptSession() that would overfill it is
-// refused rather than honoured.
-TEST_F(SessionConfigSim, AcceptSessionCannotOverfillTheIncomingLimit)
+// A full server keeps the same request alive until the application retries.
+TEST_F(SessionConfigSim, FullAcceptKeepsRequestAvailableForStatusAndRetry)
 {
 	RakPeer *server = AddPooledServer(1, 4, 0);
 	RakPeer *client = AddClient(60000);
@@ -892,31 +899,35 @@ TEST_F(SessionConfigSim, AcceptSessionCannotOverfillTheIncomingLimit)
 	    << "a full server with a pool refused to even start the handshake; second saw " << IdList(Inbox(second));
 	const RakNetGUID secondGuid = Inbox(server).back().guid;
 
-	server->AcceptSession(secondGuid, nullptr, 0);
-	ASSERT_TRUE(WaitFor(second, ID_CONNECTION_ATTEMPT_FAILED)) << "an accept past the incoming limit was honoured";
+	EXPECT_EQ(server->AcceptSession(secondGuid, nullptr, 0), SessionAcceptResult::Full);
+	server->SendSessionStatus(secondGuid, "waiting", 7);
+	ASSERT_TRUE(WaitFor(second, ID_SESSION_CONFIG_STATUS));
 
 	Pump(1000);
 	EXPECT_EQ(1u, Count(server, ID_NEW_INCOMING_CONNECTION)) << "the server reported a connection past its limit";
 	EXPECT_FALSE(Has(second, ID_CONNECTION_REQUEST_ACCEPTED));
 	EXPECT_EQ(1u, server->NumberOfConnections());
+	client->CloseConnection(net.AddressOf(server), true);
+	ASSERT_TRUE(WaitFor(server, ID_DISCONNECTION_NOTIFICATION));
+	server->AcceptSession(secondGuid, nullptr, 0);
+	EXPECT_TRUE(WaitFor(second, ID_CONNECTION_REQUEST_ACCEPTED));
 }
 
-// SetMaximumPendingSessions(0, ...) restores the historic accounting exactly.
-TEST_F(SessionConfigSim, ClearingThePoolRestoresTheDefaultAccounting)
+// Zero pending capacity closes the queue to new arrivals.
+TEST_F(SessionConfigSim, ZeroPendingCapacityClosesTheWaitingQueue)
 {
 	RakPeer *server = AddServer(8, 1, 60000);
 	server->SetMaximumPendingSessions(4, 0);
 	server->SetMaximumPendingSessions(0, 0);
-	server->SetSessionConfigInteractive(true);
+
 	RakPeer *client = AddClient();
 	ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, StartConnect(client, server));
 
-	RakNetGUID stalledGuid;
-	ASSERT_TRUE(WaitForRequest(server, stalledGuid));
+	ASSERT_TRUE(WaitFor(client, ID_NO_FREE_INCOMING_CONNECTIONS));
 
 	RakPeer *second = AddClient(60000);
 	ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, StartConnect(second, server));
-	ASSERT_TRUE(WaitFor(second, ID_NO_FREE_INCOMING_CONNECTIONS)) << "without a pool a stalled handshake must still hold its incoming slot";
+	ASSERT_TRUE(WaitFor(second, ID_NO_FREE_INCOMING_CONNECTIONS));
 }
 
 // The session timeout replaces the connection timeout for the handshake, on both ends, and the server is
@@ -1255,26 +1266,12 @@ protected:
 		ExpectBurstDelivered(connecting, 2 * kBurst);
 	}
 
-	// Static mode: the accepting side answers the request the moment it arrives, so the link goes bad as
-	// soon as the connecting side is in the handshake.
-	void RunStatic(ReplyFate fate)
+	// Defer acceptance until the link can drop or delay the reply.
+	void RunWithDelayedReply(ReplyFate fate)
 	{
 		RakPeer *server = AddServer(8, 8);
 		RakPeer *client = AddClient();
-		ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, StartConnect(client, server));
-		ASSERT_TRUE(Until([&]
-		                  { return SlotInspector::SlotFor(client, server->GetMyGUID()).exchanging; }, kConnectTimeoutMs));
-		SpoilLink(server, client, fate);
-		ASSERT_NO_FATAL_FAILURE(LetTheReplyGoBad(server, client));
-		RunBurst(server, client);
-	}
 
-	// Interactive mode: the reply goes out when the application calls AcceptSession().
-	void RunInteractive(ReplyFate fate)
-	{
-		RakPeer *server = AddServer(8, 8);
-		RakPeer *client = AddClient();
-		server->SetSessionConfigInteractive(true);
 		ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, StartConnect(client, server));
 		RakNetGUID clientGuid;
 		ASSERT_TRUE(WaitForRequest(server, clientGuid));
@@ -1294,7 +1291,7 @@ protected:
 	{
 		server = AddServer(8, 8, timeoutMs);
 		client = AddClient(timeoutMs);
-		server->SetSessionConfigInteractive(true);
+
 		ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, StartConnect(client, server));
 		ASSERT_TRUE(WaitForRequest(server, clientGuid));
 	}
@@ -1326,9 +1323,9 @@ protected:
 		}
 	}
 
-	// An ID_SESSION_CONFIG carrying `payloadBytes` bytes, as AcceptSession() or a static server sends it, but of
+	// An ID_SESSION_CONFIG carrying `payloadBytes` bytes, as AcceptSession() sends it, but of
 	// any size: a server built with a larger MAXIMUM_SESSION_CONFIG_SIZE than this binary sends one this binary
-	// must refuse (AcceptSession clamps to the sender's own limit, not the receiver's).
+	// must refuse (AcceptSession enforces the sender's own limit, not the receiver's).
 	void InjectSessionConfig(RakPeer *from, const RakPeer *to, unsigned int payloadBytes, Reliability reliability = Reliability::ReliableOrdered)
 	{
 		std::vector<unsigned char> payload(payloadBytes, 0x5A);
@@ -1376,22 +1373,12 @@ protected:
 
 TEST_F(SessionHeldMessagesSim, BurstOvertakingALostSessionReplyIsDeliveredAfterTheConnection)
 {
-	RunStatic(ReplyFate::Lost);
+	RunWithDelayedReply(ReplyFate::Lost);
 }
 
 TEST_F(SessionHeldMessagesSim, BurstOvertakingADelayedSessionReplyIsDeliveredAfterTheConnection)
 {
-	RunStatic(ReplyFate::Delayed);
-}
-
-TEST_F(SessionHeldMessagesSim, InteractiveBurstOvertakingALostSessionReplyIsDeliveredAfterTheConnection)
-{
-	RunInteractive(ReplyFate::Lost);
-}
-
-TEST_F(SessionHeldMessagesSim, InteractiveBurstOvertakingADelayedSessionReplyIsDeliveredAfterTheConnection)
-{
-	RunInteractive(ReplyFate::Delayed);
+	RunWithDelayedReply(ReplyFate::Delayed);
 }
 
 // Both peers connect at once; the lower GUID's handshake wins, so the higher peer is the accepting side
@@ -1407,6 +1394,7 @@ TEST_F(SessionHeldMessagesSim, CrossConnectBurstOvertakingALostSessionReplyIsDel
 	ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, StartConnect(higher, lower));
 	ASSERT_TRUE(Until([&]
 	                  { return SlotInspector::SlotFor(lower, higher->GetMyGUID()).exchanging; }, kConnectTimeoutMs));
+	ReplyToRequests(higher);
 	SpoilLink(higher, lower, ReplyFate::Lost);
 	ASSERT_NO_FATAL_FAILURE(LetTheReplyGoBad(higher, lower));
 	ASSERT_NO_FATAL_FAILURE(RunBurst(higher, lower));
@@ -1600,6 +1588,7 @@ TEST_F(SessionHeldMessagesSim, PluginsSeeHeldMessagesWhenTheyAreReleased)
 	ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, StartConnect(client, server));
 	ASSERT_TRUE(Until([&]
 	                  { return SlotInspector::SlotFor(client, server->GetMyGUID()).exchanging; }, kConnectTimeoutMs));
+	ReplyToRequests(server);
 	SpoilLink(server, client, ReplyFate::Lost);
 	ASSERT_NO_FATAL_FAILURE(LetTheReplyGoBad(server, client));
 	ASSERT_NO_FATAL_FAILURE(SendBurst(server, client->GetMyGUID(), 0, kBurst));
@@ -1643,7 +1632,7 @@ TEST_F(SessionHeldMessagesSim, CloseConnectionWhileHoldingDeliversNothing)
 TEST_F(SessionHeldMessagesSim, ShutdownWhileHoldingDeliversNothing)
 {
 	RakPeer *server = AddServer(8, 8, 60000);
-	server->SetSessionConfigInteractive(true);
+
 	RakPeer *client = AddManualClient("10.0.9.1", 60000, 60000);
 	ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, StartConnect(client, server));
 	RakNetGUID clientGuid;
@@ -1701,7 +1690,7 @@ TEST_F(SessionHeldMessagesSim, ForgedAcceptFromAnIncomingPeerIsIgnored)
 {
 	RakPeer *server = AddServer(8, 8, 60000);
 	RakPeer *client = AddClient(60000);
-	server->SetSessionConfig(kServerPayload, (unsigned int) std::strlen(kServerPayload));
+	ReplyToRequests(server, kServerPayload);
 	client->SetSessionConfig(kClientPayload, (unsigned int) std::strlen(kClientPayload));
 	SimulatedNetwork::LinkRule slow;
 	slow.delayMs = 50;
@@ -1750,6 +1739,7 @@ TEST_F(SessionHeldMessagesSim, ForgedAcceptFromAnIncomingPeerIsIgnored)
 TEST_F(SessionHeldMessagesSim, ForgedAcceptOnAnEstablishedIncomingConnectionIsIgnoredWithIPMigration)
 {
 	RakPeer *server = AddServer(8, 8, 60000);
+	ReplyToRequests(server);
 	RakPeer *client = AddClient(60000);
 	server->AllowConnectionResponseIPMigration(true);
 	ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, StartConnect(client, server));

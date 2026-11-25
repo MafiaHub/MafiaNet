@@ -93,7 +93,8 @@ TEST(PeerHandle, LoopbackIdBranchesAndIncomingRange)
 	{
 		for (PacketPtr pkt = server.receive(); pkt; pkt = server.receive())
 		{
-			// Drain the server side (ID_NEW_INCOMING_CONNECTION, etc.).
+			if (pkt.id() == ID_SESSION_CONFIG_REQUEST)
+				server->AcceptSession(pkt->guid, nullptr, 0);
 		}
 		for (PacketPtr pkt = client.receive(); pkt; pkt = client.receive())
 		{

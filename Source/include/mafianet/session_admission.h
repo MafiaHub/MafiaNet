@@ -1,68 +1,41 @@
-/*
- *  Copyright (c) 2026, MafiaHub
- *
- *  This source code is licensed under the MIT-style license found in the
- *  license.txt file in the root directory of this source tree.
- */
-
-/// \file session_admission.h
-/// \brief The slot accounting RakPeer applies to remote-initiated peers, as pure functions.
-///
-/// Kept out of RakPeer so the rules are unit tested directly rather than only through loopback traffic.
-/// RakPeer gathers the counts on the network thread and asks these; they hold no state of their own.
-
+// Copyright (c) 2026, MafiaHub. MIT license.
 #pragma once
+
+#include <cstdint>
 
 namespace MafiaNet
 {
-namespace SessionAdmission
+/// Reserved callers may use any connected slot. Public callers share connected - reserved slots.
+enum class ConnectionSlot
 {
-/// What a server has configured. maxPending==0 means no pending pool (SetMaximumPendingSessions not used).
-struct Limits
-{
-	unsigned int maxIncoming = 0;
-	unsigned int maxPending = 0;
-	unsigned int maxPendingPerAddress = 0; ///< 0: no per-address bound
+	Public,
+	Reserved
 };
 
-/// Remote-initiated peers, as the network thread sees them when a new one asks to connect.
-struct Counts
+/// Accepted claims a slot immediately. Full leaves the request pending for another decision.
+enum class SessionAcceptResult
 {
-	unsigned int connected = 0;          ///< CONNECTED
-	unsigned int exchanging = 0;         ///< EXCHANGING_SESSION_DATA
-	unsigned int pending = 0;            ///< every state before CONNECTED, EXCHANGING_SESSION_DATA included
-	unsigned int pendingFromAddress = 0; ///< those of \a pending sharing the newcomer's IP
+	Accepted,
+	Full,
+	Expired,
+	InvalidPayload,
+	OutOfMemory
 };
 
-/// True when the server keeps peers mid-handshake in a pool of their own.
-inline bool UsesPendingPool(const Limits &limits)
+struct ServerCapacity
 {
-	return limits.maxPending != 0;
-}
+	unsigned int connected = 1;
+	unsigned int pending = 32;
+	unsigned int reserved = 0;
+	unsigned int pending_per_address = 0; ///< Zero allows the entire pending pool to share one IP.
 
-/// May a new peer start connecting?
-///
-/// Without a pool this is the historic rule: a peer mid-handshake already owns a slot, so it counts
-/// against the incoming limit alongside connected peers. With a pool, the incoming limit is the
-/// players' and is enforced at acceptance instead (MayAccept), so a full server can still hold and
-/// queue newcomers; only the pool and the per-address share bound who may start.
-inline bool MayStartConnecting(const Limits &limits, const Counts &counts)
-{
-	if (!UsesPendingPool(limits))
-		return counts.connected + counts.exchanging < limits.maxIncoming;
-	if (counts.pending >= limits.maxPending)
-		return false;
-	return limits.maxPendingPerAddress == 0 || counts.pendingFromAddress < limits.maxPendingPerAddress;
+	bool valid() const
+	{
+		return connected > 0 && connected <= UINT16_MAX && pending > 0 && pending <= UINT16_MAX - connected && reserved <= connected && pending_per_address <= pending;
+	}
+	bool allows_pending(unsigned int waiting, unsigned int from_address) const
+	{
+		return connected > 0 && waiting < pending && (pending_per_address == 0 || from_address < pending_per_address);
+	}
+};
 }
-
-/// May an application's AcceptSession() promote one more peer to CONNECTED?
-///
-/// Without a pool the peer's slot was taken when it started connecting, so acceptance is always
-/// within the limit. With a pool it is checked here, because the handshake was allowed to start
-/// while the server was full.
-inline bool MayAccept(const Limits &limits, const Counts &counts)
-{
-	return !UsesPendingPool(limits) || counts.connected < limits.maxIncoming;
-}
-} // namespace SessionAdmission
-} // namespace MafiaNet

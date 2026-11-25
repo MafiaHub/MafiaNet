@@ -120,7 +120,8 @@ bool ConnectLocally(Peer &server, Peer &client, unsigned maxConnections,
 	       !(server->NumberOfConnections() >= 1 && client->NumberOfConnections() >= 1))
 	{
 		for (auto pkt : server.incoming())
-			(void) pkt;
+			if (pkt.id() == ID_SESSION_CONFIG_REQUEST)
+				server->AcceptSession(pkt->guid, nullptr, 0);
 		for (auto pkt : client.incoming())
 			(void) pkt;
 		RakSleep(15);
@@ -249,7 +250,8 @@ TEST(MmsgBatchLive, ConcurrentSendersAreEachAttributedToTheRightPeer)
 	while (GetTimeMS() < deadline && server->NumberOfConnections() < CLIENT_COUNT)
 	{
 		for (auto pkt : server.incoming())
-			(void) pkt;
+			if (pkt.id() == ID_SESSION_CONFIG_REQUEST)
+				server->AcceptSession(pkt->guid, nullptr, 0);
 		for (unsigned c = 0; c < CLIENT_COUNT; ++c)
 			for (auto pkt : clients[c].incoming())
 				(void) pkt;

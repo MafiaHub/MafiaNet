@@ -347,8 +347,7 @@ enum DefaultMessageIDTypes
 	ID_NAT_RESPOND_BOUND_ADDRESSES,
 	ID_FCM2_UPDATE_USER_CONTEXT,
 	/// RakPeer - Client->server during the session handshake: the connecting peer's session payload
-	/// (see RakPeerInterface::SetSessionConfig). Surfaced to the server application only when
-	/// SetSessionConfigInteractive(true) was called, in which case the application must answer with
+	/// (see RakPeerInterface::SetSessionConfig). Every incoming session waits for the application to call
 	/// AcceptSession() or RejectSession().
 	ID_SESSION_CONFIG_REQUEST,
 	/// RakPeer - Server->client during the session handshake: the server's session payload. Consumed

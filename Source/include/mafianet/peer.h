@@ -52,6 +52,11 @@ class HuffmanEncodingTree;
 class RakNetSocket2Factory;
 class PluginInterface2;
 class PlayerRoster;
+namespace detail
+{
+class ServerState;
+enum class SessionDecision;
+}
 
 // Sucks but this struct has to be outside the class.  Inside and DevCPP won't let you refer to the struct as RakPeer::RemoteSystemIndex while GCC
 // forces you to do RakPeer::RemoteSystemIndex
@@ -151,7 +156,7 @@ public:
 	///
 	/// Defaults to 0, meaning by default, nobody can connect to you
 	/// \param[in] numberAllowed Maximum number of incoming connections allowed.
-	void SetMaximumIncomingConnections(unsigned short numberAllowed);
+	void SetMaximumIncomingConnections(unsigned short numberAllowed, unsigned short reserved = 0);
 
 	/// \brief Returns the value passed to SetMaximumIncomingConnections().
 	/// \return Maximum number of incoming connections, which is always <= maxConnections
@@ -455,7 +460,7 @@ public:
 	// --------------------------------------------------------------------------------------------------------------
 	/// \brief Sets this peer's session-handshake payload.
 	/// \details Exchanged before either side reports a connection: a client sends it in
-	/// ID_SESSION_CONFIG_REQUEST, a server answers with it in ID_SESSION_CONFIG. The bytes are opaque to
+	/// ID_SESSION_CONFIG_REQUEST. The accepting application supplies its own reply to AcceptSession(). The bytes are opaque to
 	/// MafiaNet. Call before Startup()/Connect().
 	/// \param[in] data Payload to send, or 0 for none.
 	/// \param[in] length Length of \a data in bytes; must not exceed MAXIMUM_SESSION_CONFIG_SIZE.
@@ -472,17 +477,10 @@ public:
 	/// \return Pointer to the payload owned by the connection, or 0 when there is none.
 	const char *GetRemoteSessionConfig(const AddressOrGUID systemIdentifier, unsigned int *length);
 
-	/// \brief Server: decide each client's session answer individually instead of replying automatically.
-	/// \details With this on, ID_SESSION_CONFIG_REQUEST is surfaced to the application and the connection
-	/// stays unreported until AcceptSession() or RejectSession() is called for that peer. Off by default,
-	/// in which case the payload set by SetSessionConfig() answers every client and no application code is
-	/// required.
-	void SetSessionConfigInteractive(bool interactive);
-
 	/// \brief Server: accept a pending session request, sending \a data as this connection's payload.
 	/// \details Only meaningful for a peer that surfaced ID_SESSION_CONFIG_REQUEST. Completes the
 	/// handshake and surfaces the withheld ID_NEW_INCOMING_CONNECTION.
-	void AcceptSession(const AddressOrGUID systemIdentifier, const char *data, unsigned int length);
+	SessionAcceptResult AcceptSession(const AddressOrGUID systemIdentifier, const char *data, unsigned int length, ConnectionSlot slot = ConnectionSlot::Public);
 
 	/// \brief Server: refuse a pending session request.
 	/// \details The client reports ID_CONNECTION_ATTEMPT_FAILED and neither side ever reports a
@@ -823,8 +821,7 @@ public:
 		unsigned char *remoteSessionConfigData;
 		unsigned int remoteSessionConfigLength;
 
-		// Set while connectMode==EXCHANGING_SESSION_DATA and SetSessionConfigInteractive(true) is in effect:
-		// the server surfaced ID_SESSION_CONFIG_REQUEST and is waiting for AcceptSession()/RejectSession().
+		// An interactive request was delivered and still awaits an application decision.
 		bool sessionConfigAwaitingLocalDecision;
 
 		// True when WE initiated this connection, i.e. we are the peer that will report
@@ -897,10 +894,12 @@ public:
 		std::atomic<ConnectMode> connectMode;
 		// Network thread only. Captured when a connection leaves CONNECTED.
 		PlayerId departingPlayerId{};
+		uint64_t generation = 0;
 	};
 
 protected:
 	friend class ReplicationManager;
+	friend class detail::ServerState;
 	friend class SimulatedNetwork; // inspects a manual peer between updates
 	friend RAK_THREAD_DECLARATION(UpdateNetworkLoop);
 	//friend RAK_THREAD_DECLARATION(RecvFromLoop);
@@ -974,18 +973,9 @@ protected:
 	//05/02/06 Just using maximumNumberOfPeers instead
 	///Store the maximum number of peers able to connect, including reserved connection slots for pings, etc.
 	//unsigned short remoteSystemListSize;
-	///Store the maximum incoming connection allowed
-	unsigned int maximumIncomingConnections;
 	MafiaNet::BitStream offlinePingResponse;
-	/// Our own session-handshake payload (see SetSessionConfig). On a client it is sent in
-	/// ID_SESSION_CONFIG_REQUEST; on a server it is the default answer in ID_SESSION_CONFIG.
+	/// Payload sent with outgoing ID_SESSION_CONFIG_REQUEST (see SetSessionConfig).
 	MafiaNet::BitStream sessionConfig;
-	/// When true a server surfaces ID_SESSION_CONFIG_REQUEST and waits for AcceptSession()/RejectSession()
-	/// instead of answering automatically with sessionConfig.
-	bool sessionConfigInteractive;
-	/// SetMaximumPendingSessions(). 0 total keeps peers mid-handshake in the incoming limit.
-	unsigned short maximumPendingSessions;
-	unsigned short maximumPendingSessionsPerAddress;
 	/// SetSessionTimeout(). 0 uses the connection timeout.
 	MafiaNet::TimeMS sessionTimeout;
 	///Local Player ID
@@ -1015,6 +1005,7 @@ protected:
 	DatagramSendResult QueueDatagram(const char *data, uint64_t bits, Priority priority, Reliability reliability, char orderingChannel, const AddressOrGUID target);
 	std::shared_ptr<const ConnectedSystems> connectedSystems;
 	std::unique_ptr<PlayerRoster> playerRoster;
+	uint64_t lastConnectionGeneration = 0; // Network thread only, retained across Startup.
 	void SetConnectMode(RemoteSystemStruct &system, RemoteSystemStruct::ConnectMode mode);
 	void PublishConnectedSystems();
 	PlayerId RetirePlayer(const RemoteSystemStruct &system);
@@ -1161,6 +1152,7 @@ protected:
 	struct BufferedCommandStruct
 	{
 		BufferedCommandStruct() = default;
+		uint64_t generation = 0; // A nonzero value binds this command to a specific connection.
 		~BufferedCommandStruct() { std::free(data); }
 		BufferedCommandStruct(const BufferedCommandStruct &) = delete;
 		BufferedCommandStruct &operator=(const BufferedCommandStruct &) = delete;
@@ -1233,7 +1225,7 @@ protected:
 	void PingInternal(const SystemAddress target, bool performImmediate, MafiaNet::Reliability reliability);
 	// This stores the user send calls to be handled by the update thread.  This way we don't have thread contention over systemAddresss
 	void CloseConnectionInternal(const AddressOrGUID &systemIdentifier, bool sendDisconnectionNotification, bool performImmediate, unsigned char orderingChannel, MafiaNet::Priority disconnectionNotificationPriority);
-	bool SendBuffered(const char *data, BitSize_t numberOfBitsToSend, MafiaNet::Priority priority, MafiaNet::Reliability reliability, char orderingChannel, const AddressOrGUID systemIdentifier, bool broadcast, RemoteSystemStruct::ConnectMode connectionMode, uint32_t receipt, bool allowFragmentation = true);
+	bool SendBuffered(const char *data, BitSize_t numberOfBitsToSend, MafiaNet::Priority priority, MafiaNet::Reliability reliability, char orderingChannel, const AddressOrGUID systemIdentifier, bool broadcast, RemoteSystemStruct::ConnectMode connectionMode, uint32_t receipt, bool allowFragmentation = true, uint64_t generation = 0);
 	void SendBufferedList(const char **data, const int *lengths, const int numParameters, MafiaNet::Priority priority, MafiaNet::Reliability reliability, char orderingChannel, const AddressOrGUID systemIdentifier, bool broadcast, RemoteSystemStruct::ConnectMode connectionMode, uint32_t receipt);
 	bool SendImmediate(char *data, BitSize_t numberOfBitsToSend, MafiaNet::Priority priority, MafiaNet::Reliability reliability, char orderingChannel, const AddressOrGUID systemIdentifier, bool broadcast, bool useCallerDataAllocation, MafiaNet::TimeUS currentTime, uint32_t receipt, bool allowFragmentation = true);
 	//bool HandleBufferedRPC(BufferedCommandStruct *bcs, MafiaNet::TimeMS time);
@@ -1355,14 +1347,11 @@ private:
 	void SendSessionConfigResponse(RemoteSystemStruct *remoteSystem, const char *data, unsigned int length);
 	/// Refuse a pending session request and drop the connection once the refusal is acknowledged.
 	void SendSessionConfigRejection(RemoteSystemStruct *remoteSystem, const char *reason, unsigned int reasonLength);
-	/// Queue an application session decision for the network thread (see BCS_SESSION_ACCEPT).
-	void QueueSessionDecision(const AddressOrGUID systemIdentifier, bool accept, const char *data, unsigned int length);
-	/// Queue any session command (accept, reject, status) with a copy of its payload.
 	/// Server: tell the application a session request it was holding is gone (ID_SESSION_CONFIG_ABANDONED).
 	void ProduceSessionAbandoned(RemoteSystemStruct *remoteSystem);
-	void QueueSessionCommand(const AddressOrGUID systemIdentifier, int command, const char *data, unsigned int length);
+	SessionAcceptResult QueueSessionCommand(const AddressOrGUID systemIdentifier, detail::SessionDecision decision, const char *data, unsigned int length, uint64_t generation = 0, ConnectionSlot slot = ConnectionSlot::Public);
 	/// Counts remote-initiated peers for SessionAdmission; pendingFromAddress is for \a address, or 0 when unassigned.
-	void CountRemoteInitiatedPeers(const SystemAddress &address, unsigned int &connected, unsigned int &exchanging, unsigned int &pending, unsigned int &pendingFromAddress) const;
+	void CountRemoteInitiatedPeers(const SystemAddress &address, unsigned int &pending, unsigned int &pendingFromAddress) const;
 	/// True when a directed application send must be refused because the target is still running the
 	/// session handshake and so has not been reported to the application yet.
 	bool IsExchangingSessionData(const AddressOrGUID systemIdentifier);

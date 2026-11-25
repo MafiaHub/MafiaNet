@@ -432,11 +432,7 @@ TEST(CrossConnectionConvert, PlaintextPeersStillConnectToEachOther)
 	ExpectBothDirectionsDeliver(net, p.lower, higherAddress, p.higher, lowerAddress, 20);
 }
 
-// The plaintext crossing is the one path where ID_CONNECTION_REQUEST_ACCEPTED legitimately reaches a slot in
-// HANDLING_CONNECTION_REQUEST: both peers answer each other's REQUEST_2, both send ID_CONNECTION_REQUEST on the
-// one slot, and each takes the other's accept after answering the other's request. The handler takes it there
-// only on a slot this side initiated (#99), which every such slot is. Under every delivery order each Connect()
-// must still be answered with a connection, never a failure, and both directions must work.
+// Simultaneous plaintext attempts select one accepting peer, including under loss and reordering.
 TEST(CrossConnectionConvert, PlaintextCrossingConnectsUnderEveryDeliveryOrder)
 {
 	struct Case
@@ -480,6 +476,8 @@ TEST(CrossConnectionConvert, PlaintextCrossingConnectsUnderEveryDeliveryOrder)
 		ASSERT_TRUE(net.RunUntil([&]
 		                         { return BothConnected(p.lower, higherAddress, p.higher, lowerAddress); }, 10000, 1));
 		net.Step(500);
+		EXPECT_EQ(1u, CountOf(net, p.higher, ID_SESSION_CONFIG_REQUEST));
+		EXPECT_EQ(0u, CountOf(net, p.lower, ID_SESSION_CONFIG_REQUEST));
 		for (const RakPeer *peer : {p.lower, p.higher})
 		{
 			EXPECT_EQ(0u, CountOf(net, peer, ID_CONNECTION_ATTEMPT_FAILED));

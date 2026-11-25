@@ -1,4 +1,6 @@
 // Copyright (c) 2026, MafiaHub. MIT license.
+#include "mafianet/message_identifiers.h"
+
 #include "mafianet/peer_handle.h"
 #include "mafianet/snapshot_replica.h"
 #include <algorithm>
@@ -101,8 +103,10 @@ int main(int argc, char **argv)
 	auto frame = [&]
 	{
 		for (auto *peer : {&server, &first, &second})
-			for ([[maybe_unused]] auto packet : peer->incoming())
+			for (auto packet : peer->incoming())
 			{
+				if (packet.id() == ID_SESSION_CONFIG_REQUEST)
+					(*peer)->AcceptSession(packet->guid, nullptr, 0);
 			}
 		grid.SetPosition(id, {std::clamp(vehicle.state.position, 0.0f, 256.0f), 20});
 		host.Tick(++tick);

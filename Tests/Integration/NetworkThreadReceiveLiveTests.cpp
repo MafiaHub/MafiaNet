@@ -9,6 +9,7 @@
 // the guarantees that only mean something when the hook runs on another thread
 // than the one calling DetachPlugin() or Shutdown().
 
+#include "SessionTestHelpers.h"
 #include <gtest/gtest.h>
 
 #include "mafianet/bit_stream.h"
@@ -88,6 +89,7 @@ struct LivePair
 		while (GetTimeMS() - start < 10000 &&
 		       !(server->NumberOfConnections() == 1 && client->GetConnectionState(serverAddress) == IS_CONNECTED))
 		{
+			SessionTestHelpers::DrainAndAcceptRequests(server.get());
 			for (auto pkt : client.incoming())
 				(void) pkt;
 			RakSleep(30);

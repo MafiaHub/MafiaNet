@@ -13,6 +13,7 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
+#include "../sample_session.h"
 #include <cstdio>
 #include "mafianet/format_string.h"
 #include <cstring>
@@ -83,7 +84,7 @@ int main()
 	{
 		for (int peerIndex = 0; peerIndex < NUM_PEERS; peerIndex++)
 		{
-			for (packet = rakPeer[peerIndex]->Receive(); packet; rakPeer[peerIndex]->DeallocatePacket(packet), packet = rakPeer[peerIndex]->Receive())
+			for (packet = Sample::ReceiveAndAcceptRequests(rakPeer[peerIndex]); packet; rakPeer[peerIndex]->DeallocatePacket(packet), packet = Sample::ReceiveAndAcceptRequests(rakPeer[peerIndex]))
 			{
 				switch (packet->data[0])
 				{

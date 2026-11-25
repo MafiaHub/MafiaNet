@@ -141,6 +141,9 @@ Handle new connections:
 
 .. code-block:: cpp
 
+   case ID_SESSION_CONFIG_REQUEST:
+       peer->AcceptSession(packet->guid, nullptr, 0);
+       break;
    case ID_NEW_INCOMING_CONNECTION:
        printf("New client connected: %s\n",
               MafiaNet::to_string(packet->systemAddress).c_str());
@@ -286,20 +289,17 @@ channel. If the attempt fails instead, they are discarded. See
 
    A payload received from a remote peer is **untrusted, unauthenticated input** -- it arrives before
    any application-level authentication has run. Parse it as defensively as any other packet from an
-   unknown source, and never put secrets in a payload sent from static mode. See
+   unknown source. Send sensitive data only after authorizing the recipient. See
    :doc:`../advanced/session-handshake-security`.
 
-Static payloads
-~~~~~~~~~~~~~~~
+Client request payload
+~~~~~~~~~~~~~~~~~~~~~~
 
-The common case needs no application code beyond staging the bytes:
+A client can include a build token or other application data in its request.
 
 .. code-block:: cpp
 
-   // Server: published to every client that connects
-   server->SetSessionConfig(configJson.c_str(), (unsigned int)configJson.size());
-
-   // Client: sent up with the connection request
+   // Client, before Connect()
    client->SetSessionConfig(buildToken.c_str(), (unsigned int)buildToken.size());
 
 Read the remote payload as soon as the connection surfaces:
@@ -316,12 +316,11 @@ Read the remote payload as soon as the connection surfaces:
 Per-client decisions
 ~~~~~~~~~~~~~~~~~~~~
 
-A server that needs to inspect each client before answering turns on interactive mode. The client's
+The server must answer every incoming request. The client's
 payload arrives first, so the server can refuse without ever having disclosed its own:
 
 .. code-block:: cpp
 
-   server->SetSessionConfigInteractive(true);
 
    case ID_SESSION_CONFIG_REQUEST:
        if (BuildTokenMatches(packet->data + 1, packet->length - 1)) {
@@ -350,7 +349,6 @@ against the incoming limit, which then bounds connected peers only:
 
 .. code-block:: cpp
 
-   server->SetSessionConfigInteractive(true);
    server->SetMaximumPendingSessions(32, 4);        // 32 may wait, at most 4 from one IP
    server->SetSessionTimeout(45000);                // how long an answer may take
    server->Startup(maxPlayers + 32, &sd, 1);        // room for both
@@ -359,10 +357,10 @@ against the incoming limit, which then bounds connected peers only:
    // While deciding, tell the peer what is happening; this also restarts the timeout on both ends.
    server->SendSessionStatus(guid, "You are 3rd in the queue", 24);
 
-A handshake may start while the server is full, which is what makes a queue possible. An
-``AcceptSession()`` that would exceed the incoming limit refuses the peer instead, so check
-``NumberOfConnections()`` before accepting and refuse with a reason of your own. The client should
-call ``SetSessionTimeout()`` too, generously: whichever end gives up first ends the attempt.
+A full server can still receive session requests. When capacity is exhausted,
+``AcceptSession()`` returns ``SessionAcceptResult::Full`` and keeps the request pending.
+Send a status update and retry when a slot is available. Configure the session
+timeout on both ends to allow enough time between updates.
 
 :doc:`../guide/admission-queue` walks through a complete queue built on this.
 

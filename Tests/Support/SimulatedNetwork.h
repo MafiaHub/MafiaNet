@@ -42,6 +42,7 @@
 
 namespace MafiaNet
 {
+class Server;
 class SimulatedNetwork : public RakNetSocket2Factory
 {
 public:
@@ -72,6 +73,12 @@ public:
 
 	SimulatedNetwork(const SimulatedNetwork &) = delete;
 	SimulatedNetwork &operator=(const SimulatedNetwork &) = delete;
+
+	Server &AddServer(ServerCapacity capacity);
+
+	// Test application decision for raw peers. Handshake tests can retain requests in the inbox instead.
+	std::function<void(RakPeer &, const Packet &)> onSessionRequest = [](RakPeer &peer, const Packet &request)
+	{ peer.AcceptSession(request.guid, nullptr, 0); };
 
 	// A started peer bound to 10.0.0.<n>:<port> (port 0 picks one); from the 256th
 	// host on, <n> carries into the third octet (10.0.1.0, ...).
@@ -113,7 +120,8 @@ public:
 	}
 	// Destroys \a peer as if its process crashed -- no disconnection
 	// notification reaches anyone -- and starts a fresh peer (new GUID) bound to
-	// the same address. Returns the new peer; \a peer is gone.
+	// the same address. Returns the replacement for a plain IPv4 peer, or nullptr
+	// if the original cannot be restarted (e.g. its lifetime belongs to a Server).
 	RakPeer *RestartPeer(RakPeer *peer, unsigned int maxConnections, unsigned short maxIncoming = 0);
 	// The peer's address of that IP version (4 or 6), or UNASSIGNED_SYSTEM_ADDRESS
 	// when it has none: a dual-stack peer has both.
@@ -212,6 +220,7 @@ private:
 	static TimeUS VirtualClock();
 
 	std::vector<RakPeer *> peers;
+	std::map<RakPeer *, std::unique_ptr<Server>> servers;
 	std::set<const RakPeer *> peersInStorage;
 	std::map<const RakPeer *, std::vector<Message>> inboxes;
 	std::set<const RakPeer *> receiveDisabled;

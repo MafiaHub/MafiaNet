@@ -13,6 +13,7 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
+#include "../sample_session.h"
 #include "mafianet/peer_interface.h"
 #include "mafianet/sleep.h"
 #include <stdio.h>
@@ -163,7 +164,7 @@ SystemAddress ConnectBlocking(MafiaNet::RakPeerInterface *rakPeer, const char *h
 	// #med - review --- at least we'd add a sleep interval here - also review whether the behavior is correct to only check the very first received packet (old RakNet code was bogus in this regards)
 	do
 	{
-		packet = rakPeer->Receive();
+		packet = Sample::ReceiveAndAcceptRequests(rakPeer);
 	} while (packet == nullptr);
 
 	if (packet->data[0] == ID_CONNECTION_REQUEST_ACCEPTED)
@@ -945,7 +946,7 @@ int main(void)
 		{
 			samples[(int) currentStage]->Update(rakPeer);
 			MafiaNet::Packet *packet;
-			for (packet = rakPeer->Receive(); packet; rakPeer->DeallocatePacket(packet), packet = rakPeer->Receive())
+			for (packet = Sample::ReceiveAndAcceptRequests(rakPeer); packet; rakPeer->DeallocatePacket(packet), packet = Sample::ReceiveAndAcceptRequests(rakPeer))
 			{
 				for (i = 0; i < FEATURE_LIST_COUNT; i++)
 				{
@@ -990,7 +991,7 @@ int main(void)
 						printf("Press any key to quit.\n");
 						while (!_kbhit())
 						{
-							for (packet = rakPeer->Receive(); packet; rakPeer->DeallocatePacket(packet), packet = rakPeer->Receive())
+							for (packet = Sample::ReceiveAndAcceptRequests(rakPeer); packet; rakPeer->DeallocatePacket(packet), packet = Sample::ReceiveAndAcceptRequests(rakPeer))
 							{
 								for (i = 0; i < FEATURE_LIST_COUNT; i++)
 								{
@@ -1024,7 +1025,7 @@ int main(void)
 
 						while (!_kbhit())
 						{
-							for (packet = rakPeer->Receive(); packet; rakPeer->DeallocatePacket(packet), packet = rakPeer->Receive())
+							for (packet = Sample::ReceiveAndAcceptRequests(rakPeer); packet; rakPeer->DeallocatePacket(packet), packet = Sample::ReceiveAndAcceptRequests(rakPeer))
 							{
 								for (i = 0; i < FEATURE_LIST_COUNT; i++)
 								{

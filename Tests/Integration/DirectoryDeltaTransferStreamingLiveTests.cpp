@@ -5,6 +5,7 @@
  *  license.txt file in the root directory of this source tree.
  */
 
+#include "SessionTestHelpers.h"
 #include <gtest/gtest.h>
 
 #include <filesystem>
@@ -154,7 +155,7 @@ TEST(DirectoryDeltaTransferStreaming, LargeFilesAreWrittenChunkByChunk)
 	TimeMS entry = GetTimeMS();
 	while ((serverAddress == UNASSIGNED_SYSTEM_ADDRESS || !serverSawClient) && GetTimeMS() - entry < (TimeMS) kConnectTimeoutMs)
 	{
-		for (Packet *p = server->Receive(); p; server->DeallocatePacket(p), p = server->Receive())
+		for (Packet *p = SessionTestHelpers::ReceiveAndAcceptRequests(server); p; server->DeallocatePacket(p), p = SessionTestHelpers::ReceiveAndAcceptRequests(server))
 			if (p->data[0] == ID_NEW_INCOMING_CONNECTION)
 				serverSawClient = true;
 		for (Packet *p = client->Receive(); p; client->DeallocatePacket(p), p = client->Receive())

@@ -5,6 +5,7 @@
  *  license.txt file in the root directory of this source tree.
  */
 
+#include "SessionTestHelpers.h"
 #include <gtest/gtest.h>
 
 #include "mafianet/peer_interface.h"
@@ -112,6 +113,7 @@ TEST_F(SecurityFunctions, PasswordAndBanList)
 			client->Connect("127.0.0.1", serverAddress.GetPort(), 0, 0);
 		}
 
+		SessionTestHelpers::DrainAndAcceptRequests(server);
 		RakSleep(100);
 	}
 
@@ -128,6 +130,7 @@ TEST_F(SecurityFunctions, PasswordAndBanList)
 			client->Connect("127.0.0.1", serverAddress.GetPort(), badPass, (int) strlen(badPass));
 		}
 
+		SessionTestHelpers::DrainAndAcceptRequests(server);
 		RakSleep(100);
 	}
 
@@ -143,6 +146,7 @@ TEST_F(SecurityFunctions, PasswordAndBanList)
 			client->Connect("127.0.0.1", serverAddress.GetPort(), thePassword, (int) strlen(thePassword));
 		}
 
+		SessionTestHelpers::DrainAndAcceptRequests(server);
 		RakSleep(100);
 	}
 
@@ -166,6 +170,7 @@ TEST_F(SecurityFunctions, PasswordAndBanList)
 			client->Connect("127.0.0.1", serverAddress.GetPort(), thePassword, (int) strlen(thePassword));
 		}
 
+		SessionTestHelpers::DrainAndAcceptRequests(server);
 		RakSleep(100);
 	}
 
@@ -186,6 +191,7 @@ TEST_F(SecurityFunctions, PasswordAndBanList)
 			client->Connect("127.0.0.1", serverAddress.GetPort(), thePassword, (int) strlen(thePassword));
 		}
 
+		SessionTestHelpers::DrainAndAcceptRequests(server);
 		RakSleep(100);
 	}
 
@@ -209,6 +215,7 @@ TEST_F(SecurityFunctions, PasswordAndBanList)
 			client->Connect("127.0.0.1", serverAddress.GetPort(), thePassword, (int) strlen(thePassword));
 		}
 
+		SessionTestHelpers::DrainAndAcceptRequests(server);
 		RakSleep(100);
 	}
 
@@ -229,6 +236,7 @@ TEST_F(SecurityFunctions, PasswordAndBanList)
 			client->Connect("127.0.0.1", serverAddress.GetPort(), thePassword, (int) strlen(thePassword));
 		}
 
+		SessionTestHelpers::DrainAndAcceptRequests(server);
 		RakSleep(100);
 	}
 

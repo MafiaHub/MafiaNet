@@ -5,6 +5,7 @@
  *  license.txt file in the root directory of this source tree.
  */
 
+#include "SessionTestHelpers.h"
 #include <gtest/gtest.h>
 
 #include "mafianet/peer_interface.h"
@@ -147,7 +148,7 @@ TEST_F(ManyClientsOneServerNonBlocking, ClientsSurviveRapidDisconnectReconnectCy
 
 		//Server receive, drain all packets
 
-		for (packet = server->Receive(); packet; server->DeallocatePacket(packet), packet = server->Receive())
+		for (packet = SessionTestHelpers::ReceiveAndAcceptRequests(server); packet; server->DeallocatePacket(packet), packet = SessionTestHelpers::ReceiveAndAcceptRequests(server))
 		{
 		}
 
@@ -168,7 +169,7 @@ TEST_F(ManyClientsOneServerNonBlocking, ClientsSurviveRapidDisconnectReconnectCy
 
 		//Server receive, drain all packets
 
-		for (packet = server->Receive(); packet; server->DeallocatePacket(packet), packet = server->Receive())
+		for (packet = SessionTestHelpers::ReceiveAndAcceptRequests(server); packet; server->DeallocatePacket(packet), packet = SessionTestHelpers::ReceiveAndAcceptRequests(server))
 		{
 		}
 
@@ -211,7 +212,7 @@ TEST_F(ManyClientsOneServerNonBlocking, ClientsSurviveRapidDisconnectReconnectCy
 
 		//Server receive, drain all packets
 
-		for (packet = server->Receive(); packet; server->DeallocatePacket(packet), packet = server->Receive())
+		for (packet = SessionTestHelpers::ReceiveAndAcceptRequests(server); packet; server->DeallocatePacket(packet), packet = SessionTestHelpers::ReceiveAndAcceptRequests(server))
 		{
 		}
 

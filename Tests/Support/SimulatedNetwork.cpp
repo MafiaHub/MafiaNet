@@ -6,6 +6,7 @@
  */
 
 #include "SimulatedNetwork.h"
+#include "mafianet/server.h"
 
 #include <algorithm>
 #include <atomic>
@@ -82,6 +83,8 @@ SimulatedNetwork::~SimulatedNetwork()
 	for (RakPeer *peer : peers)
 	{
 		peer->Shutdown(0);
+		if (servers.erase(peer))
+			continue;
 		if (peersInStorage.count(peer) != 0)
 			peer->~RakPeer();
 		else
@@ -104,6 +107,18 @@ TimeUS SimulatedNetwork::Now() const
 RakPeer *SimulatedNetwork::AddPeer(unsigned int maxConnections, unsigned short maxIncoming, unsigned short port)
 {
 	return StartPeer(static_cast<RakPeer *>(RakPeerInterface::GetInstance()), maxConnections, maxIncoming, port);
+}
+
+Server &SimulatedNetwork::AddServer(ServerCapacity capacity)
+{
+	Peer owner;
+	auto *peer = static_cast<RakPeer *>(owner.get());
+	StartPeer(peer, capacity.connected + capacity.pending, static_cast<unsigned short>(capacity.connected), 0);
+	peer->SetMaximumIncomingConnections(static_cast<unsigned short>(capacity.connected), static_cast<unsigned short>(capacity.reserved));
+	peer->SetMaximumPendingSessions(static_cast<unsigned short>(capacity.pending), static_cast<unsigned short>(capacity.pending_per_address));
+	SetReceiveEnabled(peer, false);
+	auto inserted = servers.emplace(peer, std::make_unique<Server>(std::move(owner)));
+	return *inserted.first->second;
 }
 
 RakPeer *SimulatedNetwork::AddPeerV6(unsigned int maxConnections, unsigned short maxIncoming, unsigned short port)
@@ -205,9 +220,11 @@ RakPeer *SimulatedNetwork::StartPeer(RakPeer *peer, unsigned int maxConnections,
 RakPeer *SimulatedNetwork::RestartPeer(RakPeer *peer, unsigned int maxConnections, unsigned short maxIncoming)
 {
 	// Only plain IPv4 peers made by AddPeer: the restarted one is rebuilt the same way.
-	RakAssert(peersInStorage.count(peer) == 0 && ipv4Aliases.count(peer) == 0);
+	if (servers.count(peer) || peersInStorage.count(peer) || ipv4Aliases.count(peer))
+		return nullptr;
 	const SystemAddress address = AddressOf(peer);
-	RakAssert(address.GetIPVersion() == 4);
+	if (address.GetIPVersion() != 4)
+		return nullptr;
 	const unsigned hostNumber = (unsigned) (ntohl(address.address.addr4.sin_addr.s_addr) & 0xFF);
 
 	// Shutdown(0) sends nothing: no disconnection notification, exactly as a crash.
@@ -426,6 +443,8 @@ void SimulatedNetwork::Step(uint32_t ms)
 				continue;
 			for (Packet *packet = peer->Receive(); packet; packet = peer->Receive())
 			{
+				if (packet->data[0] == ID_SESSION_CONFIG_REQUEST && onSessionRequest)
+					onSessionRequest(*peer, *packet);
 				Message message;
 				message.id = packet->length ? packet->data[0] : 0;
 				message.data.assign(packet->data, packet->data + packet->length);

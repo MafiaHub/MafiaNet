@@ -93,7 +93,7 @@ bool TestHelpers::WaitAndConnectTwoPeersLocally(RakPeerInterface *connector, Rak
 {
 
 	SystemAddress connecteeAdd = connectee->GetInternalID();
-	return CommonFunctions::WaitAndConnect(connector, "127.0.0.1", connecteeAdd.GetPort(), millisecondsToWait);
+	return CommonFunctions::WaitAndConnect(connector, connectee, "127.0.0.1", connecteeAdd.GetPort(), millisecondsToWait);
 }
 
 //returns false if connect fails

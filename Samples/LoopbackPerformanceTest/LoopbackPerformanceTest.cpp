@@ -13,6 +13,7 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
+#include "../sample_session.h"
 #include "mafianet/peer_interface.h"
 #include "mafianet/message_identifiers.h" // Enumerations
 #include "mafianet/get_time.h"
@@ -238,7 +239,7 @@ int main(void)
 		// Parse messages
 		for (;;)
 		{
-			p = localSystem->Receive();
+			p = Sample::ReceiveAndAcceptRequests(localSystem);
 
 			if (p)
 			{

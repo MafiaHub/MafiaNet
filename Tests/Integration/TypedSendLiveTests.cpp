@@ -103,7 +103,8 @@ TEST_F(TypedSendLive, SendDeliversTypedMessagesAndBroadcastReachesAllPeers)
 	while (GetTimeMS() - start < 10000 && server->NumberOfConnections() < 2)
 	{
 		for (auto pkt : server.incoming())
-			(void) pkt;
+			if (pkt.id() == ID_SESSION_CONFIG_REQUEST)
+				server->AcceptSession(pkt->guid, nullptr, 0);
 		for (auto pkt : clientA.incoming())
 			(void) pkt;
 		for (auto pkt : clientB.incoming())

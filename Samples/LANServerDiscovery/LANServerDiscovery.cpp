@@ -18,6 +18,7 @@
 // Filename ChatExample.cpp
 // Very basic chat engine example
 // ----------------------------------------------------------------------
+#include "../sample_session.h"
 #include "mafianet/message_identifiers.h"
 
 #include "mafianet/peer_interface.h"
@@ -142,7 +143,7 @@ int main(void)
 	while (MafiaNet::GetTimeMS() < quitTime)
 	{
 		if (server)
-			p = server->Receive();
+			p = Sample::ReceiveAndAcceptRequests(server);
 		else
 			p = client->Receive();
 

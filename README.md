@@ -112,40 +112,36 @@ The per-datagram column is what every non-Linux platform runs; to reproduce it o
 Linux, flip the `#if defined(__linux__)` batching guards in `socket2.cpp`,
 `socket2_berkley.cpp`, `reliability_layer.cpp` and `socket2.h` to `#if 0`.
 
-### Basic Usage
+### Start a game server
 
 ```cpp
-#include "mafianet/peer_interface.h"
-#include "mafianet/message_identifiers.h"
+#include "mafianet/server.h"
+#include <iostream>
 
-// Create a peer
-MafiaNet::RakPeerInterface* peer = MafiaNet::RakPeerInterface::GetInstance();
+int main()
+{
+    using namespace MafiaNet;
+    auto server = Server::listen(60000, {32});
+    if (!server)
+        return 1;
 
-// Start as server
-MafiaNet::SocketDescriptor sd(60000, 0);
-peer->Startup(32, &sd, 1);
-peer->SetMaximumIncomingConnections(32);
+    server->on<ConnectionRequested>([](const ConnectionRequest &request) {
+        if (request.accept() == SessionAcceptResult::Full)
+            request.reject("Server full");
+    });
+    server->on<ClientConnected>([](ClientConnection client) { client.accept_player(); });
+    server->on<PlayerJoined>([](Player player) {
+        std::cout << "Player " << static_cast<uint32_t>(player.id()) << " joined\n";
+    });
 
-// Or connect as client
-peer->Connect("127.0.0.1", 60000, nullptr, 0);
-
-// Process incoming packets
-MafiaNet::Packet* packet;
-while ((packet = peer->Receive()) != nullptr) {
-    switch (packet->data[0]) {
-        case ID_NEW_INCOMING_CONNECTION:
-            printf("Client connected\n");
-            break;
-        case ID_CONNECTION_REQUEST_ACCEPTED:
-            printf("Connected to server\n");
-            break;
+    for (;;) {
+        server->transport().WaitForPackets(16);
+        server->poll();
     }
-    peer->DeallocatePacket(packet);
 }
-
-// Cleanup
-MafiaNet::RakPeerInterface::DestroyInstance(peer);
 ```
+
+Every incoming connection requires an answer. Calling `accept_player()` assigns its player number. A game can wait for login or loading before making that call. Pending requests use a separate capacity budget. A full server can check a whitelist, keep a queue and admit reserved clients. See the [queue and reserved slots guide](docs/guide/admission-queue.rst). See the [player server guide](docs/guide/player-server.rst), the [welcome example](Samples/PlayerWelcome/main.cpp), or the [complete client and server walkthrough](docs/guide/player-session-protocol.rst). For clients and peer-to-peer networking, see the [client/server guide](docs/guide/client-server.rst).
 
 ## Features
 

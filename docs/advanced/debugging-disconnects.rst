@@ -23,7 +23,7 @@ the server logged nothing at all, suspect the session handshake rather than the 
 handshake completes, so a stall looks like a silent connect failure on one side and like nothing on
 the other.
 
-The usual cause is a server running ``SetSessionConfigInteractive(true)`` that never answers a
+The usual cause is a server that never answers a
 peer -- a missing ``AcceptSession()``/``RejectSession()`` call on some code path, or an answer sent
 for the wrong system identifier. Prefer the GUID form (``packet->guid``) over a system address: an
 address can be reused by a different peer between the request and the answer.

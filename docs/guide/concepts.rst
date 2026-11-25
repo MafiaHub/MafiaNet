@@ -49,6 +49,9 @@ Network data is received as ``Packet`` objects. Each packet contains:
 
        // Process based on type
        switch (messageType) {
+           case ID_SESSION_CONFIG_REQUEST:
+               peer->AcceptSession(packet->guid, nullptr, 0);
+               break;
            case ID_NEW_INCOMING_CONNECTION:
                // Handle connection
                break;

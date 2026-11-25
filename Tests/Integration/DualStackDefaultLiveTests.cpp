@@ -20,6 +20,7 @@
 #define __APPLE_USE_RFC_3542 1 // IPV6_RECVHOPLIMIT / IPV6_HOPLIMIT
 #endif
 
+#include "SessionTestHelpers.h"
 #include "mafianet/guid_util.h"
 #include <gtest/gtest.h>
 
@@ -287,7 +288,7 @@ TEST_F(DualStackDefaultLive, DefaultSocketServesIpv4ClientAtBoundAddress)
 				accepted = true;
 			client->DeallocatePacket(p);
 		}
-		for (Packet *p = server->Receive(); p != nullptr; p = server->Receive())
+		for (Packet *p = SessionTestHelpers::ReceiveAndAcceptRequests(server); p != nullptr; p = SessionTestHelpers::ReceiveAndAcceptRequests(server))
 		{
 			if (p->data[0] == ID_NEW_INCOMING_CONNECTION)
 			{
