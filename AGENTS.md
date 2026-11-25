@@ -68,6 +68,7 @@ Available generators (run `cmake --help` for full list):
 | `MAFIANET_SANITIZER` | (empty) | `address+undefined` or `thread`; applied to every target. Prefer the `asan` / `tsan` presets |
 | `MAFIANET_USE_COMPILER_CACHE` | ON | Use sccache/ccache as compiler launcher when found on `PATH` |
 | `MAFIANET_WARNINGS_AS_ERRORS` | OFF | `-Werror` / `/WX` on MafiaNet's own targets (on in every CI job except the oldest-toolchain Docker one) |
+| `MAFIANET_USE_UNOFFICIAL_SODIUM` | OFF | Find libsodium through vcpkg's `unofficial-sodium` config package instead of `cmake/Findsodium.cmake`; a `sodium` target defined by a parent project before `add_subdirectory` is used as is. Exercised by `ci/sodium-provider` |
 | `MAFIANET_BUILD_FUZZERS` | OFF | libFuzzer harnesses in `Tests/Fuzz` (Clang); use the `fuzz` preset |
 | `MAFIANET_BUILD_BENCHMARKS` | OFF | google/benchmark microbenchmarks in `Benchmarks/`; use the `bench` preset |
 | `MAFIANET_BUILD_SOAK_TESTS` | OFF | Soak tests in `Tests/Soak` (CTest label `soak`, needs `MAFIANET_BUILD_TESTS`); run nightly, never per PR |

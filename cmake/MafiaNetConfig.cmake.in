@@ -6,6 +6,7 @@ include(CMakeFindDependencyMacro)
 set(_MafiaNet_HAS_SHARED @MAFIANET_CONFIG_HAS_SHARED@)
 set(_MafiaNet_HAS_STATIC @MAFIANET_CONFIG_HAS_STATIC@)
 set(_MafiaNet_SODIUM_STATIC @MAFIANET_CONFIG_SODIUM_STATIC@)
+set(_MafiaNet_SODIUM_PACKAGE @MAFIANET_CONFIG_SODIUM_PACKAGE@)
 
 # libsodium is a PRIVATE dependency of both libraries:
 #  - MafiaNet::MafiaNet (shared) carries its own reference to libsodium, resolved by the loader at run
@@ -13,29 +14,44 @@ set(_MafiaNet_SODIUM_STATIC @MAFIANET_CONFIG_SODIUM_STATIC@)
 #    development files;
 #  - MafiaNet::MafiaNetStatic is an archive, so whoever links it must also link libsodium, of the same
 #    flavour (static or shared) MafiaNet was built against.
-# Find libsodium with the flavour recorded at build time (the consumer's own setting is restored after).
+# libsodium is looked for in the package the build used: vcpkg's unofficial-sodium config package (built
+# with MAFIANET_USE_UNOFFICIAL_SODIUM), or the bundled Findsodium module, with the flavour recorded at build
+# time (the consumer's own setting is restored after).
 # It is required when the static library is the only one installed; otherwise it is looked for quietly,
 # and if it is missing only MafiaNet::MafiaNetStatic becomes unusable (see below).
-if(DEFINED sodium_USE_STATIC_LIBS)
-  set(_MafiaNet_saved_sodium_USE_STATIC_LIBS "${sodium_USE_STATIC_LIBS}")
-endif()
-set(sodium_USE_STATIC_LIBS ${_MafiaNet_SODIUM_STATIC})
-list(PREPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}")
 # A consumer that already provides a `sodium` target (for example by add_subdirectory of libsodium) is
 # not asked to make it findable on disk.
 if(TARGET sodium)
   # already provided by the consumer
-elseif(_MafiaNet_HAS_STATIC AND NOT _MafiaNet_HAS_SHARED)
-  find_dependency(sodium 1.0.18)
+elseif(_MafiaNet_SODIUM_PACKAGE STREQUAL "unofficial-sodium")
+  if(_MafiaNet_HAS_STATIC AND NOT _MafiaNet_HAS_SHARED)
+    find_dependency(unofficial-sodium CONFIG)
+  else()
+    find_package(unofficial-sodium CONFIG QUIET)
+  endif()
+  # The exported targets link `sodium`, as the build did.
+  if(TARGET unofficial-sodium::sodium)
+    add_library(sodium INTERFACE IMPORTED)
+    set_target_properties(sodium PROPERTIES INTERFACE_LINK_LIBRARIES unofficial-sodium::sodium)
+  endif()
 else()
-  find_package(sodium 1.0.18 QUIET)
-endif()
-list(REMOVE_AT CMAKE_MODULE_PATH 0)
-if(DEFINED _MafiaNet_saved_sodium_USE_STATIC_LIBS)
-  set(sodium_USE_STATIC_LIBS "${_MafiaNet_saved_sodium_USE_STATIC_LIBS}")
-  unset(_MafiaNet_saved_sodium_USE_STATIC_LIBS)
-else()
-  unset(sodium_USE_STATIC_LIBS)
+  if(DEFINED sodium_USE_STATIC_LIBS)
+    set(_MafiaNet_saved_sodium_USE_STATIC_LIBS "${sodium_USE_STATIC_LIBS}")
+  endif()
+  set(sodium_USE_STATIC_LIBS ${_MafiaNet_SODIUM_STATIC})
+  list(PREPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}")
+  if(_MafiaNet_HAS_STATIC AND NOT _MafiaNet_HAS_SHARED)
+    find_dependency(sodium 1.0.18)
+  else()
+    find_package(sodium 1.0.18 QUIET)
+  endif()
+  list(REMOVE_AT CMAKE_MODULE_PATH 0)
+  if(DEFINED _MafiaNet_saved_sodium_USE_STATIC_LIBS)
+    set(sodium_USE_STATIC_LIBS "${_MafiaNet_saved_sodium_USE_STATIC_LIBS}")
+    unset(_MafiaNet_saved_sodium_USE_STATIC_LIBS)
+  else()
+    unset(sodium_USE_STATIC_LIBS)
+  endif()
 endif()
 
 find_dependency(Threads)
@@ -47,7 +63,8 @@ if(TARGET MafiaNet::MafiaNetStatic AND NOT TARGET sodium)
   # symbols. Make it fail at generate time instead, naming the problem, and only for a target that
   # links MafiaNet::MafiaNetStatic: MafiaNet::MafiaNet stays usable.
   message(STATUS "MafiaNet: libsodium (>= 1.0.18) development files not found; MafiaNet::MafiaNetStatic "
-                 "cannot be linked (MafiaNet::MafiaNet can). Install libsodium, or set sodium_DIR on Windows.")
+                 "cannot be linked (MafiaNet::MafiaNet can). Install libsodium, or set sodium_DIR on Windows "
+                 "(unofficial-sodium_DIR for a build made with MAFIANET_USE_UNOFFICIAL_SODIUM).")
   set_property(TARGET MafiaNet::MafiaNetStatic APPEND PROPERTY
                INTERFACE_LINK_LIBRARIES MafiaNet::libsodium_not_found_install_libsodium_to_link_MafiaNetStatic)
 endif()
@@ -55,5 +72,6 @@ endif()
 unset(_MafiaNet_HAS_SHARED)
 unset(_MafiaNet_HAS_STATIC)
 unset(_MafiaNet_SODIUM_STATIC)
+unset(_MafiaNet_SODIUM_PACKAGE)
 
 check_required_components(MafiaNet)
