@@ -20,6 +20,10 @@ Version 0.27.0
   and acknowledged replaceable delivery.
 
 
+**Network simulator**
+
+* ``ApplyNetworkSimulator()`` (outgoing loss, extra latency and jitter) now works in every build configuration. It used to be compiled into Debug builds only, so a Release game could not reproduce a bad link, and ``IsNetworkSimulatorActive()`` always returned false there. While nothing is set it costs one comparison per outgoing datagram.
+
 **Built-in RPC**
 
 * Use ``peer->GetRPC()`` and ``mafianet/remote_procedure_call.h`` for named calls, signals and callbacks.

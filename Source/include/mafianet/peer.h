@@ -692,9 +692,7 @@ public:
 	// --------------------------------------------------------------------------------------------Network Simulator Functions--------------------------------------------------------------------------------------------
 	/// Adds simulated ping and packet loss to the outgoing data flow.
 	/// To simulate bi-directional ping and packet loss, you should call this on both the sender and the recipient, with half the total ping and packetloss value on each.
-	/// You can exclude network simulator code with the _RELEASE #define to decrease code size
-	/// \deprecated Use http://www.jenkinssoftware.com/forum/index.php?topic=1671.0 instead.
-	/// \note Doesn't work past version 3.6201
+	/// Compiled into every build configuration. It applies to connections that exist now and to later ones; pass 0, 0, 0 to turn it off.
 	/// \param[in] packetloss Chance to lose a packet. Ranges from 0 to 1.
 	/// \param[in] minExtraPing The minimum time to delay sends.
 	/// \param[in] extraPingVariance The additional random time to delay sends.
@@ -1259,11 +1257,9 @@ protected:
 
 	unsigned maxOutgoingBPS;
 
-	// Nobody would use the internet simulator in a final build.
-#ifdef _DEBUG
+	// Network simulator settings (ApplyNetworkSimulator), applied to every connection.
 	double _packetloss;
 	unsigned short _minExtraPing, _extraPingVariance;
-#endif
 
 	///How long it has been since things were updated by a call to receiveUpdate thread uses this to determine how long to sleep for
 	//unsigned int lastUserUpdateCycle;
