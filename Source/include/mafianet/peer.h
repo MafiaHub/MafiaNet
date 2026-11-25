@@ -1372,7 +1372,7 @@ private:
 	bool IsExchangingSessionData(const AddressOrGUID systemIdentifier);
 	/// Produce the connection packet that was withheld while the session handshake ran, then the
 	/// application messages held behind it.
-	void ProduceWithheldConnectionPacket(RemoteSystemStruct *remoteSystem, MessageID messageId);
+	void ProduceWithheldConnectionPacket(RemoteSystemStruct *remoteSystem);
 	/// Connecting side, EXCHANGING_SESSION_DATA: take ownership of an application message until the
 	/// connection is reported. Returns false, having freed \a data, when holding it would exceed
 	/// MAXIMUM_HELD_SESSION_MESSAGES or MAXIMUM_HELD_SESSION_BYTES.

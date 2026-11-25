@@ -188,3 +188,32 @@ TEST(PeerPlayers, TimeoutRetiresPlayerBeforeNotificationIsConsumed)
 	EXPECT_FALSE(server->AcceptPlayer(guid));
 	EXPECT_FALSE(server->GetPlayerGuid(PlayerId{1}));
 }
+
+TEST(PeerPlayers, CrossedOutgoingPlaintextConnectionsDoNotConsumePlayerNumbers)
+{
+	SimulatedNetwork net;
+	net.SetNewPeerEncryptionMode(EncryptionMode::Plaintext);
+	auto *first = net.AddPeer(1, 1);
+	auto *second = net.AddPeer(1, 1);
+	const auto firstGuid = ToPeerGuid(first->GetMyGUID());
+	const auto secondGuid = ToPeerGuid(second->GetMyGUID());
+
+	ASSERT_EQ(net.StartConnect(first, second), CONNECTION_ATTEMPT_STARTED);
+	ASSERT_EQ(net.StartConnect(second, first), CONNECTION_ATTEMPT_STARTED);
+	ASSERT_TRUE(net.RunUntilReceived(first, ID_CONNECTION_REQUEST_ACCEPTED, 5000));
+	ASSERT_TRUE(net.RunUntilReceived(second, ID_CONNECTION_REQUEST_ACCEPTED, 5000));
+	EXPECT_FALSE(first->AcceptPlayer(secondGuid));
+	EXPECT_FALSE(second->AcceptPlayer(firstGuid));
+
+	first->CloseConnection(ToGuid(secondGuid), true);
+	ASSERT_TRUE(net.RunUntilReceived(first, ID_DISCONNECTION_NOTIFICATION, 5000));
+	ASSERT_TRUE(net.RunUntilReceived(second, ID_DISCONNECTION_NOTIFICATION, 5000));
+	EXPECT_FALSE(first->GetPlayerId(secondGuid));
+	EXPECT_FALSE(second->GetPlayerId(firstGuid));
+
+	net.Inbox(first).clear();
+	net.Inbox(second).clear();
+	ASSERT_TRUE(net.Connect(second, first));
+	EXPECT_EQ(first->AcceptPlayer(secondGuid), PlayerId{1});
+	EXPECT_FALSE(second->AcceptPlayer(firstGuid));
+}

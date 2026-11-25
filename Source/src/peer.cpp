@@ -3936,11 +3936,14 @@ bool RakPeer::StoreRemoteSessionConfig(RemoteSystemStruct *remoteSystem, const u
 // Replay the connection packet that was held back while the session handshake ran. This is the single
 // point at which an application learns a connection exists, and by construction it runs only once the
 // remote's session payload is already stored on the slot.
-void RakPeer::ProduceWithheldConnectionPacket(RemoteSystemStruct *remoteSystem, MessageID messageId)
+void RakPeer::ProduceWithheldConnectionPacket(RemoteSystemStruct *remoteSystem)
 {
 	if (remoteSystem == 0)
 		return;
 
+	// A crossed plaintext connection can answer a session request while holding an outgoing
+	// connection notification. The slot's session role determines player eligibility.
+	const bool incoming = !remoteSystem->sessionConfigIsConnectingSide;
 	Packet *packet;
 	if (remoteSystem->withheldConnectionPacketData != 0 && remoteSystem->withheldConnectionPacketLength > 0)
 	{
@@ -3956,7 +3959,7 @@ void RakPeer::ProduceWithheldConnectionPacket(RemoteSystemStruct *remoteSystem, 
 		// The original bytes could not be stashed (allocation failure); the message id alone still tells
 		// the application a connection exists, which is what every caller keys off.
 		packet = AllocPacket(sizeof(MessageID));
-		packet->data[0] = messageId;
+		packet->data[0] = incoming ? ID_NEW_INCOMING_CONNECTION : ID_CONNECTION_REQUEST_ACCEPTED;
 		packet->bitSize = sizeof(MessageID) * 8;
 	}
 
@@ -3965,7 +3968,7 @@ void RakPeer::ProduceWithheldConnectionPacket(RemoteSystemStruct *remoteSystem, 
 	packet->guid = remoteSystem->guid;
 	packet->guid.systemIndex = packet->systemAddress.systemIndex;
 	remoteSystem->connectionReportedToApplication = true;
-	if (messageId == ID_NEW_INCOMING_CONNECTION)
+	if (incoming)
 		playerRoster->Connected(ToPeerGuid(remoteSystem->guid));
 	AddPacketToProducer(packet);
 
@@ -4074,7 +4077,7 @@ void RakPeer::SendSessionConfigResponse(RemoteSystemStruct *remoteSystem, const 
 
 	SetConnectMode(*remoteSystem, RemoteSystemStruct::CONNECTED);
 	remoteSystem->sessionConfigStartTime = 0;
-	ProduceWithheldConnectionPacket(remoteSystem, (MessageID) ID_NEW_INCOMING_CONNECTION);
+	ProduceWithheldConnectionPacket(remoteSystem);
 
 	PingInternal(remoteSystem->systemAddress, true, MafiaNet::Reliability::Unreliable);
 	quitAndDataEvents.SetEvent();
@@ -7021,7 +7024,7 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 						{
 							SetConnectMode(*remoteSystem, RemoteSystemStruct::CONNECTED);
 							remoteSystem->sessionConfigStartTime = 0;
-							ProduceWithheldConnectionPacket(remoteSystem, (MessageID) ID_CONNECTION_REQUEST_ACCEPTED);
+							ProduceWithheldConnectionPacket(remoteSystem);
 						}
 					}
 				}
