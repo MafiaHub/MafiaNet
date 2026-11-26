@@ -207,8 +207,8 @@ new. ``GetDelegatedLoad(guid)`` reads its load.
 **Pin and suspend.** ``Pin(object, guid)`` keeps the object on that client
 whatever the ranges say, ``Pin(object, UNASSIGNED_PEER_GUID)`` keeps it dormant,
 and ``Unpin`` returns it to the election. ``Suspend(guid)`` releases everything
-the client holds and keeps it out of elections until ``Resume`` or its
-disconnect. A disconnect re-elects what the client held at once.
+the delegation gave the client and keeps it out of elections until ``Resume``
+or its disconnect. A disconnect re-elects what the client held at once.
 
 **Decline.** A client calls ``DeclineAuthority(copy, true)`` to ask not to
 simulate an object, for example while its own game is loading, and ``false`` to
@@ -230,13 +230,26 @@ leader's simulator. Links chain to the group's root; a cycle returns false.
 Members always have the root's holder, whatever the root's mode. A delegated
 root is elected once for the group, with its policy and position and the
 group's summed weight, and a client must be eligible for every member to win.
-The members of a root the game owns by hand (``SetAuthority``) follow it at the
-next ``Tick``. A handover is all or nothing: if a grant is refused, the ones
-already made in that pass are undone and the group is retried at its next pass.
-Pinning or declining any member acts on the whole group, and the veto is asked
-once, with the root's ID. The link also sets
-``InterestGrid::SetDependency(member, leader)``, so a client that sees the
-leader sees its members. Pass ``nullptr`` as the leader to unlink.
+A member's own policy is kept, but only its weight counts while it is grouped;
+a member without a policy weighs 1. A handover is all or nothing: if a grant is
+refused, the ones already made in that pass are undone and the group is retried
+at its next pass. In such an elected group, pinning or declining any member acts
+on the whole group, suspending the holder releases the whole group, and the veto
+is asked once, with the root's ID.
+
+The members of a root the game owns by hand (not delegated, granted with
+``SetAuthority``) follow its holder at the next ``Tick``, and go dormant while
+that client cannot hold every one of them (ineligible or suspended). The root's
+grant stays the game's: such a group cannot be pinned, declines do not move it,
+and a suspension releases only its members. The leader counts toward its
+holder's load and capacity like the members.
+
+The link also sets ``InterestGrid::SetDependency(member, leader)``, so a client
+that sees the leader sees its members. Pass ``nullptr`` as the leader to
+unlink; the grid dependency is cleared too if it still names that leader.
+Unlinking a member, or removing its leader, leaves the member with its holder:
+it then follows its own policy, leads its own followers, or is the game's
+again.
 
 **Timing.** ``Pin``, ``Unpin`` and ``Suspend`` take effect at the next
 ``Tick``, never inside the call. A newly delegated object waits for its turn
@@ -248,7 +261,8 @@ is re-elected at the next ``Tick``; pin it, or opt it out with
 ``SetDelegation(object, nullptr)``, to choose its holder yourself. Opting out
 leaves the current holder in place.
 
-``GetDelegationStatistics()`` reports ``simulated`` and ``dormant`` objects,
+``GetDelegationStatistics()`` reports ``simulated`` and ``dormant`` objects
+(delegated objects, group members and the leaders of hand-owned groups),
 ``elections`` run, ``handovers`` (one per grant the delegation changed),
 ``refusals`` and ``forced`` handovers of the veto, and ``declines`` recorded.
 

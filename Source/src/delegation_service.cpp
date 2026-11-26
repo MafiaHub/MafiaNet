@@ -232,8 +232,13 @@ bool DelegationService::SetGroup(Replica3 &member, Replica3 *leader)
 			return true;
 		}
 		const NetworkID root = RootOf(id);
+		const NetworkID previous = it->second.leader;
 		Unlink(id);
-		manager.interest.SetDependency(id, UNASSIGNED_NETWORK_ID);
+		// Only the dependency this link set: one the game set itself since then stays.
+		if (manager.interest.GetDependency(id) == previous)
+		{
+			manager.interest.SetDependency(id, UNASSIGNED_NETWORK_ID);
+		}
 		// Its own policy, or the followers it leads, take over at the next pass; the old group is checked too.
 		Refresh(id);
 		if (entries.count(id))
@@ -410,9 +415,8 @@ DelegationStatistics DelegationService::Statistics() const
 
 bool DelegationService::Vetoable(PeerGuid holder) const
 {
-	// Nobody to refuse for, a disconnect or a suspension (never vetoed), or a holder that gave up a replica of the
-	// group itself.
-	if (!veto || holder == UNASSIGNED_PEER_GUID || disconnecting || suspended.count(holder))
+	// Nobody to refuse for, a suspension (never vetoed), or a holder that gave up a replica of the group itself.
+	if (!veto || holder == UNASSIGNED_PEER_GUID || suspended.count(holder))
 	{
 		return false;
 	}
@@ -547,6 +551,13 @@ void DelegationService::Evaluate(NetworkID id, Entry &entry)
 	bool forcing = false, postponed = false;
 	if (elected && desired != current && Vetoable(current))
 	{
+		if (disconnecting)
+		{
+			// A live client still holds the group (a member was the departed client's): its veto is asked at the next
+			// Tick, never from a disconnect.
+			urgent.insert(id);
+			return;
+		}
 		// Asked once for the group, with the root's id: the group changes hands as one.
 		const uint64_t before = revision;
 		const std::shared_ptr<Veto> ask = veto;
@@ -626,6 +637,8 @@ void DelegationService::Evaluate(NetworkID id, Entry &entry)
 				if (!manager.Assign(*undo->replica, undo->previous))
 				{
 					manager.Assign(*undo->replica, UNASSIGNED_PEER_GUID);
+					// Split between the server and a client: mended at the next Tick, not the next interval.
+					urgent.insert(id);
 				}
 			}
 			entry.refusing = refusing;

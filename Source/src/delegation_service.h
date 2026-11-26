@@ -66,7 +66,8 @@ public:
 	/// Every grant change on a delegated replica, whoever made it. Not the delegation's own: it rechecks at once.
 	void GrantChanged(NetworkID id, PeerGuid current);
 	/// A session ended. Its grants are already gone (GrantChanged); the groups of the replicas it \a held, and those
-	/// pinned to it, are re-elected here, at once, without the veto. Everything else waits for its pass.
+	/// pinned to it, are re-elected here, at once. A group a live client still holds that would need its veto, and
+	/// everything else, waits for Tick: the veto is never asked from here.
 	void Disconnected(PeerGuid guid, const std::vector<NetworkID> &held);
 	/// The replica is gone.
 	void Forget(NetworkID id);

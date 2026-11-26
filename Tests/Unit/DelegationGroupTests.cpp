@@ -274,3 +274,70 @@ TEST_F(DelegationGroups, ChainsFlattenAndCyclesFail)
 	EXPECT_TRUE(Host().SetDelegationGroup(first, nullptr));
 	Host().Dereference(&untracked);
 }
+
+TEST_F(DelegationGroups, RemovingALinkReRootsItsFollowersAndTheVetoIsAskedOnce)
+{
+	// seat <- first <- second, and second has a policy of its own (ignored while grouped).
+	ASSERT_TRUE(Host().SetDelegationGroup(first, &seat));
+	ASSERT_TRUE(Host().SetDelegationGroup(second, &first));
+	Place(0, East(50));
+	Host().SetTickMode(ReplicationTickMode::Manual);
+	Host().SetDelegationInterval(0);
+	Delegate(seat);
+	Delegate(second);
+	Host().Tick();
+	ExpectAllMoved(0, guids[0], DelegationChange::Acquired);
+
+	// A group handover asks the veto once, with the root's id and holder.
+	std::vector<std::pair<NetworkID, PeerGuid>> asked;
+	Host().SetReleaseVeto([&](NetworkID id, PeerGuid holder)
+	                      {
+		asked.emplace_back(id, holder);
+		return true; });
+	ASSERT_TRUE(Host().Pin(second, guids[1]));
+	Host().Tick();
+	ExpectAllMoved(3, guids[1], DelegationChange::Migrated);
+	ASSERT_EQ(asked.size(), 1u);
+	EXPECT_EQ(asked[0].first, seat.GetNetworkID());
+	EXPECT_EQ(asked[0].second, guids[0]);
+	ASSERT_TRUE(Host().Unpin(seat));
+	Host().SetReleaseVeto(nullptr);
+	Host().Tick();
+	EXPECT_EQ(Host().GetDelegatedLoad(guids[0]), 3u);
+
+	// The middle of the chain goes away: the end leads itself, with its own policy, keeping its holder.
+	Host().Dereference(&first);
+	EXPECT_EQ(Host().GetDelegatedLoad(guids[0]), 2u);
+	EXPECT_EQ(Grid().GetDependency(second.GetNetworkID()), UNASSIGNED_NETWORK_ID);
+	ASSERT_TRUE(Host().Pin(second, guids[2]));
+	EXPECT_TRUE(Host().IsPinned(second));
+	EXPECT_FALSE(Host().IsPinned(seat));
+	Host().Tick();
+	EXPECT_EQ(Host().GetDelegatedLoad(guids[0]), 1u);
+	EXPECT_EQ(Host().GetDelegatedLoad(guids[2]), 1u);
+	ASSERT_TRUE(Host().Unpin(second));
+
+	// A grouped leader goes away: its follower leads itself too.
+	ASSERT_TRUE(Host().SetDelegationGroup(second, &seat));
+	Host().Tick();
+	EXPECT_EQ(Host().GetDelegatedLoad(guids[0]), 2u);
+	Host().Dereference(&seat);
+	EXPECT_EQ(Host().GetDelegatedLoad(guids[0]), 1u);
+	EXPECT_FALSE(Host().IsPinned(second));
+	for (int tick = 0; tick < 3; ++tick)
+		Host().Tick();
+	EXPECT_EQ(Host().GetDelegatedLoad(guids[0]), 1u);
+	const auto stats = Host().GetDelegationStatistics();
+	EXPECT_EQ(stats.simulated + stats.dormant, 1u);
+}
+
+TEST_F(DelegationGroups, UnlinkKeepsADependencyTheGameSetItself)
+{
+	ASSERT_TRUE(Host().SetDelegationGroup(first, &seat));
+	ASSERT_TRUE(Grid().SetDependency(first.GetNetworkID(), second.GetNetworkID()));
+	ASSERT_TRUE(Host().SetDelegationGroup(first, nullptr));
+	EXPECT_EQ(Grid().GetDependency(first.GetNetworkID()), second.GetNetworkID());
+	ASSERT_TRUE(Host().SetDelegationGroup(second, &seat));
+	ASSERT_TRUE(Host().SetDelegationGroup(second, nullptr));
+	EXPECT_EQ(Grid().GetDependency(second.GetNetworkID()), UNASSIGNED_NETWORK_ID);
+}

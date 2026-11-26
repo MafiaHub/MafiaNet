@@ -237,7 +237,8 @@ public:
 	/// holds and takes nothing new. The per-client value overrides it until that client disconnects.
 	void SetClientCapacity(uint32_t maxWeight);
 	bool SetClientCapacity(PeerGuid guid, uint32_t maxWeight);
-	/// A suspended client holds nothing and is elected for nothing until Resume or its disconnect. Takes effect at the
+	/// A suspended client is elected for nothing and holds nothing the delegation assigns until Resume or its
+	/// disconnect (the leader of a hand-owned group stays the game's grant; its followers are released). Takes effect at the
 	/// next Tick, not inside the call: what it holds is re-elected then, without waiting for the interval, and the
 	/// callback fires after that Tick (at most one Tick of delay; callbacks never fire from inside an API call).
 	/// \return false for a guid without a session (Suspend) or that is not suspended (Resume).
@@ -248,14 +249,17 @@ public:
 	/// the server (dormant). While the pinned client cannot hold it (suspended, ineligible) it is dormant. A pin ends
 	/// with Unpin or the client's disconnect. Pin and Unpin take effect at the next Tick, not inside the call, whatever the
 	/// interval; the callback fires after that Tick (at most one Tick of delay; callbacks never fire from inside an API
-	/// call). \return false when the replica is not delegated or \a guid has no session.
+	/// call). On a group member it pins the whole group. \return false when the replica is not delegated and not in a
+	/// group, when its group's root is not delegated (a hand-owned group cannot be pinned), or when \a guid has no
+	/// session.
 	bool Pin(Replica3 &replica, PeerGuid guid);
 	bool Unpin(Replica3 &replica);
 	bool IsPinned(Replica3 &replica) const;
 	/// Called after a change of simulator is applied, outside every MafiaNet lock, in the order the changes were made:
 	/// after the Tick that made it, or the disconnect. A pass asked for from inside it runs at the next Tick.
 	void SetDelegationCallback(std::function<void(NetworkID, PeerGuid previous, PeerGuid current, DelegationChange)> callback);
-	/// simulated and dormant: managed replicas (delegated, or in a group) held by a client or by nobody, now.
+	/// simulated and dormant: managed replicas (delegated ones, group members and the leaders of hand-owned groups)
+	/// held by a client or by nobody, now.
 	/// elections: replicas, or groups, evaluated. handovers: grant changes the delegation applied, every kind counted:
 	/// an acquisition, a migration and a release to dormant each count one, for each replica of a group. A revocation MafiaNet or the game made outside the election does not count.
 	/// refusals: elections the release veto postponed. forced: handovers made against the veto once the grace ran out.
@@ -280,14 +284,18 @@ public:
 	/// the tree under its root, the leader that follows nobody: links chain, and a link that would make a cycle is
 	/// refused. Members always have the root's holder, whatever the root's mode. A delegated root is elected once for
 	/// the group, with its policy and position, the group's summed weight, and only clients eligible for every member;
-	/// the followers of a root the game owns by hand (SetAuthority, or not delegated) take its holder at the next Tick.
-	/// A member's own policy is kept but only its weight counts while grouped. Handovers are all or nothing: if any
-	/// grant is refused, those already made in that pass are undone and the group is retried at its next pass. Pin,
-	/// Unpin and IsPinned on a member act on its group (only a delegated root can be pinned), a decline of any member
-	/// declines the group, and suspending the holder releases the whole group. The grid gets the matching
+	/// the followers of a root the game owns by hand (not delegated, granted with SetAuthority) take its holder at the
+	/// next Tick, or go dormant while that client cannot hold every one of them (ineligible, suspended); declines are
+	/// ignored for such a group and its root's grant stays the game's. A member's own policy is kept but only its weight
+	/// counts while grouped; a member without one weighs 1, and the leader of a hand-owned group counts toward its
+	/// holder's load and capacity. Handovers are all or nothing: if any grant is refused, those already made in that
+	/// pass are undone and the group is retried at its next pass. For an elected group (delegated root), Pin, Unpin and
+	/// IsPinned on a member act on the group, a decline of any member declines the group, and suspending the holder
+	/// releases the whole group; a hand-owned group cannot be pinned. The grid gets the matching
 	/// InterestGrid::SetDependency(member, leader), so a client that sees the leader sees the member; eligibility is still
-	/// checked per member. Unlinking, or the leader's removal, leaves the member with its holder: it then follows its own
-	/// policy, its own followers, or nothing (the game's again). \return false in any role but Server, when either replica
+	/// checked per member. Unlinking clears that dependency only if it still names the old leader. Unlinking, or the
+	/// leader's removal, leaves the member with its holder: it then follows its own policy, its own followers, or nothing
+	/// (the game's again). \return false in any role but Server, when either replica
 	/// is not one SetDelegation accepts, or for a cycle (\a leader is \a member or one of its followers).
 	bool SetDelegationGroup(Replica3 &member, Replica3 *leader);
 	/// @}
@@ -295,9 +303,9 @@ public:
 	/// Client: asks the server not to elect this client to simulate \a replica (\a declined true) or withdraws that,
 	/// by a reliable message. The server passes a declining client over in its elections, takes the replica from it if
 	/// it holds it (without asking the release veto), and forgets the decline when the replica leaves this client's
-	/// visible set or either side disconnects. A pin overrides a decline without clearing it, and a decline of a group
-	/// member declines its group. The server ignores it for a replica that is neither delegated nor in a delegation
-	/// group. \return false in any role but Client, for a replica this client did not receive from the server, or when
+	/// visible set or either side disconnects. A pin overrides a decline without clearing it, and a decline of a member
+	/// of an elected group (delegated root) declines the group. The server ignores it for a replica that is neither
+	/// delegated nor in a delegation group, and it has no effect on a hand-owned group, which follows its root's holder. \return false in any role but Client, for a replica this client did not receive from the server, or when
 	/// the message cannot be sent.
 	bool DeclineAuthority(Replica3 &replica, bool declined);
 
