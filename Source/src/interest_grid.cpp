@@ -315,7 +315,7 @@ public:
 	// Gathers a rebuild's candidates into ranked. kPlain is the path without ranged objects, entity-range categories, always-visible objects or a look-ahead
 	// focus: every candidate is reached once (a required record is skipped in the cells), so no stamp, one focus and the observer radius alone.
 	template <bool kPlain>
-	void Collect(PeerGuid guid, Observer &observer, const Foci &foci, uint64_t stamp)
+	void Collect(PeerGuid guid, Observer &observer, const Foci &foci, [[maybe_unused]] uint64_t stamp)
 	{
 		auto consider = [&](Record &record, bool uncounted)
 		{
@@ -426,6 +426,7 @@ public:
 		ranked.clear();
 		const uint64_t stamp = ++rebuildStamp;
 		const Foci foci = FociOf(observer);
+		// Any new candidate source or Reach input must also disable the plain path here.
 		const bool plain = rangedCells.empty() && entityRangeCategories.empty() && alwaysVisible.empty() && foci.count == 1;
 		if (plain)
 		{

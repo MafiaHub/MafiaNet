@@ -2,6 +2,7 @@
 #include <gtest/gtest.h>
 #include "mafianet/interest_grid.h"
 #include <algorithm>
+#include <functional>
 #include <limits>
 #include <map>
 #include <set>
@@ -644,4 +645,103 @@ TEST(InterestGrid, DependenciesSurviveReconfigure)
 	grid.Clear();
 	ASSERT_TRUE(grid.Track(2, {{900, 0}}));
 	EXPECT_EQ(grid.GetDependency(2), UNASSIGNED_NETWORK_ID);
+}
+
+namespace
+{
+// One seeded scene (priorities, category limits, observer limits, hysteresis, a required object, an explicit-cell observer), run with an optional
+// change that forces rebuilds off the plain path. Returns every GetVisible result in order and the statistics deltas of the moving phase.
+struct PathRun
+{
+	std::vector<std::vector<NetworkID>> views;
+	InterestStatistics delta;
+};
+PathRun RunPathScene(const std::function<void(InterestGrid &)> &force)
+{
+	InterestGrid grid;
+	EXPECT_TRUE(grid.Configure({{0, 0}, {256, 256}, 16}));
+	uint32_t seed = 12345;
+	auto next = [&seed](uint32_t bound)
+	{
+		seed = seed * 1664525u + 1013904223u;
+		return (seed >> 8) % bound;
+	};
+	for (NetworkID id = 1; id <= 400; ++id)
+	{
+		SpatialScope scope{{static_cast<float>(next(200)), static_cast<float>(next(200))}};
+		scope.priority = static_cast<int>(next(3));
+		scope.category = static_cast<uint16_t>(next(4));
+		EXPECT_TRUE(grid.Track(id, scope));
+	}
+	EXPECT_TRUE(grid.SetCategoryLimit(1, 5));
+	EXPECT_TRUE(grid.SetCategoryLimit(2, 3));
+	for (unsigned i = 0; i < 4; ++i)
+	{
+		const PeerGuid guid{i + 1};
+		EXPECT_TRUE(grid.SetObserverRadius(guid, {40.0f + i * 30, 60}, 30, 36));
+		grid.SetObserverLimits(guid, 20, 0);
+	}
+	EXPECT_TRUE(grid.SetObserverCells(PeerGuid{5}, {{2, 2}, {3, 3}}));
+	InterestGridTestAccess::Require(grid, 7, PeerGuid{1});
+	force(grid);
+	PathRun run;
+	auto observeAll = [&]
+	{
+		for (unsigned i = 1; i <= 5; ++i)
+			run.views.push_back(Visible(grid, PeerGuid{i}));
+	};
+	observeAll();
+	const auto before = grid.GetStatistics();
+	for (int step = 0; step < 20; ++step)
+	{
+		for (int k = 0; k < 10; ++k)
+		{
+			const NetworkID id = 1 + next(400);
+			EXPECT_TRUE(grid.SetPosition(id, {static_cast<float>(next(200)), static_cast<float>(next(200))}));
+		}
+		EXPECT_TRUE(grid.SetObserverPosition(PeerGuid{1 + static_cast<unsigned>(step % 4)}, {static_cast<float>(30 + next(140)), static_cast<float>(30 + next(140))}));
+		observeAll();
+	}
+	const auto after = grid.GetStatistics();
+	run.delta.observersRebuilt = after.observersRebuilt - before.observersRebuilt;
+	run.delta.candidatesInspected = after.candidatesInspected - before.candidatesInspected;
+	run.delta.categoryCapped = after.categoryCapped - before.categoryCapped;
+	run.delta.alwaysVisiblePulls = after.alwaysVisiblePulls - before.alwaysVisiblePulls;
+	return run;
+}
+}
+
+// Rebuilds without parity features take a separate plain path; forcing the general path must not change any result.
+TEST(InterestGrid, PlainPathMatchesTheGeneralPath)
+{
+	const PathRun plain = RunPathScene([](InterestGrid &) {});
+	ASSERT_GT(plain.delta.observersRebuilt, 0u);
+	ASSERT_GT(plain.delta.categoryCapped, 0u);
+	// An entity-range category no object uses: same radii, same candidates.
+	const PathRun entityRange = RunPathScene([](InterestGrid &grid)
+	                                         { ASSERT_TRUE(grid.SetCategoryUsesEntityRange(99, true)); });
+	EXPECT_EQ(entityRange.views, plain.views);
+	EXPECT_EQ(entityRange.delta.observersRebuilt, plain.delta.observersRebuilt);
+	EXPECT_EQ(entityRange.delta.candidatesInspected, plain.delta.candidatesInspected);
+	EXPECT_EQ(entityRange.delta.categoryCapped, plain.delta.categoryCapped);
+	// An always-visible object in another world: inspected once more per rebuild, never visible.
+	const PathRun alwaysVisible = RunPathScene(
+	    [](InterestGrid &grid)
+	    {
+		    ASSERT_TRUE(grid.Track(1000, {{250, 250}, 1}));
+		    ASSERT_TRUE(grid.SetAlwaysVisible(1000, true));
+	    });
+	EXPECT_EQ(alwaysVisible.views, plain.views);
+	EXPECT_EQ(alwaysVisible.delta.observersRebuilt, plain.delta.observersRebuilt);
+	EXPECT_EQ(alwaysVisible.delta.candidatesInspected, plain.delta.candidatesInspected + alwaysVisible.delta.alwaysVisiblePulls);
+	EXPECT_EQ(alwaysVisible.delta.alwaysVisiblePulls, alwaysVisible.delta.observersRebuilt);
+	EXPECT_EQ(alwaysVisible.delta.categoryCapped, plain.delta.categoryCapped);
+	// A far ranged object in another world that no observer can see: the ranged scan may inspect it, nothing else changes.
+	const PathRun ranged = RunPathScene([](InterestGrid &grid)
+	                                    { ASSERT_TRUE(grid.Track(1000, {{250, 250}, 1, VIRTUAL_WORLD_DEFAULT, 0, 0, 1})); });
+	EXPECT_EQ(ranged.views, plain.views);
+	EXPECT_EQ(ranged.delta.observersRebuilt, plain.delta.observersRebuilt);
+	EXPECT_GE(ranged.delta.candidatesInspected, plain.delta.candidatesInspected);
+	EXPECT_LE(ranged.delta.candidatesInspected, plain.delta.candidatesInspected + ranged.delta.observersRebuilt);
+	EXPECT_EQ(ranged.delta.categoryCapped, plain.delta.categoryCapped);
 }
