@@ -63,8 +63,9 @@ public:
 	std::multiset<float> rangedLengths;
 	float rangedCellSize = 0;
 	std::map<int, std::set<PeerGuid>> subscriptions;
-	// Radius observers by the cell of their position, so delegation finds the clients near a replica without a scan.
-	std::map<int, std::set<PeerGuid>> observersAt;
+	// Radius observers and their positions by the row-major cell of their position, so delegation finds the clients
+	// near a replica by walking ordered key ranges, one per row, without a scan.
+	std::map<int, std::map<PeerGuid, SpatialPoint>> observersAt;
 	std::function<bool(PeerGuid, NetworkID)> audience;
 	InterestStatistics stats;
 	uint64_t rebuildStamp = 0;
@@ -334,7 +335,7 @@ public:
 	{
 		Unfile(guid, observer);
 		observer.at = Cell(observer.position);
-		observersAt[observer.at].insert(guid);
+		observersAt[observer.at][guid] = observer.position;
 	}
 	void Subscribe(PeerGuid guid, Observer &observer, std::set<int> next)
 	{
@@ -950,41 +951,25 @@ void InterestGrid::RadiusObserversNear(SpatialPoint center, float range, std::ve
 	}
 	const double reach = range;
 	const double reachSq = reach * reach;
-	auto take = [&](const std::set<PeerGuid> &cell)
-	{
-		for (auto guid : cell)
-		{
-			const auto &observer = impl->observers.at(guid);
-			const double dx = static_cast<double>(observer.position.x) - center.x;
-			const double dy = static_cast<double>(observer.position.y) - center.y;
-			if (dx * dx + dy * dy <= reachSq)
-			{
-				out.emplace_back(guid, observer.position);
-			}
-		}
-	};
 	const int left = impl->Axis(center.x - reach, impl->config.minimum.x, impl->width);
 	const int right = impl->Axis(center.x + reach, impl->config.minimum.x, impl->width);
 	const int low = impl->Axis(center.y - reach, impl->config.minimum.y, impl->height);
 	const int high = impl->Axis(center.y + reach, impl->config.minimum.y, impl->height);
-	const double span = (static_cast<double>(right) - left + 1) * (static_cast<double>(high) - low + 1);
-	if (span > static_cast<double>(impl->observersAt.size()))
-	{
-		// Fewer occupied cells than cells in range: walk the occupied ones.
-		for (const auto &cell : impl->observersAt)
-		{
-			take(cell.second);
-		}
-		return;
-	}
+	// Keys are row-major, so each row's cells in range are one ordered key range: O(rows * log + occupied cells in range).
 	for (int y = low; y <= high; ++y)
 	{
-		for (int x = left; x <= right; ++x)
+		const auto first = impl->observersAt.lower_bound(y * impl->width + left);
+		const auto last = impl->observersAt.upper_bound(y * impl->width + right);
+		for (auto cell = first; cell != last; ++cell)
 		{
-			auto cell = impl->observersAt.find(y * impl->width + x);
-			if (cell != impl->observersAt.end())
+			for (const auto &[guid, position] : cell->second)
 			{
-				take(cell->second);
+				const double dx = static_cast<double>(position.x) - center.x;
+				const double dy = static_cast<double>(position.y) - center.y;
+				if (dx * dx + dy * dy <= reachSq)
+				{
+					out.emplace_back(guid, position);
+				}
 			}
 		}
 	}

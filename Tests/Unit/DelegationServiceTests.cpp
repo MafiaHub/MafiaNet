@@ -473,3 +473,60 @@ TEST_F(Delegation, ManualAuthorityChangesKeepLoadsAndAreReelected)
 	EXPECT_EQ(Host().GetDelegatedLoad(guids[0]), 0u);
 	EXPECT_EQ(Host().GetDelegationStatistics().simulated + Host().GetDelegationStatistics().dormant, 0u);
 }
+
+TEST_F(Delegation, PinWaitsOutASuspensionOfItsClient)
+{
+	AcquireBy(0);
+	ASSERT_TRUE(Host().Pin(seat, guids[2]));
+	ASSERT_TRUE(AwaitChange([&](const Change &c)
+	                        { return c.current == guids[2]; }));
+	ASSERT_TRUE(Host().Suspend(guids[2]));
+	ASSERT_TRUE(AwaitChange([](const Change &c)
+	                        { return c.change == DelegationChange::Dormant; }));
+	EXPECT_EQ(changes.back().previous, guids[2]);
+	// Pinned: client 0, near and free, is not elected while the pin waits.
+	Run(1500);
+	EXPECT_EQ(changes.back().change, DelegationChange::Dormant);
+	EXPECT_EQ(Host().GetDelegationStatistics().dormant, 1u);
+	EXPECT_TRUE(Host().IsPinned(seat));
+
+	ASSERT_TRUE(Host().Resume(guids[2]));
+	ASSERT_TRUE(AwaitChange([&](const Change &c)
+	                        { return c.change == DelegationChange::Acquired && c.current == guids[2]; }));
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return Holds(2, seat); }, 3000));
+}
+
+TEST_F(Delegation, PinEndsWhenItsClientDisconnects)
+{
+	AcquireBy(0);
+	ASSERT_TRUE(Host().Pin(seat, guids[2]));
+	ASSERT_TRUE(AwaitChange([&](const Change &c)
+	                        { return c.current == guids[2]; }));
+	clients[2]->CloseConnection(server->GetMyGUID(), true);
+	ASSERT_TRUE(AwaitChange([&](const Change &c)
+	                        { return c.previous == guids[2]; }));
+	EXPECT_FALSE(Host().IsPinned(seat));
+	// The normal election runs at once: client 0 is in range.
+	EXPECT_EQ(changes.back().current, guids[0]);
+	EXPECT_EQ(changes.back().change, DelegationChange::Migrated);
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return Holds(0, seat); }, 3000));
+}
+
+TEST_F(Delegation, UnknownClientsAreRefused)
+{
+	Delegate(seat);
+	const PeerGuid stranger{12345};
+	EXPECT_FALSE(Host().Pin(seat, stranger));
+	EXPECT_FALSE(Host().IsPinned(seat));
+	EXPECT_FALSE(Host().Suspend(stranger));
+	EXPECT_FALSE(Host().IsSuspended(stranger));
+	EXPECT_FALSE(Host().Resume(stranger));
+	EXPECT_FALSE(Host().SetClientCapacity(stranger, 2));
+	EXPECT_FALSE(Host().Suspend(UNASSIGNED_PEER_GUID));
+	// A replica that is not delegated cannot be pinned, even to a known client.
+	ASSERT_TRUE(Host().SetDelegation(seat, nullptr));
+	EXPECT_FALSE(Host().Pin(seat, guids[0]));
+	EXPECT_FALSE(Host().Unpin(seat));
+}

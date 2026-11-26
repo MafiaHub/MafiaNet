@@ -237,20 +237,27 @@ public:
 	/// holds and takes nothing new. The per-client value overrides it until that client disconnects.
 	void SetClientCapacity(uint32_t maxWeight);
 	bool SetClientCapacity(PeerGuid guid, uint32_t maxWeight);
-	/// A suspended client holds nothing and is elected for nothing until Resume or its disconnect.
+	/// A suspended client holds nothing and is elected for nothing until Resume or its disconnect. Takes effect at the
+	/// next Tick, not inside the call: what it holds is re-elected then, without waiting for the interval, and the
+	/// callback fires after that Tick (at most one Tick of delay; callbacks never fire from inside an API call).
 	/// \return false for a guid without a session (Suspend) or that is not suspended (Resume).
 	bool Suspend(PeerGuid guid);
 	bool Resume(PeerGuid guid);
 	bool IsSuspended(PeerGuid guid) const;
 	/// Keeps a delegated replica on \a guid whatever the ranges say, from the next Tick; UNASSIGNED_PEER_GUID keeps it on
 	/// the server (dormant). While the pinned client cannot hold it (suspended, ineligible) it is dormant. A pin ends
-	/// with Unpin or the client's disconnect. \return false when the replica is not delegated or \a guid has no session.
+	/// with Unpin or the client's disconnect. Pin and Unpin take effect at the next Tick, not inside the call, whatever the
+	/// interval; the callback fires after that Tick (at most one Tick of delay; callbacks never fire from inside an API
+	/// call). \return false when the replica is not delegated or \a guid has no session.
 	bool Pin(Replica3 &replica, PeerGuid guid);
 	bool Unpin(Replica3 &replica);
 	bool IsPinned(Replica3 &replica) const;
 	/// Called after a change of simulator is applied, outside every MafiaNet lock, in the order the changes were made:
 	/// after the Tick that made it, or the disconnect. A pass asked for from inside it runs at the next Tick.
 	void SetDelegationCallback(std::function<void(NetworkID, PeerGuid previous, PeerGuid current, DelegationChange)> callback);
+	/// simulated and dormant: delegated replicas held by a client or by nobody, now. elections: replicas evaluated.
+	/// handovers: grant changes the delegation applied, every kind counted: an acquisition, a migration and a release
+	/// to dormant each count one. A revocation MafiaNet or the game made outside the election does not count.
 	DelegationStatistics GetDelegationStatistics() const;
 	/// Summed policy weight of the delegated replicas \a guid holds.
 	uint32_t GetDelegatedLoad(PeerGuid guid) const;
