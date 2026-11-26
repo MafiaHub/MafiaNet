@@ -31,6 +31,7 @@ set(MAFIANET_SOURCES
     src/grid_sectorizer.cpp
     src/interest_grid.cpp
     src/delegation.cpp
+    src/delegation_service.cpp
     src/guid_util.cpp
     src/handshake_challenge.cpp
     src/incremental_read_interface.cpp

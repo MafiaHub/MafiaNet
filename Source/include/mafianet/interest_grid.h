@@ -4,6 +4,7 @@
 #include "mafianet/virtual_world.h"
 #include <functional>
 #include <memory>
+#include <utility>
 #include <vector>
 
 namespace MafiaNet
@@ -84,10 +85,14 @@ public:
 
 private:
 	friend class ManagedReplication;
+	friend class DelegationService;
 	friend struct InterestGridTestAccess; // lets unit tests call Require without a ReplicationManager
 	bool Eligible(PeerGuid guid, NetworkID id) const;
 	void Require(NetworkID id, PeerGuid guid);
 	unsigned GetBudget(PeerGuid guid) const;
+	bool ScopeOf(NetworkID id, SpatialScope &out) const;
+	/// Radius observers whose position is within range of center, found from the cells around it.
+	void RadiusObserversNear(SpatialPoint center, float range, std::vector<std::pair<PeerGuid, SpatialPoint>> &out) const;
 	class Impl;
 	std::unique_ptr<Impl> impl;
 };

@@ -1,0 +1,475 @@
+// Copyright (c) 2026, MafiaHub. MIT license.
+
+#include <gtest/gtest.h>
+
+#include "mafianet/replication_manager.h"
+#include "mafianet/snapshot_replica.h"
+#include "SimulatedNetwork.h"
+
+#include <array>
+#include <memory>
+#include <vector>
+
+using namespace MafiaNet;
+
+namespace
+{
+constexpr ReplicaTypeId kSeatType{41};
+constexpr ReplicaTypeId kSignType{42};
+
+struct SeatState
+{
+	uint8_t value = 0;
+	void Write(BitStream &out) const { out.Write(value); }
+	bool Read(BitStream &in) { return in.Read(value); }
+};
+struct SeatInput
+{
+	uint8_t value = 0;
+	void Write(BitStream &out) const { out.Write(value); }
+	bool Read(BitStream &in) { return in.Read(value); }
+};
+struct Seat : SnapshotReplica<SeatState>
+{
+	bool Apply(PeerGuid, const SeatInput &input)
+	{
+		state.value = input.value;
+		return true;
+	}
+};
+// Registered without an owner report.
+struct Sign : SnapshotReplica<SeatState>
+{
+};
+
+struct Change
+{
+	NetworkID id;
+	PeerGuid previous, current;
+	DelegationChange change;
+};
+
+constexpr SpatialPoint kCenter{500, 500};
+SpatialPoint East(float distance)
+{
+	return {kCenter.x + distance, kCenter.y};
+}
+
+// A server and three clients; each client is a radius observer the server places on the grid.
+class Delegation : public ::testing::Test
+{
+protected:
+	static constexpr size_t kClients = 3;
+	SimulatedNetwork net{57};
+	RakPeer *server = net.AddPeer(kClients, kClients);
+	std::array<RakPeer *, kClients> clients{net.AddPeer(1), net.AddPeer(1), net.AddPeer(1)};
+	std::array<PeerGuid, kClients> guids{};
+	Seat seat;
+	std::vector<Change> changes;
+
+	ReplicationManager &Host() { return server->GetReplication(); }
+	InterestGrid &Grid() { return Host().GetInterestGrid(); }
+	Seat *Copy(size_t client, Seat &original)
+	{
+		return static_cast<Seat *>(clients[client]->GetReplication().FindReplica(original.GetNetworkID()));
+	}
+	bool Holds(size_t client, Seat &original)
+	{
+		auto *copy = Copy(client, original);
+		return copy && clients[client]->GetReplication().HasLocalAuthority(*copy);
+	}
+	void Place(size_t client, SpatialPoint position)
+	{
+		ASSERT_TRUE(Grid().SetObserverRadius(guids[client], position, 200, 250));
+	}
+	void Run(uint32_t ms)
+	{
+		net.RunUntil([]
+		             { return false; }, ms);
+	}
+	// Steps until a change matching the predicate arrives, or the deadline passes.
+	bool AwaitChange(const std::function<bool(const Change &)> &match, uint32_t ms = 3000)
+	{
+		const size_t seen = changes.size();
+		return net.RunUntil([&]
+		                    {
+			for (size_t i = seen; i < changes.size(); ++i)
+				if (match(changes[i]))
+					return true;
+			return false; }, ms, 1);
+	}
+
+	void SetUp() override
+	{
+		ASSERT_TRUE(server->GetReplication().SetRole(ReplicationRole::Server));
+		for (auto *client : clients)
+			ASSERT_TRUE(client->GetReplication().SetRole(ReplicationRole::Client));
+		for (auto *peer : {server, clients[0], clients[1], clients[2]})
+		{
+			auto &replication = peer->GetReplication();
+			ASSERT_TRUE(replication.RegisterReplica<Seat>(kSeatType, 1));
+			ASSERT_TRUE(replication.RegisterReplica<Sign>(kSignType, 1));
+			ASSERT_TRUE((replication.RegisterOwnerUpdate<Seat, SeatInput>(1, &Seat::Apply)));
+		}
+		ASSERT_TRUE(Grid().Configure({{0, 0}, {1000, 1000}, 50}));
+		ASSERT_TRUE(Host().Reference(&seat, SpatialScope{kCenter}));
+		for (size_t i = 0; i < kClients; ++i)
+		{
+			guids[i] = ToPeerGuid(clients[i]->GetMyGUID());
+			ASSERT_TRUE(net.Connect(clients[i], server));
+		}
+		ASSERT_TRUE(net.RunUntil([&]
+		                         {
+			for (auto guid : guids)
+				if (Host().GetPeerStatus(guid) != ReplicationPeerStatus::Active)
+					return false;
+			return true; }, 5000));
+		// Everyone starts far away (900 from the seat).
+		for (size_t i = 0; i < kClients; ++i)
+			Place(i, {100, 100 + 100.0f * static_cast<float>(i)});
+		Host().SetDelegationCallback([this](NetworkID id, PeerGuid previous, PeerGuid current, DelegationChange change)
+		                             { changes.push_back({id, previous, current, change}); });
+	}
+	void Delegate(Seat &replica, uint32_t weight = 1)
+	{
+		DelegationPolicy policy;
+		policy.weight = weight;
+		ASSERT_TRUE(Host().SetDelegation(replica, &policy));
+	}
+	// Client 0 near the seat, elected and holding it.
+	void AcquireBy(size_t client)
+	{
+		Place(client, East(50));
+		Delegate(seat);
+		ASSERT_TRUE(AwaitChange([&](const Change &c)
+		                        { return c.change == DelegationChange::Acquired && c.current == guids[client]; }));
+		ASSERT_TRUE(net.RunUntil([&]
+		                         { return Holds(client, seat); }, 3000));
+	}
+};
+} // namespace
+
+TEST_F(Delegation, RejectsUntrackedReportlessAndClientReplicas)
+{
+	DelegationPolicy policy;
+	Seat untracked;
+	ASSERT_TRUE(Host().Reference(&untracked));
+	EXPECT_FALSE(Host().SetDelegation(untracked, &policy));
+	Sign sign;
+	ASSERT_TRUE(Host().Reference(&sign, SpatialScope{kCenter}));
+	EXPECT_FALSE(Host().SetDelegation(sign, &policy));
+	EXPECT_TRUE(Host().SetDelegation(seat, &policy));
+	EXPECT_TRUE(Host().SetDelegation(seat, nullptr));
+
+	auto &client = clients[0]->GetReplication();
+	EXPECT_FALSE(client.SetDelegation(seat, &policy));
+	EXPECT_FALSE(client.Suspend(guids[1]));
+	EXPECT_FALSE(client.Pin(seat, guids[1]));
+	EXPECT_FALSE(client.SetClientCapacity(guids[1], 3));
+	Host().Dereference(&sign);
+	Host().Dereference(&untracked);
+}
+
+TEST_F(Delegation, NearestClientAcquires)
+{
+	Place(0, East(80));
+	Place(1, East(40));
+	Delegate(seat);
+	ASSERT_TRUE(AwaitChange([](const Change &)
+	                        { return true; }));
+	ASSERT_EQ(changes.size(), 1u);
+	EXPECT_EQ(changes[0].id, seat.GetNetworkID());
+	EXPECT_EQ(changes[0].previous, UNASSIGNED_PEER_GUID);
+	EXPECT_EQ(changes[0].current, guids[1]);
+	EXPECT_EQ(changes[0].change, DelegationChange::Acquired);
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return Holds(1, seat); }, 3000));
+	EXPECT_FALSE(Holds(0, seat));
+	EXPECT_EQ(Host().GetDelegatedLoad(guids[1]), 1u);
+	EXPECT_EQ(Host().GetDelegatedLoad(guids[0]), 0u);
+	const auto stats = Host().GetDelegationStatistics();
+	EXPECT_EQ(stats.simulated, 1u);
+	EXPECT_EQ(stats.dormant, 0u);
+	EXPECT_EQ(stats.handovers, 1u);
+	EXPECT_GE(stats.elections, 1u);
+}
+
+TEST_F(Delegation, HysteresisKeepsTheIncumbent)
+{
+	AcquireBy(0);
+	// Beyond acquire, inside release: kept, even against a challenger at 120 (120^2 > 0.72 * 130^2).
+	Place(0, East(130));
+	Place(1, East(120));
+	Run(1500);
+	EXPECT_EQ(changes.size(), 1u);
+	EXPECT_TRUE(Holds(0, seat));
+
+	Place(0, East(150));
+	Place(1, East(90));
+	ASSERT_TRUE(AwaitChange([](const Change &)
+	                        { return true; }));
+	ASSERT_EQ(changes.size(), 2u);
+	EXPECT_EQ(changes[1].previous, guids[0]);
+	EXPECT_EQ(changes[1].current, guids[1]);
+	EXPECT_EQ(changes[1].change, DelegationChange::Migrated);
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return Holds(1, seat) && !Holds(0, seat); }, 3000));
+	EXPECT_EQ(Host().GetDelegatedLoad(guids[0]), 0u);
+	EXPECT_EQ(Host().GetDelegatedLoad(guids[1]), 1u);
+}
+
+TEST_F(Delegation, NobodyInRangeGoesDormant)
+{
+	AcquireBy(0);
+	Place(0, East(200));
+	ASSERT_TRUE(AwaitChange([](const Change &)
+	                        { return true; }));
+	EXPECT_EQ(changes.back().previous, guids[0]);
+	EXPECT_EQ(changes.back().current, UNASSIGNED_PEER_GUID);
+	EXPECT_EQ(changes.back().change, DelegationChange::Dormant);
+	const auto stats = Host().GetDelegationStatistics();
+	EXPECT_EQ(stats.dormant, 1u);
+	EXPECT_EQ(stats.simulated, 0u);
+	EXPECT_EQ(Host().GetDelegatedLoad(guids[0]), 0u);
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return !Holds(0, seat); }, 3000));
+}
+
+TEST_F(Delegation, CapacityOverflowsToTheNextClient)
+{
+	Seat second;
+	ASSERT_TRUE(Host().Reference(&second, SpatialScope{{kCenter.x, kCenter.y + 10}}));
+	ASSERT_TRUE(Host().SetClientCapacity(guids[0], 1));
+	Place(0, East(10));
+	Place(1, East(60));
+	Delegate(seat);
+	Delegate(second);
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return Host().GetDelegationStatistics().simulated == 2; }, 3000));
+	EXPECT_EQ(Host().GetDelegatedLoad(guids[0]), 1u);
+	EXPECT_EQ(Host().GetDelegatedLoad(guids[1]), 1u);
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return (Holds(0, seat) && Holds(1, second)) || (Holds(1, seat) && Holds(0, second)); }, 3000));
+
+	// Weight counts against capacity: with a default of 4, client 1 (load 1) has no room for a weight of 4 either,
+	// so the heavy replica stays dormant until an idle client comes near.
+	Host().SetClientCapacity(4);
+	Seat heavy;
+	ASSERT_TRUE(Host().Reference(&heavy, SpatialScope{{kCenter.x, kCenter.y - 10}}));
+	Delegate(heavy, 4);
+	Run(1500);
+	EXPECT_EQ(Host().GetDelegationStatistics().simulated, 2u);
+	EXPECT_EQ(Host().GetDelegationStatistics().dormant, 1u);
+	EXPECT_EQ(Host().GetDelegatedLoad(guids[0]), 1u);
+	EXPECT_EQ(Host().GetDelegatedLoad(guids[1]), 1u);
+	Place(2, East(90));
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return Host().GetDelegatedLoad(guids[2]) == 4; }, 3000));
+	Host().Dereference(&heavy);
+	Host().Dereference(&second);
+	EXPECT_EQ(Host().GetDelegatedLoad(guids[2]), 0u);
+}
+
+TEST_F(Delegation, SuspendReleasesImmediately)
+{
+	AcquireBy(0);
+	Place(1, East(80));
+	Host().SetDelegationInterval(100000);
+	Host().SetTickMode(ReplicationTickMode::Manual);
+	Run(50);
+	ASSERT_EQ(changes.size(), 1u);
+	ASSERT_TRUE(Host().Suspend(guids[0]));
+	EXPECT_TRUE(Host().IsSuspended(guids[0]));
+	Host().Tick();
+	ASSERT_EQ(changes.size(), 2u);
+	EXPECT_EQ(changes[1].previous, guids[0]);
+	EXPECT_EQ(changes[1].current, guids[1]);
+	EXPECT_EQ(changes[1].change, DelegationChange::Migrated);
+	EXPECT_EQ(Host().GetDelegatedLoad(guids[0]), 0u);
+	EXPECT_EQ(Host().GetDelegatedLoad(guids[1]), 1u);
+
+	// Resumed, it is a candidate again but takes nothing from the incumbent until the ranges say so.
+	ASSERT_TRUE(Host().Resume(guids[0]));
+	EXPECT_FALSE(Host().IsSuspended(guids[0]));
+	EXPECT_FALSE(Host().Resume(guids[0]));
+}
+
+TEST_F(Delegation, PinOverridesRanges)
+{
+	AcquireBy(0);
+	// Client 2 is 900 away: only a pin gives it the seat.
+	ASSERT_TRUE(Host().Pin(seat, guids[2]));
+	EXPECT_TRUE(Host().IsPinned(seat));
+	ASSERT_TRUE(AwaitChange([](const Change &)
+	                        { return true; }));
+	EXPECT_EQ(changes.back().previous, guids[0]);
+	EXPECT_EQ(changes.back().current, guids[2]);
+	EXPECT_EQ(changes.back().change, DelegationChange::Migrated);
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return Holds(2, seat) && !Holds(0, seat); }, 3000));
+	Run(1500);
+	EXPECT_EQ(changes.size(), 2u);
+
+	ASSERT_TRUE(Host().Pin(seat, UNASSIGNED_PEER_GUID));
+	ASSERT_TRUE(AwaitChange([](const Change &)
+	                        { return true; }));
+	EXPECT_EQ(changes.back().current, UNASSIGNED_PEER_GUID);
+	EXPECT_EQ(changes.back().change, DelegationChange::Dormant);
+	EXPECT_EQ(Host().GetDelegationStatistics().dormant, 1u);
+	Run(1500);
+	EXPECT_EQ(changes.size(), 3u);
+
+	ASSERT_TRUE(Host().Unpin(seat));
+	EXPECT_FALSE(Host().IsPinned(seat));
+	ASSERT_TRUE(AwaitChange([](const Change &)
+	                        { return true; }));
+	EXPECT_EQ(changes.back().current, guids[0]);
+	EXPECT_EQ(changes.back().change, DelegationChange::Acquired);
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return Holds(0, seat); }, 3000));
+}
+
+TEST_F(Delegation, IneligibleHolderIsReelected)
+{
+	AcquireBy(0);
+	Place(1, East(90));
+	ASSERT_TRUE(Host().SetObserverVirtualWorld(guids[0], 5));
+	Host().SetDelegationInterval(100000);
+	Host().SetTickMode(ReplicationTickMode::Manual);
+	Host().Tick();
+	ASSERT_EQ(changes.size(), 2u);
+	EXPECT_EQ(changes[1].previous, guids[0]);
+	EXPECT_EQ(changes[1].current, guids[1]);
+	EXPECT_EQ(changes[1].change, DelegationChange::Migrated);
+	EXPECT_EQ(Host().GetDelegatedLoad(guids[0]), 0u);
+	EXPECT_EQ(Host().GetDelegatedLoad(guids[1]), 1u);
+	Host().SetTickMode(ReplicationTickMode::Automatic);
+	Host().SetDelegationInterval(100);
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return Holds(1, seat) && !Holds(0, seat); }, 3000));
+
+	// The old holder is nearest, but never granted again while it cannot see the seat.
+	Place(1, East(130));
+	Place(0, East(5));
+	Run(1000);
+	EXPECT_EQ(changes.size(), 2u);
+	EXPECT_FALSE(Holds(0, seat));
+	EXPECT_TRUE(Holds(1, seat));
+}
+
+TEST_F(Delegation, OptOutKeepsTheHolder)
+{
+	AcquireBy(0);
+	ASSERT_TRUE(Host().SetDelegation(seat, nullptr));
+	EXPECT_EQ(Host().GetDelegatedLoad(guids[0]), 0u);
+	Place(0, East(400));
+	Place(1, East(10));
+	Run(1500);
+	EXPECT_EQ(changes.size(), 1u);
+	EXPECT_TRUE(Holds(0, seat));
+	EXPECT_FALSE(Holds(1, seat));
+	const auto stats = Host().GetDelegationStatistics();
+	EXPECT_EQ(stats.simulated + stats.dormant, 0u);
+}
+
+TEST_F(Delegation, DisconnectReelectsAtOnce)
+{
+	AcquireBy(0);
+	Place(1, East(80));
+	Host().SetDelegationInterval(100000);
+	Run(50);
+	clients[0]->CloseConnection(server->GetMyGUID(), true);
+	ASSERT_TRUE(AwaitChange([](const Change &)
+	                        { return true; }));
+	EXPECT_EQ(changes.back().previous, guids[0]);
+	EXPECT_EQ(changes.back().current, guids[1]);
+	EXPECT_EQ(changes.back().change, DelegationChange::Migrated);
+	EXPECT_EQ(Host().GetDelegatedLoad(guids[0]), 0u);
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return Holds(1, seat); }, 3000));
+}
+
+TEST_F(Delegation, PassRequestedFromACallbackWaitsForTheNextTick)
+{
+	Place(0, East(50));
+	Host().SetTickMode(ReplicationTickMode::Manual);
+	Host().SetDelegationInterval(0);
+	bool pinned = false;
+	Host().SetDelegationCallback([&](NetworkID id, PeerGuid previous, PeerGuid current, DelegationChange change)
+	                             {
+		changes.push_back({id, previous, current, change});
+		if (!pinned)
+		{
+			pinned = true;
+			EXPECT_TRUE(Host().Pin(seat, guids[2]));
+		} });
+	Delegate(seat);
+	Host().Tick();
+	ASSERT_EQ(changes.size(), 1u);
+	EXPECT_EQ(changes[0].current, guids[0]);
+	Host().Tick();
+	ASSERT_EQ(changes.size(), 2u);
+	EXPECT_EQ(changes[1].current, guids[2]);
+}
+
+TEST_F(Delegation, PassIsStaggered)
+{
+	constexpr size_t kSeats = 100;
+	std::vector<std::unique_ptr<Seat>> seats;
+	for (size_t i = 0; i < kSeats; ++i)
+	{
+		seats.push_back(std::make_unique<Seat>());
+		ASSERT_TRUE(Host().Reference(seats.back().get(), SpatialScope{{static_cast<float>(10 + i * 9), 900}}));
+		Delegate(*seats.back());
+	}
+	Host().SetTickMode(ReplicationTickMode::Manual);
+	Host().SetDelegationInterval(500);
+	// 30 Hz: 15 ticks of 33 1/3 ms are one 500 ms interval.
+	std::vector<uint64_t> totals;
+	uint32_t elapsedMs = 0;
+	for (uint32_t tick = 0; tick < 150; ++tick)
+	{
+		const uint32_t next = (tick + 1) * 100 / 3;
+		net.Step(next - elapsedMs);
+		elapsedMs = next;
+		Host().Tick();
+		totals.push_back(Host().GetDelegationStatistics().elections);
+	}
+	for (size_t i = 1; i < totals.size(); ++i)
+		EXPECT_LT(totals[i] - totals[i - 1], 30u) << "tick " << i;
+	for (size_t i = 30; i + 15 < totals.size(); i += 15)
+	{
+		const uint64_t perInterval = totals[i + 15] - totals[i];
+		EXPECT_GE(perInterval, 90u) << "window at tick " << i;
+		EXPECT_LE(perInterval, 110u) << "window at tick " << i;
+	}
+	for (auto &replica : seats)
+		Host().Dereference(replica.get());
+}
+
+TEST_F(Delegation, ManualAuthorityChangesKeepLoadsAndAreReelected)
+{
+	AcquireBy(0);
+	Host().SetDelegationInterval(100000);
+	Host().SetTickMode(ReplicationTickMode::Manual);
+	// Revoked by hand: the load follows the grant at once, and the next Tick re-elects the same client.
+	ASSERT_TRUE(Host().RevokeAuthority(seat));
+	EXPECT_EQ(Host().GetDelegatedLoad(guids[0]), 0u);
+	EXPECT_EQ(Host().GetDelegationStatistics().dormant, 1u);
+	Host().Tick();
+	EXPECT_EQ(Host().GetDelegatedLoad(guids[0]), 1u);
+	// Granted by hand to a client out of range: charged to it, then overridden by the next pass.
+	ASSERT_TRUE(Host().SetAuthority(seat, guids[2]));
+	EXPECT_EQ(Host().GetDelegatedLoad(guids[0]), 0u);
+	EXPECT_EQ(Host().GetDelegatedLoad(guids[2]), 1u);
+	Host().Tick();
+	EXPECT_EQ(Host().GetDelegatedLoad(guids[0]), 1u);
+	EXPECT_EQ(Host().GetDelegatedLoad(guids[2]), 0u);
+	// The game was never told of a change that the pass undid.
+	EXPECT_EQ(changes.size(), 1u);
+	// A replica that goes away refunds its holder.
+	Host().SetTickMode(ReplicationTickMode::Automatic);
+	Host().Dereference(&seat);
+	EXPECT_EQ(Host().GetDelegatedLoad(guids[0]), 0u);
+	EXPECT_EQ(Host().GetDelegationStatistics().simulated + Host().GetDelegationStatistics().dormant, 0u);
+}

@@ -5,6 +5,7 @@
 #include "mafianet/export.h"
 #include "mafianet/bit_stream.h"
 #include "mafianet/interest_grid.h"
+#include "mafianet/delegation.h"
 
 #include "mafianet/types.h"
 
@@ -218,6 +219,43 @@ public:
 	void SetReplicaCallback(std::function<void(const ReplicaEvent &)> callback);
 	void SetConnectionCallback(std::function<void(PeerGuid, bool)> callback);
 
+	/// \name Delegation (server only: false, zero or no-op in any other role)
+	/// The server hands each opted-in replica to the nearest eligible client to simulate, through SetAuthority, so the
+	/// epoch, revocation and eligibility rules are the usual ones. Candidates are the Active, unsuspended radius observers
+	/// of the interest grid that SetAuthority would accept for the replica. Each replica is re-elected about once per
+	/// interval, staggered over ticks by its NetworkID, inside Tick after the interest rebuild; a disconnect re-elects
+	/// what the client held at once, and a suspension, a pin or a grant MafiaNet revoked (an ineligible holder) at the
+	/// next Tick. While a replica is delegated the election owns its authority: a SetAuthority or RevokeAuthority made by
+	/// hand is re-elected at the next Tick. Use Pin, or opt out, to choose the holder yourself.
+	/// @{
+	/// Opts a replica in (a copy of \a policy is kept, normalised) or out (\a policy null: the current holder keeps it).
+	/// \return false when the replica is not tracked in the interest grid, its type has no owner report, or it is static.
+	bool SetDelegation(Replica3 &replica, const DelegationPolicy *policy);
+	/// How often each delegated replica is re-elected. 500 by default; 0 is every tick.
+	void SetDelegationInterval(uint32_t milliseconds);
+	/// Total policy weight a client may hold, 0 for unlimited (the default). A client at its capacity keeps what it
+	/// holds and takes nothing new. The per-client value overrides it until that client disconnects.
+	void SetClientCapacity(uint32_t maxWeight);
+	bool SetClientCapacity(PeerGuid guid, uint32_t maxWeight);
+	/// A suspended client holds nothing and is elected for nothing until Resume or its disconnect.
+	/// \return false for a guid without a session (Suspend) or that is not suspended (Resume).
+	bool Suspend(PeerGuid guid);
+	bool Resume(PeerGuid guid);
+	bool IsSuspended(PeerGuid guid) const;
+	/// Keeps a delegated replica on \a guid whatever the ranges say, from the next Tick; UNASSIGNED_PEER_GUID keeps it on
+	/// the server (dormant). While the pinned client cannot hold it (suspended, ineligible) it is dormant. A pin ends
+	/// with Unpin or the client's disconnect. \return false when the replica is not delegated or \a guid has no session.
+	bool Pin(Replica3 &replica, PeerGuid guid);
+	bool Unpin(Replica3 &replica);
+	bool IsPinned(Replica3 &replica) const;
+	/// Called after a change of simulator is applied, outside every MafiaNet lock, in the order the changes were made:
+	/// after the Tick that made it, or the disconnect. A pass asked for from inside it runs at the next Tick.
+	void SetDelegationCallback(std::function<void(NetworkID, PeerGuid previous, PeerGuid current, DelegationChange)> callback);
+	DelegationStatistics GetDelegationStatistics() const;
+	/// Summed policy weight of the delegated replicas \a guid holds.
+	uint32_t GetDelegatedLoad(PeerGuid guid) const;
+	/// @}
+
 private:
 	friend class RakPeer;
 	friend class ManagedReplication;
@@ -231,6 +269,7 @@ private:
 	ManagedReplication &Managed();
 
 	bool ProcessPacket(Packet *packet);
+	void DeliverDelegation();
 	void ReceiveTick();
 	RakPeer &peer;
 	std::unique_ptr<NetworkIDManager> ids;

@@ -88,3 +88,25 @@ TEST(DelegationElect, NormalizedClampsRanges)
 	EXPECT_EQ(normalized.releaseRange, 0.0f);
 	EXPECT_EQ(DelegationPolicy().Normalized().releaseRange, 140.0f);
 }
+
+TEST(DelegationElect, WeightCountsAgainstCapacity)
+{
+	DelegationPolicy policy;
+	policy.weight = 3;
+	// load + weight > capacity: 3 + 3 > 5 is full, 2 + 3 = 5 still fits.
+	EXPECT_EQ(ElectSimulator(policy, {0, 0}, UNASSIGNED_PEER_GUID, {At(1, 10, 3, 5), At(2, 50, 0, 5)}, {}), PeerGuid{2});
+	EXPECT_EQ(ElectSimulator(policy, {0, 0}, UNASSIGNED_PEER_GUID, {At(1, 10, 2, 5), At(2, 50, 0, 5)}, {}), PeerGuid{1});
+	// A weight above the whole capacity never fits, even on an idle client.
+	EXPECT_EQ(ElectSimulator(policy, {0, 0}, UNASSIGNED_PEER_GUID, {At(1, 10, 0, 2)}, {}), UNASSIGNED_PEER_GUID);
+	// The incumbent keeps it however heavy.
+	EXPECT_EQ(ElectSimulator(policy, {0, 0}, PeerGuid{1}, {At(1, 10, 9, 2), At(2, 9, 0, 0)}, {}), PeerGuid{1});
+}
+
+TEST(DelegationElect, AbsentHolderIsReplaced)
+{
+	// The recorded holder is not a candidate (ineligible, suspended or gone): it is ignored like a dormant replica.
+	DelegationPolicy policy;
+	EXPECT_EQ(ElectSimulator(policy, {0, 0}, PeerGuid{7}, {At(1, 80), At(2, 60)}, {}), PeerGuid{2});
+	EXPECT_EQ(ElectSimulator(policy, {0, 0}, PeerGuid{7}, {At(1, 120)}, {}), UNASSIGNED_PEER_GUID);
+	EXPECT_EQ(ElectSimulator(policy, {0, 0}, PeerGuid{7}, {}, {}), UNASSIGNED_PEER_GUID);
+}
