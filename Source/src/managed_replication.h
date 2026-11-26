@@ -9,6 +9,7 @@
 #include <vector>
 #include "replication_wire.h"
 #include "replication_clock.h"
+#include "delegation_service.h"
 
 namespace MafiaNet
 {
@@ -62,8 +63,15 @@ public:
 	bool Submit(Replica3 &object, std::type_index type, const BitStream &payload, OwnerInputStamp *sent);
 	bool IsDownload(NetworkID id) const { return downloads.count(id) != 0; }
 	bool HasSessions() const { return !sessions.empty(); }
+	/// Server: tracked in the interest grid, with an owner report, and not a static binding.
+	bool Delegable(Replica3 &replica) const;
+	PeerGuid HolderOf(NetworkID id) const;
+	/// Client: asks the server that sent \a replica not to elect this client to simulate it, or withdraws that.
+	bool Decline(Replica3 &replica, bool declined);
+	DelegationService delegation{*this};
 
 private:
+	friend class DelegationService;
 	class Connection;
 	// The connections each replica is constructed on, so that Mark() costs the replica's observers and not
 	// every connection. It mirrors their constructed lists and, like Mark(), is only used under the world:
@@ -155,6 +163,7 @@ private:
 	uint64_t nextEpoch = 0;
 	void UpdateGrants(bool publish);
 	void OwnerPacket(Connection &connection, Kind kind, BitStream &in);
+	void DeclinePacket(Connection &connection, BitStream &in);
 	void FinishTick();
 	struct TickScope
 	{

@@ -271,12 +271,136 @@ void ReplicationManager::SetConnectionCallback(std::function<void(PeerGuid, bool
 void ReplicationManager::Tick()
 {
 	if (managed)
+	{
 		managed->Tick();
+		DeliverDelegation();
+	}
 }
 
 bool ReplicationManager::Tick(Time simulationTick)
 {
-	return managed && simulationTick && managed->Tick(simulationTick);
+	if (!managed || !simulationTick)
+		return false;
+	const bool ticked = managed->Tick(simulationTick);
+	DeliverDelegation();
+	return ticked;
+}
+void ReplicationManager::DeliverDelegation()
+{
+	if (managed && role == ReplicationRole::Server)
+		managed->delegation.Deliver(managed->worldMutex);
+}
+bool ReplicationManager::SetDelegation(Replica3 &replica, const DelegationPolicy *policy)
+{
+	if (role != ReplicationRole::Server)
+		return false;
+	WorldGuard guard(*this);
+	return managed->delegation.Set(replica, policy);
+}
+void ReplicationManager::SetDelegationInterval(uint32_t milliseconds)
+{
+	if (role != ReplicationRole::Server)
+		return;
+	WorldGuard guard(*this);
+	managed->delegation.SetInterval(milliseconds);
+}
+void ReplicationManager::SetClientCapacity(uint32_t maxWeight)
+{
+	if (role != ReplicationRole::Server)
+		return;
+	WorldGuard guard(*this);
+	managed->delegation.SetDefaultCapacity(maxWeight);
+}
+bool ReplicationManager::SetClientCapacity(PeerGuid guid, uint32_t maxWeight)
+{
+	if (role != ReplicationRole::Server)
+		return false;
+	WorldGuard guard(*this);
+	return managed->delegation.SetCapacity(guid, maxWeight);
+}
+bool ReplicationManager::Suspend(PeerGuid guid)
+{
+	if (role != ReplicationRole::Server)
+		return false;
+	WorldGuard guard(*this);
+	return managed->delegation.Suspend(guid);
+}
+bool ReplicationManager::Resume(PeerGuid guid)
+{
+	if (role != ReplicationRole::Server)
+		return false;
+	WorldGuard guard(*this);
+	return managed->delegation.Resume(guid);
+}
+bool ReplicationManager::IsSuspended(PeerGuid guid) const
+{
+	if (role != ReplicationRole::Server || !managed)
+		return false;
+	ReplicaManager3::WorldGuard guard(*managed);
+	return managed->delegation.IsSuspended(guid);
+}
+bool ReplicationManager::Pin(Replica3 &replica, PeerGuid guid)
+{
+	if (role != ReplicationRole::Server)
+		return false;
+	WorldGuard guard(*this);
+	return managed->delegation.Pin(replica, guid);
+}
+bool ReplicationManager::Unpin(Replica3 &replica)
+{
+	if (role != ReplicationRole::Server)
+		return false;
+	WorldGuard guard(*this);
+	return managed->delegation.Unpin(replica);
+}
+bool ReplicationManager::IsPinned(Replica3 &replica) const
+{
+	if (role != ReplicationRole::Server || !managed)
+		return false;
+	ReplicaManager3::WorldGuard guard(*managed);
+	return managed->delegation.IsPinned(replica);
+}
+void ReplicationManager::SetDelegationCallback(std::function<void(NetworkID, PeerGuid, PeerGuid, DelegationChange)> callback)
+{
+	if (role != ReplicationRole::Server)
+		return;
+	WorldGuard guard(*this);
+	managed->delegation.SetCallback(std::move(callback));
+}
+DelegationStatistics ReplicationManager::GetDelegationStatistics() const
+{
+	if (role != ReplicationRole::Server || !managed)
+		return {};
+	ReplicaManager3::WorldGuard guard(*managed);
+	return managed->delegation.Statistics();
+}
+uint32_t ReplicationManager::GetDelegatedLoad(PeerGuid guid) const
+{
+	if (role != ReplicationRole::Server || !managed)
+		return 0;
+	ReplicaManager3::WorldGuard guard(*managed);
+	return managed->delegation.Load(guid);
+}
+void ReplicationManager::SetReleaseVeto(std::function<bool(NetworkID, PeerGuid)> canRelease)
+{
+	if (role != ReplicationRole::Server)
+		return;
+	WorldGuard guard(*this);
+	managed->delegation.SetReleaseVeto(std::move(canRelease));
+}
+bool ReplicationManager::SetDelegationGroup(Replica3 &member, Replica3 *leader)
+{
+	if (role != ReplicationRole::Server)
+		return false;
+	WorldGuard guard(*this);
+	return managed->delegation.SetGroup(member, leader);
+}
+bool ReplicationManager::DeclineAuthority(Replica3 &replica, bool declined)
+{
+	if (role != ReplicationRole::Client)
+		return false;
+	WorldGuard guard(*this);
+	return managed->Decline(replica, declined);
 }
 std::optional<double> ReplicationManager::GetRenderTick(PeerGuid source, unsigned delay) const
 {
@@ -326,8 +450,11 @@ bool ReplicationManager::ProcessPacket(Packet *packet)
 	case ID_CONNECTION_LOST:
 	case ID_DISCONNECTION_NOTIFICATION:
 	{
-		WorldGuard guard(*this);
-		managed->Disconnected(ToPeerGuid(packet->guid));
+		{
+			WorldGuard guard(*this);
+			managed->Disconnected(ToPeerGuid(packet->guid));
+		}
+		DeliverDelegation();
 		break;
 	}
 	}

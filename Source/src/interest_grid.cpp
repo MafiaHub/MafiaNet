@@ -37,6 +37,8 @@ public:
 		std::set<NetworkID> visible;
 		std::vector<NetworkID> ordered;
 		std::set<NetworkID> required;
+		// The cell holding a radius observer's position, filed in observersAt; -1 when not filed.
+		int at = -1;
 	};
 	InterestGridConfig config{};
 	int width = 0, height = 0;
@@ -61,6 +63,9 @@ public:
 	std::multiset<float> rangedLengths;
 	float rangedCellSize = 0;
 	std::map<int, std::set<PeerGuid>> subscriptions;
+	// Radius observers and their positions by the row-major cell of their position, so delegation finds the clients
+	// near a replica by walking ordered key ranges, one per row, without a scan.
+	std::map<int, std::map<PeerGuid, SpatialPoint>> observersAt;
 	std::function<bool(PeerGuid, NetworkID)> audience;
 	InterestStatistics stats;
 	uint64_t rebuildStamp = 0;
@@ -311,6 +316,26 @@ public:
 		if (it != subscriptions.end())
 			for (auto guid : it->second)
 				observers.at(guid).dirty = true;
+	}
+	void Unfile(PeerGuid guid, Observer &observer)
+	{
+		if (observer.at < 0)
+		{
+			return;
+		}
+		auto it = observersAt.find(observer.at);
+		it->second.erase(guid);
+		if (it->second.empty())
+		{
+			observersAt.erase(it);
+		}
+		observer.at = -1;
+	}
+	void File(PeerGuid guid, Observer &observer)
+	{
+		Unfile(guid, observer);
+		observer.at = Cell(observer.position);
+		observersAt[observer.at][guid] = observer.position;
 	}
 	void Subscribe(PeerGuid guid, Observer &observer, std::set<int> next)
 	{
@@ -676,6 +701,7 @@ bool InterestGrid::SetObserverRadius(PeerGuid guid, SpatialPoint p, float enter,
 	o.position = p;
 	o.enter = enter;
 	o.leave = leave;
+	impl->File(guid, o);
 	impl->Subscribe(guid, o, impl->CellsOf(o));
 	return true;
 }
@@ -727,6 +753,7 @@ bool InterestGrid::SetObserverCells(PeerGuid guid, const std::vector<GridCell> &
 	}
 	auto &o = impl->observers[guid];
 	o.radius = false;
+	impl->Unfile(guid, o);
 	impl->Subscribe(guid, o, std::move(next));
 	return true;
 }
@@ -834,6 +861,7 @@ void InterestGrid::RemoveObserver(PeerGuid guid)
 		return;
 	for (auto id : it->second.required)
 		impl->objects.at(id).required = UNASSIGNED_PEER_GUID;
+	impl->Unfile(guid, it->second);
 	impl->Subscribe(guid, it->second, {});
 	impl->observers.erase(it);
 }
@@ -842,6 +870,7 @@ void InterestGrid::Clear()
 	impl->CheckWritable();
 	impl->index.Clear();
 	impl->subscriptions.clear();
+	impl->observersAt.clear();
 	impl->observers.clear();
 	impl->objects.clear();
 	impl->alwaysVisible.clear();
@@ -902,5 +931,47 @@ unsigned InterestGrid::GetBudget(PeerGuid guid) const
 {
 	auto it = impl->observers.find(guid);
 	return it == impl->observers.end() ? 0 : it->second.budget;
+}
+bool InterestGrid::ScopeOf(NetworkID id, SpatialScope &out) const
+{
+	auto it = impl->objects.find(id);
+	if (it == impl->objects.end())
+	{
+		return false;
+	}
+	out = it->second.scope;
+	return true;
+}
+void InterestGrid::RadiusObserversNear(SpatialPoint center, float range, std::vector<std::pair<PeerGuid, SpatialPoint>> &out) const
+{
+	out.clear();
+	if (!impl->width || !(range >= 0) || impl->observersAt.empty())
+	{
+		return;
+	}
+	const double reach = range;
+	const double reachSq = reach * reach;
+	const int left = impl->Axis(center.x - reach, impl->config.minimum.x, impl->width);
+	const int right = impl->Axis(center.x + reach, impl->config.minimum.x, impl->width);
+	const int low = impl->Axis(center.y - reach, impl->config.minimum.y, impl->height);
+	const int high = impl->Axis(center.y + reach, impl->config.minimum.y, impl->height);
+	// Keys are row-major, so each row's cells in range are one ordered key range: O(rows * log + occupied cells in range).
+	for (int y = low; y <= high; ++y)
+	{
+		const auto first = impl->observersAt.lower_bound(y * impl->width + left);
+		const auto last = impl->observersAt.upper_bound(y * impl->width + right);
+		for (auto cell = first; cell != last; ++cell)
+		{
+			for (const auto &[guid, position] : cell->second)
+			{
+				const double dx = static_cast<double>(position.x) - center.x;
+				const double dy = static_cast<double>(position.y) - center.y;
+				if (dx * dx + dy * dy <= reachSq)
+				{
+					out.emplace_back(guid, position);
+				}
+			}
+		}
+	}
 }
 }

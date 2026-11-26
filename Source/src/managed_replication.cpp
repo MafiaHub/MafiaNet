@@ -148,6 +148,8 @@ public:
 		{
 			Forget(object->GetNetworkID());
 			runtime.Unobserve(*object, *this);
+			// Out of its visible set: a decline it made is forgotten.
+			runtime.delegation.LeftScope(object->GetNetworkID(), observer);
 		}
 		FlushRefusedStates();
 		FlushUnconfirmed();
@@ -208,6 +210,7 @@ public:
 			OnDereference(replica, &runtime);
 			runtime.Unobserve(*replica, *this);
 		}
+		runtime.delegation.LeftScope(id, ToPeerGuid(guid));
 		Forget(id);
 		--stats.constructed;
 		++stats.deferred;
@@ -1010,6 +1013,9 @@ bool ManagedReplication::Tick(Time requested)
 	// touches these buffers, and the world guard keeps each connection alive.
 	for (unsigned i = 0; i < GetConnectionCount(); ++i)
 		static_cast<Connection *>(GetConnectionAtIndex(i))->FlushBatch();
+	// After the interest rebuild, so the pass reads the positions and eligibility this tick settled.
+	if (owner.GetRole() == ReplicationRole::Server)
+		delegation.Pass();
 	UpdateGrants(true);
 	if (afterTick)
 		afterTick();
@@ -1055,10 +1061,15 @@ void ManagedReplication::Disconnected(PeerGuid guid)
 			clockServer = UNASSIGNED_PEER_GUID;
 	}
 	interest.RemoveObserver(guid);
+	std::vector<NetworkID> held;
 	for (auto grant = grants.begin(); grant != grants.end();)
 	{
 		if (grant->second.holder == guid && !IsDownload(grant->first))
+		{
+			held.push_back(grant->first);
+			delegation.GrantChanged(grant->first, UNASSIGNED_PEER_GUID);
 			grant = grants.erase(grant);
+		}
 		else
 			++grant;
 	}
@@ -1083,6 +1094,8 @@ void ManagedReplication::Disconnected(PeerGuid guid)
 			Unobserve(*replica, *connection);
 		delete connection;
 	}
+	if (owner.GetRole() == ReplicationRole::Server)
+		delegation.Disconnected(guid, held);
 	DispatchEvents();
 	if (active && connectionChanged)
 		connectionChanged(guid, false);
@@ -1106,6 +1119,7 @@ void ManagedReplication::OnFinalDereference(Replica3 &replica)
 	}
 	downloads.erase(id);
 	ordinary.erase(id);
+	delegation.Forget(id);
 	grants.erase(id);
 	staticObjects.erase(id);
 	interest.Remove(id);
@@ -1118,6 +1132,7 @@ void ManagedReplication::Reset()
 		resetRequested = true;
 		return;
 	}
+	delegation.Reset();
 	++generation;
 	while (!sessions.empty())
 		Disconnected(sessions.begin()->first);
@@ -1276,6 +1291,11 @@ void ManagedReplication::Receive(Packet &packet)
 			return;
 		if (kind == Kind::OwnerUpdate || kind == Kind::Grant || kind == Kind::Revoke || kind == Kind::OwnerCorrection)
 			OwnerPacket(*conn, kind, in);
+		else if (kind == Kind::Decline)
+		{
+			if (owner.GetRole() == ReplicationRole::Server)
+				DeclinePacket(*conn, in);
+		}
 		else if (owner.GetRole() == ReplicationRole::Peer || !server)
 			Apply(*conn, kind, in);
 	}
@@ -1350,7 +1370,20 @@ bool ManagedReplication::Assign(Replica3 &object, PeerGuid guid, bool force)
 	interest.Require(id, guid);
 	if (guid != UNASSIGNED_PEER_GUID)
 		grants.emplace(id, Grant{guid, ++nextEpoch, 0, publishedEpoch});
+	delegation.GrantChanged(id, guid);
 	return true;
+}
+
+bool ManagedReplication::Delegable(Replica3 &replica) const
+{
+	const auto id = replica.GetNetworkID();
+	return owner.GetRole() == ReplicationRole::Server && owner.FindReplica(id) == &replica && !replica.staticBinding && interest.Contains(id) && reports.count(static_cast<ReplicaTypeId>(replica.registeredType));
+}
+
+PeerGuid ManagedReplication::HolderOf(NetworkID id) const
+{
+	auto it = grants.find(id);
+	return it == grants.end() || IsDownload(id) ? UNASSIGNED_PEER_GUID : it->second.holder;
 }
 
 bool ManagedReplication::Correct(Replica3 &object)
@@ -1536,6 +1569,34 @@ void ManagedReplication::OwnerPacket(Connection &connection, Kind kind, BitStrea
 		grants.insert_or_assign(id, Grant{sender, epoch, 0, epoch});
 		Notify(correction ? ReplicaEventKind::AuthorityCorrected : ReplicaEventKind::AuthorityGranted, id, sender, {epoch, 0});
 	}
+}
+
+bool ManagedReplication::Decline(Replica3 &replica, bool declined)
+{
+	const auto id = replica.GetNetworkID();
+	const auto download = downloads.find(id);
+	if (owner.GetRole() != ReplicationRole::Client || download == downloads.end() || owner.FindReplica(id) != &replica)
+		return false;
+	const auto session = sessions.find(download->second.source);
+	if (session == sessions.end() || session->second.status != ReplicationPeerStatus::Active)
+		return false;
+	BitStream out;
+	WriteHeader(out, Kind::Decline, session->second);
+	ReplicationWire::Decline{id, declined}.Write(out);
+	return Send(download->second.source, out);
+}
+
+void ManagedReplication::DeclinePacket(Connection &connection, BitStream &in)
+{
+	ReplicationWire::Decline decline;
+	if (!decline.Read(in))
+		return;
+	// Only a replica the sender has: what it cannot see it cannot be elected for, and a decline is forgotten when
+	// the replica leaves its visible set.
+	auto *object = owner.FindReplica(decline.id);
+	if (!object || !connection.HasReplicaConstructed(object))
+		return;
+	delegation.Declined(decline.id, ToPeerGuid(connection.GetRakNetGUID()), decline.declined);
 }
 
 void ManagedReplication::Apply(Connection &connection, Kind kind, BitStream &in)

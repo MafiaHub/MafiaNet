@@ -29,6 +29,12 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *bytes, size_t size)
 		sample.Read(in);
 		return 0;
 	}
+	if (header.kind == ReplicationWire::Kind::Decline)
+	{
+		ReplicationWire::Decline decline;
+		decline.Read(in);
+		return 0;
+	}
 	NetworkID id;
 	uint64_t visit;
 	uint32_t type;

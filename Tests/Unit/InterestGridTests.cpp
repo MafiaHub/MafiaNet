@@ -169,6 +169,15 @@ namespace MafiaNet
 struct InterestGridTestAccess
 {
 	static void Require(InterestGrid &grid, NetworkID id, PeerGuid guid) { grid.Require(id, guid); }
+	static std::set<PeerGuid> Near(const InterestGrid &grid, SpatialPoint center, float range)
+	{
+		std::vector<std::pair<PeerGuid, SpatialPoint>> out;
+		grid.RadiusObserversNear(center, range, out);
+		std::set<PeerGuid> guids;
+		for (const auto &entry : out)
+			guids.insert(entry.first);
+		return guids;
+	}
 };
 }
 
@@ -853,4 +862,29 @@ TEST(InterestGrid, PlainPathMatchesTheGeneralPath)
 	EXPECT_GE(ranged.delta.candidatesInspected, plain.delta.candidatesInspected);
 	EXPECT_LE(ranged.delta.candidatesInspected, plain.delta.candidatesInspected + ranged.delta.observersRebuilt);
 	EXPECT_EQ(ranged.delta.categoryCapped, plain.delta.categoryCapped);
+}
+
+TEST(InterestGrid, RadiusObserversNearWalksOnlyTheCellsInRange)
+{
+	InterestGrid grid;
+	ASSERT_TRUE(grid.Configure({{0, 0}, {1000, 1000}, 50}));
+	// Row 0 ends at x = 1000 and row 1 starts at x = 0: a row-major range must not wrap into the next row.
+	ASSERT_TRUE(grid.SetObserverRadius(PeerGuid{1}, {990, 10}, 10, 20));
+	ASSERT_TRUE(grid.SetObserverRadius(PeerGuid{2}, {10, 60}, 10, 20));
+	ASSERT_TRUE(grid.SetObserverRadius(PeerGuid{3}, {500, 500}, 10, 20));
+	ASSERT_TRUE(grid.SetObserverCells(PeerGuid{4}, {{0, 0}}));
+	EXPECT_EQ(InterestGridTestAccess::Near(grid, {960, 30}, 40), (std::set<PeerGuid>{PeerGuid{1}}));
+	EXPECT_EQ(InterestGridTestAccess::Near(grid, {30, 40}, 40), (std::set<PeerGuid>{PeerGuid{2}}));
+	EXPECT_EQ(InterestGridTestAccess::Near(grid, {500, 500}, 0), (std::set<PeerGuid>{PeerGuid{3}}));
+	EXPECT_EQ(InterestGridTestAccess::Near(grid, {500, 500}, 2000).size(), 3u);
+	// Moves, a switch to explicit cells and removal update the index.
+	ASSERT_TRUE(grid.SetObserverPosition(PeerGuid{3}, {20, 20}));
+	EXPECT_EQ(InterestGridTestAccess::Near(grid, {500, 500}, 100), (std::set<PeerGuid>{}));
+	EXPECT_EQ(InterestGridTestAccess::Near(grid, {30, 40}, 40), (std::set<PeerGuid>{PeerGuid{2}, PeerGuid{3}}));
+	ASSERT_TRUE(grid.SetObserverCells(PeerGuid{2}, {{0, 1}}));
+	grid.RemoveObserver(PeerGuid{1});
+	EXPECT_EQ(InterestGridTestAccess::Near(grid, {500, 500}, 2000), (std::set<PeerGuid>{PeerGuid{3}}));
+	// Configure rebuilds the index for the new cells.
+	ASSERT_TRUE(grid.Configure({{0, 0}, {1000, 1000}, 10}));
+	EXPECT_EQ(InterestGridTestAccess::Near(grid, {25, 25}, 10), (std::set<PeerGuid>{PeerGuid{3}}));
 }
