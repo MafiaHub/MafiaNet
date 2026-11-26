@@ -369,3 +369,35 @@ TEST(InterestGrid, ReconfigurationKeepsEntityRange)
 	EXPECT_EQ(Visible(grid, camera), std::vector<NetworkID>{1});
 	EXPECT_FALSE(grid.Track(3, {{0, 0}, 0, VIRTUAL_WORLD_DEFAULT, 0, 0, -1}));
 }
+
+TEST(InterestGrid, MovingAnUnrangedObjectRebuildsOnlyCellSubscribers)
+{
+	InterestGrid grid;
+	const PeerGuid near{1}, far{2};
+	ASSERT_TRUE(grid.Configure({{0, 0}, {5000, 5000}, 100}));
+	ASSERT_TRUE(grid.SetObserverRadius(near, {0, 0}, 50, 50));
+	ASSERT_TRUE(grid.SetObserverRadius(far, {4000, 4000}, 50, 50));
+	ASSERT_TRUE(grid.Track(1, {{10, 0}}));
+	ASSERT_TRUE(grid.Track(2, {{4500, 4500}, 0, VIRTUAL_WORLD_DEFAULT, 0, 0, 100}));
+	Visible(grid, near);
+	Visible(grid, far);
+	const auto rebuilt = grid.GetStatistics().observersRebuilt;
+	ASSERT_TRUE(grid.SetPosition(1, {20, 0}));
+	Visible(grid, near);
+	Visible(grid, far);
+	EXPECT_EQ(grid.GetStatistics().observersRebuilt, rebuilt + 1);
+}
+
+TEST(InterestGrid, ObserverMovesFindAndLoseARangedObject)
+{
+	InterestGrid grid;
+	const PeerGuid camera{1};
+	ASSERT_TRUE(grid.Configure({{0, 0}, {5000, 5000}, 100}));
+	ASSERT_TRUE(grid.SetObserverRadius(camera, {0, 0}, 50, 60));
+	ASSERT_TRUE(grid.Track(1, {{2000, 0}, 0, VIRTUAL_WORLD_DEFAULT, 0, 0, 300}));
+	EXPECT_TRUE(Visible(grid, camera).empty());
+	ASSERT_TRUE(grid.SetObserverPosition(camera, {1750, 0}));
+	EXPECT_EQ(Visible(grid, camera), std::vector<NetworkID>{1});
+	ASSERT_TRUE(grid.SetObserverPosition(camera, {1000, 0}));
+	EXPECT_TRUE(Visible(grid, camera).empty());
+}

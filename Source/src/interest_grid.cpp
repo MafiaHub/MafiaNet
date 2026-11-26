@@ -383,7 +383,10 @@ bool InterestGrid::Track(NetworkID id, SpatialScope scope)
 	impl->index.AddEntry(&inserted.first->second, static_cast<float>(cell % impl->width), static_cast<float>(cell / impl->width));
 	impl->Dirty(cell);
 	impl->FileRanged(inserted.first->second);
-	impl->DirtyRanged(scope);
+	if (scope.range > 0)
+	{
+		impl->DirtyRanged(scope);
+	}
 	return true;
 }
 bool InterestGrid::SetScope(NetworkID id, SpatialScope scope)
@@ -394,11 +397,17 @@ bool InterestGrid::SetScope(NetworkID id, SpatialScope scope)
 		return false;
 	auto &r = it->second;
 	impl->Dirty(r.cell);
-	impl->DirtyRanged(r.scope);
+	if (r.scope.range > 0)
+	{
+		impl->DirtyRanged(r.scope);
+	}
 	impl->UnfileRanged(r);
 	r.scope = scope;
 	impl->FileRanged(r);
-	impl->DirtyRanged(r.scope);
+	if (r.scope.range > 0)
+	{
+		impl->DirtyRanged(r.scope);
+	}
 	r.cell = impl->Cell(scope.position);
 	impl->index.MoveEntry(&r, static_cast<float>(r.cell % impl->width), static_cast<float>(r.cell / impl->width));
 	impl->Dirty(r.cell);
@@ -430,7 +439,10 @@ void InterestGrid::Remove(NetworkID id)
 	if (impl->alwaysVisible.erase(id))
 		impl->DirtyAll();
 	impl->Dirty(it->second.cell);
-	impl->DirtyRanged(it->second.scope);
+	if (it->second.scope.range > 0)
+	{
+		impl->DirtyRanged(it->second.scope);
+	}
 	impl->UnfileRanged(it->second);
 	impl->index.RemoveEntry(&it->second);
 	impl->objects.erase(it);
