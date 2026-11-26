@@ -9,6 +9,15 @@ Unreleased
 * Every incoming session requires an application decision. Answer ``ConnectionRequested``
   (or ``ID_SESSION_CONFIG_REQUEST`` on a raw peer), then call ``accept_player()``
   when the connected client can join the game. See :doc:`guide/player-server`.
+* ``ReplicationManager::SetOwnerUpdateRateLimit()`` caps the owner reports the server accepts per
+  replica of a type from its authority holder. Reports beyond the rate and burst are dropped before
+  the accept callback and counted in ``ReplicationStatistics::ownerUpdatesDropped``. Off by default.
+  See :doc:`guide/replication`.
+* A dual-stack socket (the default ``SocketDescriptor``) only binds a port that is
+  free for IPv4 too. On macOS, whose IPv4 and IPv6 port spaces are separate, an
+  OS-assigned port could equal one an ``AF_INET`` socket already held, and that
+  socket then received the client's IPv4 traffic. A fixed port held for IPv4 now fails ``Startup()`` with
+  ``SOCKET_PORT_ALREADY_IN_USE`` on every platform. See :doc:`advanced/ipv6-support`.
 * A connection that is closing no longer holds a slot a new connection needs.
   A server sized to its ``ServerCapacity`` used to refuse newcomers while kicked
   players waited for the ack of their disconnection notification, and a

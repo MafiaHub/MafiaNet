@@ -73,6 +73,27 @@ equivalent of GameNetworkingSockets' ``k_nAddressFamily_DualStack``.
    explicit ``AF_INET6`` sockets are IPv6-only, so that two-socket setup keeps
    working.
 
+**Port spaces.** A dual-stack socket only binds a port that is free for IPv4
+as well as IPv6, on every platform. Linux keeps one UDP port space for both
+families, so its kernel already refuses such a bind. macOS keeps two, as other
+systems can: the OS would let a dual-stack socket take a port that a plain
+``AF_INET`` socket (another process, or another peer in the same process)
+already holds, and IPv4 datagrams for that port would then reach the
+``AF_INET`` socket, not the dual-stack one. A client on an OS-assigned port
+would see its connection attempts go unanswered. MafiaNet therefore claims the port with an IPv4 socket
+first and binds the dual-stack socket while holding it:
+
+* ``port == 0``: the port the OS picks for IPv4 is used for the dual-stack
+  socket. A port that an IPv6 socket holds is drawn again.
+* A fixed port that an IPv4 socket holds makes ``Startup()`` return
+  ``SOCKET_PORT_ALREADY_IN_USE``, as it always did on Linux, and
+  ``IsPortInUse(port, nullptr, AF_UNSPEC, SOCK_DGRAM)`` reports it in use.
+
+Once bound, the dual-stack socket holds the port for both families on macOS
+too: a later ``AF_INET`` bind to it fails. Where the OS refuses the dual-stack
+bind next to the claiming socket, as Linux does, MafiaNet closes it and binds
+the same port again, which then claims both families.
+
 **Dual-stack server, two sockets (IPv4 + IPv6):**
 
 .. code-block:: cpp
