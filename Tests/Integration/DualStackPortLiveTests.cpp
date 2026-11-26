@@ -22,7 +22,9 @@
 #include <vector>
 
 #ifndef _WIN32
+#include <sys/resource.h>
 #include <sys/socket.h>
+#include <unistd.h>
 #endif
 
 using namespace MafiaNet;
@@ -127,3 +129,46 @@ TEST(DualStackPortLive, EphemeralPortIsFreeForIpv4)
 	}
 	EXPECT_EQ(collisions, 0);
 }
+
+#ifndef _WIN32
+// The IPv4 reservation can take the process's last free descriptor. The IPv6
+// socket() then fails with EMFILE, which must not read as a host without
+// IPv6: the bind is retried once the reservation is released.
+TEST(DualStackPortLive, LastFreeDescriptorStillBindsDualStack)
+{
+	PeerGuard guard;
+	{
+		SocketPtr probe = BindWildcard(AF_UNSPEC, 0);
+		ASSERT_NE(probe, nullptr);
+		if (!probe->IsDualStack())
+			GTEST_SKIP() << "no dual-stack socket on this host";
+	}
+
+	rlimit original = {};
+	ASSERT_EQ(getrlimit(RLIMIT_NOFILE, &original), 0);
+	rlimit lowered = original;
+	if (lowered.rlim_cur == RLIM_INFINITY || lowered.rlim_cur > 256)
+		lowered.rlim_cur = 256;
+	ASSERT_EQ(setrlimit(RLIMIT_NOFILE, &lowered), 0);
+
+	// Fill every free descriptor, then give exactly one back.
+	std::vector<int> filler;
+	for (int fd = dup(0); fd >= 0; fd = dup(0))
+		filler.push_back(fd);
+	ASSERT_FALSE(filler.empty());
+	close(filler.back());
+	filler.pop_back();
+
+	SocketPtr dualStack = BindWildcard(AF_UNSPEC, 0);
+	const bool bound = dualStack != nullptr;
+	const bool isDualStack = bound && dualStack->IsDualStack();
+	dualStack.reset();
+
+	for (int fd : filler)
+		close(fd);
+	setrlimit(RLIMIT_NOFILE, &original);
+
+	ASSERT_TRUE(bound);
+	EXPECT_TRUE(isDualStack);
+}
+#endif

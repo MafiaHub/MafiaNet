@@ -351,12 +351,15 @@ RNS2BindResult RNS2_Berkley::BindDualStackWildcard(RNS2_BerkleyBindParameters *b
 		// Linux refuses it (below), so the failure is not printed.
 		RNS2BindResult result = BindAddressFamily(&onPort, AF_INET6, true, dualStackUnavailable, false);
 		closesocket__(reservation);
-		if (result != BR_FAILED_TO_BIND_SOCKET || *dualStackUnavailable)
+		if (result == BR_SUCCESS)
 			return result;
 		// Linux (one port space for both families): the reservation itself
 		// refused the bind. The port was free for IPv4, and a dual-stack bind
 		// there now claims it for both. A failure on an OS-assigned port is
-		// retried, so it is not printed.
+		// retried, so it is not printed. The reservation may also have taken
+		// the process's last descriptor, so the IPv6 socket() failed (EMFILE)
+		// and looked like a host without IPv6: with it released, ask again.
+		*dualStackUnavailable = false;
 		result = BindAddressFamily(&onPort, AF_INET6, true, dualStackUnavailable, requestedPort != 0);
 		if (result != BR_FAILED_TO_BIND_SOCKET || *dualStackUnavailable || requestedPort != 0)
 			return result;
