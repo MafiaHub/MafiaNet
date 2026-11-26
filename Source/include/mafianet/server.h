@@ -17,7 +17,10 @@ struct PendingSession;
 enum class LeaveReason
 {
 	Disconnected,
-	ConnectionLost
+	ConnectionLost,
+	/// The server closed the connection for exceeding InboundRateLimit::flood_per_second. The detail is the
+	/// configured flood_reason.
+	InboundFlood
 };
 
 /// Identifies one local incarnation of a remote connection. Safe to retain across polls.
@@ -139,7 +142,8 @@ struct PlayerLeft
 class RAK_DLL_EXPORT Server
 {
 public:
-	static Result<Server> listen(unsigned short port, ServerCapacity capacity);
+	/// \a inbound limits the messages each client may send (see RakPeerInterface::SetInboundRateLimit).
+	static Result<Server> listen(unsigned short port, ServerCapacity capacity, InboundRateLimit inbound = {});
 	/// Take ownership of a peer started with a custom ServerBuilder configuration.
 	explicit Server(Peer peer);
 	Server(Server &&) noexcept = default;

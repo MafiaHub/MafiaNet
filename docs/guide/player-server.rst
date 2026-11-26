@@ -88,6 +88,48 @@ Use ``server.pending_requests()`` to inspect unanswered requests in callback
 order. A full server can still check a whitelist, send queue updates, and admit
 reserved callers. See :doc:`admission-queue` for capacity sizing and retry handling.
 
+Limiting what clients send
+--------------------------
+
+Pass an ``InboundRateLimit`` to ``Server::listen()`` (or ``ServerBuilder::inbound_rate_limit()``,
+or ``SetInboundRateLimit()`` on any peer) to bound the messages each client may send. The network
+thread enforces it before a message is queued, so a flooding client costs the game thread nothing.
+
+.. code-block:: cpp
+
+   InboundRateLimit limit;
+   limit.messages_per_second = 50;   // sustained rate
+   limit.burst = 100;                // accepted at once above it
+   limit.flood_per_second = 500;     // more than this in one second is a flood
+   limit.flood_action = FloodAction::Disconnect;
+   limit.flood_reason = "flood";     // sent to the client, opaque to MafiaNet
+   auto server = Server::listen(60000, {32}, limit);
+
+.. list-table::
+   :header-rows: 1
+   :widths: 24 76
+
+   * - Field
+     - Meaning
+   * - ``messages_per_second``, ``burst``
+     - A token bucket per connection. It starts full with ``burst`` messages (``messages_per_second``
+       when ``burst`` is zero) and refills at ``messages_per_second``. Messages beyond it are dropped.
+   * - ``flood_per_second``
+     - Counts every message in a one-second window, dropped ones included. The message that crosses
+       it starts a flood: the rest of that window is dropped, and ``FloodAction::Disconnect`` also closes
+       the connection.
+   * - ``flood_reason``
+     - With ``FloodAction::Disconnect``, the client receives it in ``ID_DISCONNECTION_NOTIFICATION``.
+       The server reports ``PlayerLeft`` and ``ClientDisconnected`` with ``LeaveReason::InboundFlood``
+       and the reason as their detail, so the game can log the client or ban its address.
+
+Only application messages count: identifiers from ``ID_USER_PACKET_ENUM`` up, also behind an
+``ID_TIMESTAMP``. Connection upkeep, the session handshake, RPC, replication and plugin traffic are
+never limited. Each limit is off at zero. ``RakNetStatistics::rateLimitedMessages`` and
+``inboundFloods`` count what each connection lost. A raw peer recognizes its own flood close by
+``Packet::disconnectCause == DisconnectCause::InboundFlood`` on the local ``ID_DISCONNECTION_NOTIFICATION``.
+``SetInboundRateLimit()`` may be called at any time and applies from the next network update.
+
 Messages and replication
 ------------------------
 

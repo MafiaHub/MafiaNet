@@ -9,6 +9,12 @@ Unreleased
 * Every incoming session requires an application decision. Answer ``ConnectionRequested``
   (or ``ID_SESSION_CONFIG_REQUEST`` on a raw peer), then call ``accept_player()``
   when the connected client can join the game. See :doc:`guide/player-server`.
+* ``SetInboundRateLimit()`` bounds the application messages a peer accepts from each connection: a
+  sustained rate with a burst, and a flood threshold that drops the rest of the second or disconnects
+  with a reason. Excess messages are dropped on the network thread before they are queued and are
+  counted in ``RakNetStatistics::rateLimitedMessages`` and ``inboundFloods``. ``Server::listen()`` and
+  ``ServerBuilder`` take the limit, and a flood disconnect is reported as ``LeaveReason::InboundFlood``.
+  Off by default. Rebuild applications: ``RakPeerInterface``, ``Packet`` and ``RakNetStatistics`` changed.
 
 Version 0.27.0
 --------------

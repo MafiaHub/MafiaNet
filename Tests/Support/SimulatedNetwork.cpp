@@ -451,6 +451,7 @@ void SimulatedNetwork::Step(uint32_t ms)
 				message.systemAddress = packet->systemAddress;
 				message.guid = packet->guid;
 				message.playerId = packet->playerId;
+				message.disconnectCause = packet->disconnectCause;
 				inboxes[peer].push_back(std::move(message));
 				peer->DeallocatePacket(packet);
 			}
