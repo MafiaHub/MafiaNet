@@ -164,15 +164,20 @@ public:
 			{
 				if (observer.limit && counted >= observer.limit)
 					break;
-				const uint16_t category = objects.at(std::get<3>(item)).scope.category;
-				auto limit = categoryLimits.find(category);
-				if (limit != categoryLimits.end() && categoryCounts[category] >= limit->second)
+				if (!categoryLimits.empty())
 				{
-					++stats.categoryCapped;
-					continue;
+					const uint16_t category = objects.at(std::get<3>(item)).scope.category;
+					auto limit = categoryLimits.find(category);
+					if (limit != categoryLimits.end())
+					{
+						if (categoryCounts[category] >= limit->second)
+						{
+							++stats.categoryCapped;
+							continue;
+						}
+						++categoryCounts[category];
+					}
 				}
-				if (limit != categoryLimits.end())
-					++categoryCounts[category];
 				++counted;
 			}
 			observer.visible.insert(std::get<3>(item));

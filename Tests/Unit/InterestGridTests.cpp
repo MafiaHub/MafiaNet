@@ -257,3 +257,19 @@ TEST(InterestGrid, AlwaysVisibleIgnoresDistanceButNotEligibility)
 	ASSERT_TRUE(grid.SetAlwaysVisible(7, false));
 	EXPECT_TRUE(Visible(grid, camera).empty());
 }
+
+TEST(InterestGrid, RequiredObjectsDoNotUseTheObserverLimit)
+{
+	InterestGrid grid;
+	const PeerGuid camera{1};
+	ASSERT_TRUE(grid.Configure({{-100, -100}, {100, 100}, 20}));
+	ASSERT_TRUE(grid.SetObserverRadius(camera, {0, 0}, 50, 50));
+	grid.SetObserverLimits(camera, 2, 0);
+	ASSERT_TRUE(grid.Track(1, {{10, 0}}));
+	ASSERT_TRUE(grid.Track(2, {{20, 0}}));
+	ASSERT_TRUE(grid.Track(3, {{30, 0}}));
+	ASSERT_TRUE(grid.Track(4, {{90, 90}}));
+	InterestGridTestAccess::Require(grid, 4, camera);
+	const auto visible = Visible(grid, camera);
+	EXPECT_EQ(std::set<NetworkID>(visible.begin(), visible.end()), (std::set<NetworkID>{1, 2, 4}));
+}
