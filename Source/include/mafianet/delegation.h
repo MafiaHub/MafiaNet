@@ -33,7 +33,7 @@ struct DelegationStatistics
 {
 	uint64_t simulated = 0, dormant = 0, handovers = 0, refusals = 0, forced = 0, declines = 0, elections = 0;
 };
-/// A challenger must be nearer than the incumbent's distance times this factor to take over.
+/// Applied to the incumbent's squared distance when ranking (about 15% nearer on distance): a challenger must beat that to take over.
 constexpr float kDelegationStickyDiscount = 0.72f;
 /// Candidates are already filtered for eligibility. `declined` holds guids passed over, the incumbent included.
 PeerGuid ElectSimulator(const DelegationPolicy &policy, SpatialPoint position, PeerGuid current, const std::vector<DelegationCandidate> &candidates, const std::vector<PeerGuid> &declined);

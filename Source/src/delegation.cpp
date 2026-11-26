@@ -55,7 +55,7 @@ PeerGuid ElectSimulator(const DelegationPolicy &rawPolicy, SpatialPoint position
 				return current;
 			}
 			desired = current;
-			bestRank = distSq * kDelegationStickyDiscount * kDelegationStickyDiscount;
+			bestRank = distSq * kDelegationStickyDiscount;
 		}
 	}
 
