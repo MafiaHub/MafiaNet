@@ -879,6 +879,61 @@ TEST_F(SessionConfigSim, PendingPoolSlotIsFreedByADecision)
 	EXPECT_FALSE(Has(server, ID_SESSION_CONFIG_ABANDONED)) << "a peer the application refused was reported as abandoned";
 }
 
+// A server sized exactly to its capacity (one connected, one pending) keeps admitting while a kicked player
+// is still closing. That player's slot waits for the ack of its disconnection notification, for the whole
+// connection timeout once the player is gone, and used to refuse the next newcomer meanwhile.
+TEST_F(SessionConfigSim, ClosingConnectionDoesNotTakeAnAdmissionSlot)
+{
+	RakPeer *server = AddPooledServer(1, 1, 0);
+	ReplyToRequests(server);
+	RakPeer *kicked = AddClient(60000);
+	ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, StartConnect(kicked, server));
+	ASSERT_TRUE(WaitForBoth(kicked, ID_CONNECTION_REQUEST_ACCEPTED, server, ID_NEW_INCOMING_CONNECTION));
+
+	SimulatedNetwork::LinkRule dark;
+	dark.dark = true;
+	net.SetLinkBothWays(kicked, server, dark);
+	server->CloseConnection(kicked->GetMyGUID(), true);
+	Pump(100);
+	ASSERT_TRUE(SlotInspector::SlotFor(server, kicked->GetMyGUID()).sawSlot) << "the kicked player is no longer closing";
+
+	RakPeer *player = AddClient(60000);
+	ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, StartConnect(player, server));
+	ASSERT_TRUE(WaitFor(player, ID_CONNECTION_REQUEST_ACCEPTED));
+
+	net.onSessionRequest = {};
+	RakPeer *waiting = AddClient(60000);
+	ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, StartConnect(waiting, server));
+	ASSERT_TRUE(Until([&]
+	                  { return Count(server, ID_SESSION_CONFIG_REQUEST) == 3 || Has(waiting, ID_NO_FREE_INCOMING_CONNECTIONS); }, kConnectTimeoutMs));
+	EXPECT_EQ(3u, Count(server, ID_SESSION_CONFIG_REQUEST)) << "a closing connection held the pending slot; waiting saw " << IdList(Inbox(waiting));
+	EXPECT_EQ(waiting->GetMyGUID(), Inbox(server).back().guid);
+
+	// The closing connection gave its slot up and still ended the way it would have.
+	EXPECT_FALSE(SlotInspector::SlotFor(server, kicked->GetMyGUID()).sawSlot);
+	Pump(2000);
+	ASSERT_EQ(1u, Count(server, ID_DISCONNECTION_NOTIFICATION));
+	EXPECT_EQ(kicked->GetMyGUID(), Find(server, ID_DISCONNECTION_NOTIFICATION)->guid);
+	EXPECT_FALSE(Has(server, ID_CONNECTION_LOST));
+	EXPECT_EQ(1u, server->NumberOfConnections());
+}
+
+// Closing connections give way, open ones do not: with every slot open, the newcomer is still refused.
+TEST_F(SessionConfigSim, OpenConnectionsStillFillTheSlots)
+{
+	RakPeer *server = AddServer(1, 1, 60000);
+	ReplyToRequests(server);
+	RakPeer *first = AddClient(60000);
+	ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, StartConnect(first, server));
+	ASSERT_TRUE(WaitForBoth(first, ID_CONNECTION_REQUEST_ACCEPTED, server, ID_NEW_INCOMING_CONNECTION));
+
+	RakPeer *second = AddClient(60000);
+	ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, StartConnect(second, server));
+	ASSERT_TRUE(WaitFor(second, ID_NO_FREE_INCOMING_CONNECTIONS)) << "second saw " << IdList(Inbox(second));
+	EXPECT_EQ(1u, server->NumberOfConnections());
+	EXPECT_FALSE(Has(server, ID_DISCONNECTION_NOTIFICATION));
+}
+
 // A full server keeps the same request alive until the application retries.
 TEST_F(SessionConfigSim, FullAcceptKeepsRequestAvailableForStatusAndRetry)
 {

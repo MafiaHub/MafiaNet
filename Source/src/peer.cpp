@@ -4158,6 +4158,14 @@ RakPeer::RemoteSystemStruct *RakPeer::AssignSystemAddressToRemoteSystemList(cons
 	bindingAddress.CopyPort(incomingRakNetSocket->GetBoundAddress());
 
 	*thisIPConnectedRecently = false;
+	// maxConnections bounds the open connections. A connection that is only closing gives its slot up to a
+	// new one rather than refusing it: a client reconnecting right after CloseConnection(), or a server whose
+	// kicked players are still waiting for the ack of their disconnection notification.
+	if (activeSystemListSize >= maximumNumberOfPeers && (CountOpenSystems() >= maximumNumberOfPeers || !ReclaimClosingSlot()))
+	{
+		ValidateRemoteSystemLookup();
+		return 0;
+	}
 	for (assignedIndex = 0; assignedIndex < maximumNumberOfPeers; assignedIndex++)
 	{
 		if (remoteSystemList[assignedIndex].isActive == false)
@@ -4451,9 +4459,53 @@ void RakPeer::SetConnectMode(RemoteSystemStruct &system, RemoteSystemStruct::Con
 		system.departingPlayerId = RetirePlayer(system);
 	if (system.connectMode == RemoteSystemStruct::EXCHANGING_SESSION_DATA && mode != RemoteSystemStruct::CONNECTED && mode != RemoteSystemStruct::EXCHANGING_SESSION_DATA)
 		playerRoster->Disconnected(ToPeerGuid(system.guid), system.generation);
+	if (IsClosing(mode) && !IsClosing(system.connectMode))
+		system.closingSince = MafiaNet::GetTimeMS();
 	const auto previous = system.connectMode.exchange(mode);
 	if ((previous == RemoteSystemStruct::CONNECTED) != (mode == RemoteSystemStruct::CONNECTED))
 		PublishConnectedSystems();
+}
+
+bool RakPeer::IsClosing(RemoteSystemStruct::ConnectMode mode)
+{
+	return mode == RemoteSystemStruct::DISCONNECT_ASAP || mode == RemoteSystemStruct::DISCONNECT_ASAP_SILENTLY || mode == RemoteSystemStruct::DISCONNECT_ON_NO_ACK;
+}
+
+unsigned int RakPeer::CountOpenSystems(void) const
+{
+	unsigned int open = 0;
+	for (unsigned int i = 0; i < activeSystemListSize; i++)
+	{
+		if (activeSystemList[i]->isActive && !IsClosing(activeSystemList[i]->connectMode))
+			open++;
+	}
+	return open;
+}
+
+// A closing connection keeps its slot only to deliver its last messages: the disconnection notification it
+// sent (DISCONNECT_ASAP, which waits for the remote's ack and so, when the remote is gone, for the whole
+// connection timeout), the acks it owes (DISCONNECT_ON_NO_ACK), or nothing (DISCONNECT_ASAP_SILENTLY). A new
+// connection needs the slot more. Take the one with the least left to deliver, then the one closing longest:
+// its notification has had the most time to arrive.
+bool RakPeer::ReclaimClosingSlot(void)
+{
+	auto rank = [](RemoteSystemStruct::ConnectMode mode)
+	{ return mode == RemoteSystemStruct::DISCONNECT_ASAP ? 1 : 0; };
+	RemoteSystemStruct *victim = nullptr;
+	for (unsigned int i = 0; i < activeSystemListSize; i++)
+	{
+		RemoteSystemStruct *system = activeSystemList[i];
+		if (!system->isActive || !IsClosing(system->connectMode))
+			continue;
+		if (victim == nullptr || rank(system->connectMode) < rank(victim->connectMode) ||
+		    (rank(system->connectMode) == rank(victim->connectMode) && (int32_t) (system->closingSince - victim->closingSince) < 0))
+			victim = system;
+	}
+	if (victim == nullptr)
+		return false;
+	BitStream updateBitStream(MAXIMUM_MTU_SIZE);
+	EndConnection(victim, MafiaNet::GetTimeUS(), updateBitStream);
+	return true;
 }
 
 PlayerId RakPeer::RetirePlayer(const RemoteSystemStruct &system)
@@ -4588,7 +4640,8 @@ bool RakPeer::AllowIncomingConnections(void) const
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 bool RakPeer::AllowIncomingConnection(const SystemAddress &address) const
 {
-	if (remoteSystemList == nullptr || endThreads || activeSystemListSize >= maximumNumberOfPeers)
+	// Connections still closing do not count: ReclaimClosingSlot() frees one for the newcomer.
+	if (remoteSystemList == nullptr || endThreads || CountOpenSystems() >= maximumNumberOfPeers)
 		return false;
 
 	const auto limits = playerRoster->Capacity();
@@ -6189,6 +6242,78 @@ bool RakPeer::RunRecvFromOnce( RakNetSocket *s )
 }
 */
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+void RakPeer::EndConnection(RemoteSystemStruct *remoteSystem, MafiaNet::TimeUS timeNS, BitStream &updateBitStream)
+{
+	SystemAddress systemAddress = remoteSystem->systemAddress;
+	// Before the close notification logic: a held session request is not a reported connection, but
+	// the application is holding a decision for it and has to learn it will never be needed.
+	ProduceSessionAbandoned(remoteSystem);
+
+	// Failed.  Inform the user?
+	// TODO - RakNet 4.0 - Return a different message identifier for DISCONNECT_ASAP_SILENTLY and DISCONNECT_ASAP than for DISCONNECT_ON_NO_ACK
+	// The first two mean we called CloseConnection(), the last means the other system sent us ID_DISCONNECTION_NOTIFICATION
+	// A connection the application was never told about must not produce a close notification for
+	// it. On the accepting side that covers a peer refused by RejectSession() (which parks the slot
+	// in DISCONNECT_ON_NO_ACK so the refusal is delivered first) and one dropped mid-handshake.
+	// The connecting side is exempt: it has an outstanding Connect() to resolve either way.
+	const bool reportableConnection = remoteSystem->connectionReportedToApplication || remoteSystem->weInitiatedTheConnection;
+	// Our Connect() was absorbed into this incoming connection (cross-connection tie-break) and the
+	// connection dies before the application heard of it: that Connect() is still owed an answer.
+	const bool absorbedAttemptUnanswered = remoteSystem->absorbedOurConnectAttempt && !remoteSystem->connectionReportedToApplication;
+	if (absorbedAttemptUnanswered ||
+	    (reportableConnection &&
+	     (remoteSystem->connectMode == RemoteSystemStruct::CONNECTED || remoteSystem->connectMode == RemoteSystemStruct::REQUESTED_CONNECTION || remoteSystem->connectMode == RemoteSystemStruct::EXCHANGING_SESSION_DATA || remoteSystem->connectMode == RemoteSystemStruct::DISCONNECT_ASAP || remoteSystem->connectMode == RemoteSystemStruct::DISCONNECT_ON_NO_ACK)))
+	{
+
+		//					MafiaNet::BitStream undeliveredMessages;
+		//					remoteSystem->reliabilityLayer.GetUndeliveredMessages(&undeliveredMessages,remoteSystem->MTUSize);
+
+		//					packet=AllocPacket(sizeof( char ) + undeliveredMessages.GetNumberOfBytesUsed());
+		// A graceful remote disconnect (DISCONNECT_ON_NO_ACK) may carry a reason payload stashed when the
+		// notification arrived. Only ID_DISCONNECTION_NOTIFICATION carries it; ID_CONNECTION_LOST and
+		// ID_CONNECTION_ATTEMPT_FAILED are locally synthesized and stay payload-less.
+		const bool attachReason = !absorbedAttemptUnanswered && remoteSystem->connectMode == RemoteSystemStruct::DISCONNECT_ON_NO_ACK && remoteSystem->disconnectReasonData != 0;
+		const unsigned int reasonLength = attachReason ? remoteSystem->disconnectReasonLength : 0;
+		Packet *packet = AllocPacket(sizeof(char) + reasonLength);
+		if (absorbedAttemptUnanswered || remoteSystem->connectMode == RemoteSystemStruct::REQUESTED_CONNECTION)
+			packet->data[0] = ID_CONNECTION_ATTEMPT_FAILED; // Attempted a connection and couldn't
+		else if (remoteSystem->connectMode == RemoteSystemStruct::EXCHANGING_SESSION_DATA)
+			// Dropped mid-session-handshake. The connecting side still has an attempt outstanding; the
+			// accepting side never reported anything, so a lost connection is all it can report.
+			packet->data[0] = remoteSystem->sessionConfigIsConnectingSide
+			                      ? (unsigned char) ID_CONNECTION_ATTEMPT_FAILED
+			                      : (unsigned char) ID_CONNECTION_LOST;
+		else if (remoteSystem->connectMode == RemoteSystemStruct::CONNECTED)
+			packet->data[0] = ID_CONNECTION_LOST; // DeadConnection
+		else
+			packet->data[0] = ID_DISCONNECTION_NOTIFICATION; // DeadConnection
+
+		packet->playerId = RetirePlayer(*remoteSystem);
+		packet->connectionGeneration = remoteSystem->generation;
+		if (attachReason)
+			memcpy(packet->data + sizeof(unsigned char), remoteSystem->disconnectReasonData, reasonLength);
+
+		//					memcpy(packet->data+1, undeliveredMessages.GetData(), undeliveredMessages.GetNumberOfBytesUsed());
+
+		packet->guid = remoteSystem->guid;
+		packet->systemAddress = systemAddress;
+		packet->systemAddress.systemIndex = remoteSystem->remoteSystemIndex;
+		packet->guid.systemIndex = packet->systemAddress.systemIndex;
+
+		AddPacketToProducer(packet);
+	}
+	// else connection shutting down, don't bother telling the user
+
+#ifdef _DO_PRINTF
+	RAKNET_DEBUG_PRINTF("Connection dropped for player %i:%i\n", systemAddress);
+#endif
+	// we are about to close the connection to the remote system, we'd still make sure to send any outstanding ACKs, so for the remote system not unnecessarily waiting for these until its timeout
+	// (and trying to resend them unnecessarily)
+	remoteSystem->reliabilityLayer.UpdateAndForceACKs(remoteSystem->rakNetSocket, systemAddress, remoteSystem->MTUSize, timeNS, maxOutgoingBPS, pluginListNTS, &rnr, updateBitStream);
+
+	CloseConnectionInternal2(systemAddress, false, true, 0, MafiaNet::Priority::Low, *(remoteSystem->rakNetSocket));
+}
+// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 {
 	RakPeer::RemoteSystemStruct *remoteSystem;
@@ -6609,75 +6734,7 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 		         remoteSystem->connectMode == RemoteSystemStruct::UNVERIFIED_SENDER) &&
 		        timeMS > remoteSystem->connectionTime && timeMS - remoteSystem->connectionTime > 10000)))
 		{
-			//	RAKNET_DEBUG_PRINTF("timeMS=%i remoteSystem->connectionTime=%i\n", timeMS, remoteSystem->connectionTime );
-
-			// Before the close notification logic: a held session request is not a reported connection, but
-			// the application is holding a decision for it and has to learn it will never be needed.
-			ProduceSessionAbandoned(remoteSystem);
-
-			// Failed.  Inform the user?
-			// TODO - RakNet 4.0 - Return a different message identifier for DISCONNECT_ASAP_SILENTLY and DISCONNECT_ASAP than for DISCONNECT_ON_NO_ACK
-			// The first two mean we called CloseConnection(), the last means the other system sent us ID_DISCONNECTION_NOTIFICATION
-			// A connection the application was never told about must not produce a close notification for
-			// it. On the accepting side that covers a peer refused by RejectSession() (which parks the slot
-			// in DISCONNECT_ON_NO_ACK so the refusal is delivered first) and one dropped mid-handshake.
-			// The connecting side is exempt: it has an outstanding Connect() to resolve either way.
-			const bool reportableConnection = remoteSystem->connectionReportedToApplication || remoteSystem->weInitiatedTheConnection;
-			// Our Connect() was absorbed into this incoming connection (cross-connection tie-break) and the
-			// connection dies before the application heard of it: that Connect() is still owed an answer.
-			const bool absorbedAttemptUnanswered = remoteSystem->absorbedOurConnectAttempt && !remoteSystem->connectionReportedToApplication;
-			if (absorbedAttemptUnanswered ||
-			    (reportableConnection &&
-			     (remoteSystem->connectMode == RemoteSystemStruct::CONNECTED || remoteSystem->connectMode == RemoteSystemStruct::REQUESTED_CONNECTION || remoteSystem->connectMode == RemoteSystemStruct::EXCHANGING_SESSION_DATA || remoteSystem->connectMode == RemoteSystemStruct::DISCONNECT_ASAP || remoteSystem->connectMode == RemoteSystemStruct::DISCONNECT_ON_NO_ACK)))
-			{
-
-				//					MafiaNet::BitStream undeliveredMessages;
-				//					remoteSystem->reliabilityLayer.GetUndeliveredMessages(&undeliveredMessages,remoteSystem->MTUSize);
-
-				//					packet=AllocPacket(sizeof( char ) + undeliveredMessages.GetNumberOfBytesUsed());
-				// A graceful remote disconnect (DISCONNECT_ON_NO_ACK) may carry a reason payload stashed when the
-				// notification arrived. Only ID_DISCONNECTION_NOTIFICATION carries it; ID_CONNECTION_LOST and
-				// ID_CONNECTION_ATTEMPT_FAILED are locally synthesized and stay payload-less.
-				const bool attachReason = !absorbedAttemptUnanswered && remoteSystem->connectMode == RemoteSystemStruct::DISCONNECT_ON_NO_ACK && remoteSystem->disconnectReasonData != 0;
-				const unsigned int reasonLength = attachReason ? remoteSystem->disconnectReasonLength : 0;
-				packet = AllocPacket(sizeof(char) + reasonLength);
-				if (absorbedAttemptUnanswered || remoteSystem->connectMode == RemoteSystemStruct::REQUESTED_CONNECTION)
-					packet->data[0] = ID_CONNECTION_ATTEMPT_FAILED; // Attempted a connection and couldn't
-				else if (remoteSystem->connectMode == RemoteSystemStruct::EXCHANGING_SESSION_DATA)
-					// Dropped mid-session-handshake. The connecting side still has an attempt outstanding; the
-					// accepting side never reported anything, so a lost connection is all it can report.
-					packet->data[0] = remoteSystem->sessionConfigIsConnectingSide
-					                      ? (unsigned char) ID_CONNECTION_ATTEMPT_FAILED
-					                      : (unsigned char) ID_CONNECTION_LOST;
-				else if (remoteSystem->connectMode == RemoteSystemStruct::CONNECTED)
-					packet->data[0] = ID_CONNECTION_LOST; // DeadConnection
-				else
-					packet->data[0] = ID_DISCONNECTION_NOTIFICATION; // DeadConnection
-
-				packet->playerId = RetirePlayer(*remoteSystem);
-				packet->connectionGeneration = remoteSystem->generation;
-				if (attachReason)
-					memcpy(packet->data + sizeof(unsigned char), remoteSystem->disconnectReasonData, reasonLength);
-
-				//					memcpy(packet->data+1, undeliveredMessages.GetData(), undeliveredMessages.GetNumberOfBytesUsed());
-
-				packet->guid = remoteSystem->guid;
-				packet->systemAddress = systemAddress;
-				packet->systemAddress.systemIndex = remoteSystem->remoteSystemIndex;
-				packet->guid.systemIndex = packet->systemAddress.systemIndex;
-
-				AddPacketToProducer(packet);
-			}
-			// else connection shutting down, don't bother telling the user
-
-#ifdef _DO_PRINTF
-			RAKNET_DEBUG_PRINTF("Connection dropped for player %i:%i\n", systemAddress);
-#endif
-			// we are about to close the connection to the remote system, we'd still make sure to send any outstanding ACKs, so for the remote system not unnecessarily waiting for these until its timeout
-			// (and trying to resend them unnecessarily)
-			remoteSystem->reliabilityLayer.UpdateAndForceACKs(remoteSystem->rakNetSocket, systemAddress, remoteSystem->MTUSize, timeNS, maxOutgoingBPS, pluginListNTS, &rnr, updateBitStream);
-
-			CloseConnectionInternal2(systemAddress, false, true, 0, MafiaNet::Priority::Low, *(remoteSystem->rakNetSocket));
+			EndConnection(remoteSystem, timeNS, updateBitStream);
 			continue;
 		}
 

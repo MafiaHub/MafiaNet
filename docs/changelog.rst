@@ -9,6 +9,12 @@ Unreleased
 * Every incoming session requires an application decision. Answer ``ConnectionRequested``
   (or ``ID_SESSION_CONFIG_REQUEST`` on a raw peer), then call ``accept_player()``
   when the connected client can join the game. See :doc:`guide/player-server`.
+* A connection that is closing no longer holds a slot a new connection needs.
+  A server sized to its ``ServerCapacity`` used to refuse newcomers while kicked
+  players waited for the ack of their disconnection notification, and a
+  ``Startup(1)`` client could not connect elsewhere right after
+  ``CloseConnection()``. The new connection now ends the connection closing
+  longest, which reports its end as before. See :doc:`guide/admission-queue`.
 
 Version 0.27.0
 --------------
