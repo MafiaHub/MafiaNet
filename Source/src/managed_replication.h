@@ -49,9 +49,12 @@ public:
 		std::type_index cppType;
 		uint16_t version;
 		std::function<bool(Replica3 &, PeerGuid, BitStream &)> accept;
+		// SetOwnerUpdateRateLimit(): reports per second and burst per grant. Zero accepts every report.
+		uint32_t perSecond = 0, burst = 0;
 	};
 	ReplicationStatistics Statistics(PeerGuid guid);
 	bool RegisterReport(std::type_index object, Report report);
+	bool LimitReports(ReplicaTypeId id, uint32_t perSecond, uint32_t burst);
 	bool Assign(Replica3 &object, PeerGuid guid, bool force = false);
 	bool Correct(Replica3 &object);
 	bool Owns(Replica3 &object) const;
@@ -140,7 +143,12 @@ private:
 		uint64_t publishedEpoch = 0;
 		uint64_t requestedFeedback = 0, publishedFeedback = 0;
 		bool stateChanged = false;
+		// Owner report budget, in millionths of a report: Report::perSecond refills it, up to the burst.
+		bool reportBudgetStarted = false;
+		uint64_t reportBudget = 0;
+		TimeUS reportBudgetRefilled = 0;
 		bool Ready() const { return publishedEpoch == epoch; }
+		bool SpendReport(const Report &limit, TimeUS now);
 	};
 	std::map<ReplicaTypeId, Report> reports;
 	std::map<NetworkID, Grant> grants;
