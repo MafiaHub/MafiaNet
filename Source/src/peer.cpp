@@ -1166,6 +1166,9 @@ void RakPeer::Shutdown(unsigned int blockDuration, unsigned char orderingChannel
 	for (Packet *queued : packetReturnQueue)
 		DeallocatePacket(queued);
 	packetReturnQueue.clear();
+	cancelledAttempts.clear();
+	withdrawnConnections.clear();
+	reportedRaceAttempts.clear();
 	packetReturnMutex.Unlock();
 	// Packets still out (a Shutdown() from inside Receive's dispatch, or from code handling a
 	// packet Receive returned) are individually allocated, so they stay valid until
@@ -1728,6 +1731,14 @@ void RakPeer::DeallocatePacket(Packet *packet)
 	}
 }
 
+void RakPeer::FreeUndeliveredPacket(Packet *packet)
+{
+	RakAssert(packet->deleteData);
+	std::free(packet->data);
+	delete packet;
+	--packetsOutstanding;
+}
+
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 // Description:
 // Return the total number of connections we are allowed
@@ -1814,6 +1825,44 @@ void RakPeer::CancelConnectionAttempt(const SystemAddress target)
 		}
 	}
 	requestedConnectionQueueMutex.Unlock();
+
+	// An attempt that already holds a slot (transport handshake, or waiting for the server's session decision)
+	// is the network thread's to drop (ApplyCancelledAttempts). Its acceptance may also be produced already
+	// without the application having read it: take it back, with whatever the connection queued behind it,
+	// so the application never sees the connection. Under the queue lock, which the connecting side also holds
+	// to check for a cancel and queue the acceptance, so either it is in the queue here or it is never queued.
+	std::vector<Packet *> withdrawn;
+	packetReturnMutex.Lock();
+	cancelledAttempts.push_back(target);
+	for (std::size_t q = 0; q < packetReturnQueue.size();)
+	{
+		const Packet *accepted = packetReturnQueue[q];
+		bool matches = accepted->length > 0 && accepted->data[0] == ID_CONNECTION_REQUEST_ACCEPTED && accepted->systemAddress == target;
+		for (const auto &race : reportedRaceAttempts)
+			matches = matches || (accepted->length > 0 && accepted->data[0] == ID_CONNECTION_REQUEST_ACCEPTED && race.first == accepted->guid && race.second == target);
+		if (!matches)
+		{
+			q++;
+			continue;
+		}
+		// The acceptance and everything its connection queued after it; the next packet then sits at q.
+		const RakNetGUID guid = accepted->guid;
+		withdrawnConnections.push_back(guid);
+		for (std::size_t later = q; later < packetReturnQueue.size();)
+		{
+			if (packetReturnQueue[later]->guid == guid)
+			{
+				withdrawn.push_back(packetReturnQueue[later]);
+				packetReturnQueue.erase(packetReturnQueue.begin() + (std::ptrdiff_t) later);
+			}
+			else
+				later++;
+		}
+	}
+	packetReturnMutex.Unlock();
+	for (Packet *packet : withdrawn)
+		FreeUndeliveredPacket(packet);
+	quitAndDataEvents.SetEvent();
 }
 
 bool RakPeer::RequestMatches(const RequestedConnectionStruct *rcs, const SystemAddress &address)
@@ -3958,8 +4007,31 @@ void RakPeer::ProduceWithheldConnectionPacket(RemoteSystemStruct *remoteSystem)
 		packet->connectionGeneration = remoteSystem->generation;
 		playerRoster->Connected(ToPeerGuid(remoteSystem->guid), remoteSystem->generation,
 		                        remoteSystem->lowestPing == 65535 ? -1 : static_cast<int>(remoteSystem->lowestPing));
+		AddPacketToProducer(packet);
 	}
-	AddPacketToProducer(packet);
+	else
+	{
+		// A cancel the network thread has not applied yet ends the attempt here instead. Checked where the
+		// acceptance is queued: CancelConnectionAttempt() takes the same lock to look for it, so a cancel either
+		// finds it in the queue or is seen here.
+		packetReturnMutex.Lock();
+		const bool cancelled = IsAttemptCancelled_NoLock(*remoteSystem);
+		if (!cancelled)
+		{
+			if (remoteSystem->raceFirstAddress != UNASSIGNED_SYSTEM_ADDRESS)
+				reportedRaceAttempts.emplace_back(remoteSystem->guid, remoteSystem->raceFirstAddress);
+			packetReturnQueue.push_back(packet);
+			packetReturnCondition.notify_all();
+		}
+		packetReturnMutex.Unlock();
+		if (cancelled)
+		{
+			FreeUndeliveredPacket(packet);
+			remoteSystem->connectionReportedToApplication = false;
+			AbandonConnectionAttempt(remoteSystem);
+			return;
+		}
+	}
 
 	// Then what the remote sent while we were still finishing the handshake, in arrival order: right
 	// behind the connection packet, never ahead of it. Delivered the way any later message is, so the
@@ -4019,6 +4091,62 @@ void RakPeer::FailSessionHandshakeAsConnectingSide(RemoteSystemStruct *remoteSys
 	SetConnectMode(*remoteSystem, RemoteSystemStruct::DISCONNECT_ASAP_SILENTLY);
 	remoteSystem->sessionConfigStartTime = 0;
 	quitAndDataEvents.SetEvent();
+}
+// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+void RakPeer::AbandonConnectionAttempt(RemoteSystemStruct *remoteSystem)
+{
+	FreeHeldApplicationMessages(remoteSystem);
+
+	// The application cancelled, so nothing is reported here or when the slot closes. The remote may already be
+	// holding our session request, or have accepted it: tell it the connection is gone, so it reports the request
+	// abandoned (or the connection closed) now instead of after a timeout.
+	const MessageID notification = (MessageID) ID_DISCONNECTION_NOTIFICATION;
+	SendImmediate((char *) &notification, sizeof(notification) * 8, MafiaNet::Priority::Immediate, MafiaNet::Reliability::ReliableOrdered, 0, remoteSystem->systemAddress, false, false, MafiaNet::GetTimeUS(), 0);
+	SetConnectMode(*remoteSystem, RemoteSystemStruct::DISCONNECT_ASAP_SILENTLY);
+	remoteSystem->sessionConfigStartTime = 0;
+	quitAndDataEvents.SetEvent();
+}
+// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+bool RakPeer::IsAttemptCancelled_NoLock(const RemoteSystemStruct &remoteSystem) const
+{
+	for (const SystemAddress &target : cancelledAttempts)
+	{
+		if (remoteSystem.systemAddress == target || remoteSystem.raceFirstAddress == target)
+			return true;
+	}
+	return false;
+}
+// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+void RakPeer::ApplyCancelledAttempts(void)
+{
+	std::vector<SystemAddress> targets;
+	std::vector<RakNetGUID> withdrawn;
+	packetReturnMutex.Lock();
+	if (cancelledAttempts.empty())
+	{
+		packetReturnMutex.Unlock();
+		return;
+	}
+	targets.swap(cancelledAttempts);
+	withdrawn = withdrawnConnections;
+	packetReturnMutex.Unlock();
+
+	for (const SystemAddress &target : targets)
+	{
+		for (unsigned int i = 0; i < activeSystemListSize; i++)
+		{
+			RemoteSystemStruct *remoteSystem = activeSystemList[i];
+			if (!remoteSystem->isActive || !remoteSystem->weInitiatedTheConnection || (remoteSystem->systemAddress != target && remoteSystem->raceFirstAddress != target))
+				continue;
+			const RemoteSystemStruct::ConnectMode mode = remoteSystem->connectMode;
+			// Still an attempt: the application has not been told of the connection, or the cancel took the
+			// acceptance back before it read it. A connection the application has seen stays open.
+			const bool unreported = !remoteSystem->connectionReportedToApplication && (mode == RemoteSystemStruct::REQUESTED_CONNECTION || mode == RemoteSystemStruct::EXCHANGING_SESSION_DATA);
+			const bool withdrawnAcceptance = mode == RemoteSystemStruct::CONNECTED && std::find(withdrawn.begin(), withdrawn.end(), remoteSystem->guid) != withdrawn.end();
+			if (unreported || withdrawnAcceptance)
+				AbandonConnectionAttempt(remoteSystem);
+		}
+	}
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void RakPeer::DeliverApplicationMessage(RemoteSystemStruct *remoteSystem, unsigned char *data, BitSize_t bitSize)
@@ -4814,6 +4942,16 @@ void RakPeer::CloseConnectionInternal2(const AddressOrGUID &systemIdentifier, bo
 				if (remoteSystemList[index].isActive)
 				{
 					playerRoster->Disconnected(ToPeerGuid(remoteSystemList[index].guid), remoteSystemList[index].generation);
+					{
+						// The slot is gone, so a cancel can no longer take its acceptance back nor drop its packets.
+						const RakNetGUID closing = remoteSystemList[index].guid;
+						packetReturnMutex.Lock();
+						withdrawnConnections.erase(std::remove(withdrawnConnections.begin(), withdrawnConnections.end(), closing), withdrawnConnections.end());
+						reportedRaceAttempts.erase(std::remove_if(reportedRaceAttempts.begin(), reportedRaceAttempts.end(), [&](const std::pair<RakNetGUID, SystemAddress> &race)
+						                                          { return race.first == closing; }),
+						                           reportedRaceAttempts.end());
+						packetReturnMutex.Unlock();
+					}
 					RemoveFromActiveSystemList(target);
 
 					// Found the index to stop
@@ -5145,6 +5283,14 @@ bool RakPeer::DispatchNetworkThreadReceive(Packet *packet)
 inline void RakPeer::AddPacketToProducer(MafiaNet::Packet *p)
 {
 	packetReturnMutex.Lock();
+	// A connection whose acceptance CancelConnectionAttempt() took back is closing: the application never saw
+	// it, so nothing more of it reaches the application either.
+	if (!withdrawnConnections.empty() && std::find(withdrawnConnections.begin(), withdrawnConnections.end(), p->guid) != withdrawnConnections.end())
+	{
+		packetReturnMutex.Unlock();
+		FreeUndeliveredPacket(p);
+		return;
+	}
 	packetReturnQueue.push_back(p);
 	packetReturnCondition.notify_all();
 	packetReturnMutex.Unlock();
@@ -6368,6 +6514,8 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 	// Before the send queue is drained, so whatever the plugins send here leaves this cycle.
 	DispatchNetworkThreadUpdate();
 
+	ApplyCancelledAttempts();
+
 	// Only the commands queued when this cycle reached here. A user thread that keeps pushing (e.g. CloseConnection
 	// in a polling loop until the peer is gone) must not hold the network thread in this loop: the rest of the
 	// cycle, which completes that very disconnect, would never run. Later commands are handled next cycle.
@@ -7108,10 +7256,14 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 						// It answers our ID_CONNECTION_REQUEST, which only the REPLY_2 handler sends, right after
 						// setting weInitiatedTheConnection (never cleared while the slot lives). So it is only ever
 						// legitimate on the initiating slot, including when simultaneous attempts crossed.
+						// A closing slot (a cancelled or failed attempt) never restarts, not even with IP migration.
 						if (remoteSystem->weInitiatedTheConnection &&
 						    (remoteSystem->connectMode == RemoteSystemStruct::HANDLING_CONNECTION_REQUEST ||
 						     remoteSystem->connectMode == RemoteSystemStruct::REQUESTED_CONNECTION ||
-						     allowConnectionResponseIPMigration))
+						     (allowConnectionResponseIPMigration &&
+						      remoteSystem->connectMode != RemoteSystemStruct::DISCONNECT_ASAP &&
+						      remoteSystem->connectMode != RemoteSystemStruct::DISCONNECT_ASAP_SILENTLY &&
+						      remoteSystem->connectMode != RemoteSystemStruct::DISCONNECT_ON_NO_ACK)))
 							allowConnection = true;
 						else
 							allowConnection = false;

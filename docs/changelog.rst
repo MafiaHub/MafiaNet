@@ -24,6 +24,12 @@ Unreleased
   ``Startup(1)`` client could not connect elsewhere right after
   ``CloseConnection()``. The new connection now ends the connection closing
   longest, which reports its end as before. See :doc:`guide/admission-queue`.
+* ``CancelConnectionAttempt()`` also cancels an attempt that already reached the
+  server, for example while the server holds its session request. The attempt
+  used to complete with ``ID_CONNECTION_REQUEST_ACCEPTED`` when the server
+  accepted it. Now the client reports nothing, and the server reports
+  ``ID_SESSION_CONFIG_ABANDONED``, or ``ID_DISCONNECTION_NOTIFICATION`` if it had
+  already accepted. An acceptance that is queued but not yet read is taken back.
 
 Version 0.27.0
 --------------
