@@ -39,6 +39,8 @@ public:
 	PointGridSectorizer index;
 	std::map<NetworkID, Record> objects;
 	std::map<PeerGuid, Observer> observers;
+	std::map<uint16_t, unsigned> categoryLimits;
+	std::set<NetworkID> alwaysVisible;
 	std::map<int, std::set<PeerGuid>> subscriptions;
 	std::function<bool(PeerGuid, NetworkID)> audience;
 	InterestStatistics stats;
@@ -73,6 +75,11 @@ public:
 	{
 		return Axis(p.y, config.minimum.y, height) * width + Axis(p.x, config.minimum.x, width);
 	}
+	void DirtyAll()
+	{
+		for (auto &entry : observers)
+			entry.second.dirty = true;
+	}
 	void Dirty(int cell)
 	{
 		auto it = subscriptions.find(cell);
@@ -105,10 +112,15 @@ public:
 		if (!observer.dirty)
 			return;
 		++stats.observersRebuilt;
+		// Entries are ranked uncounted first (required by an authority holder, always visible), then spatial candidates.
+		// Uncounted entries bypass the distance test, the category limits and the observer limit.
 		std::vector<std::tuple<bool, int64_t, double, NetworkID>> ranked;
+		std::set<NetworkID> considered;
 		std::vector<void *> hits;
-		auto consider = [&](const Record &record, bool required)
+		auto consider = [&](const Record &record, bool uncounted)
 		{
+			if (!considered.insert(record.id).second)
+				return;
 			++stats.candidatesInspected;
 			if (!Eligible(guid, observer, record))
 				return;
@@ -117,13 +129,18 @@ public:
 			double d = observer.radius ? dx * dx + dy * dy : 0;
 			const bool held = observer.visible.count(record.id) != 0;
 			const double r = held ? observer.leave : observer.enter;
-			if (!required && observer.radius && d > r * r)
+			if (!uncounted && observer.radius && d > r * r)
 				return;
 			// Retain an incumbent within 5% of a challenger's distance at the cap.
-			ranked.emplace_back(!required, -static_cast<int64_t>(record.scope.priority), held ? d * 0.9025 : d, record.id);
+			ranked.emplace_back(!uncounted, -static_cast<int64_t>(record.scope.priority), held ? d * 0.9025 : d, record.id);
 		};
 		for (auto id : observer.required)
 			consider(objects.at(id), true);
+		for (auto id : alwaysVisible)
+		{
+			++stats.alwaysVisiblePulls;
+			consider(objects.at(id), true);
+		}
 		for (int cell : observer.cells)
 		{
 			++stats.cellsVisited;
@@ -139,10 +156,25 @@ public:
 		std::sort(ranked.begin(), ranked.end());
 		observer.visible.clear();
 		observer.ordered.clear();
+		std::map<uint16_t, unsigned> categoryCounts;
+		unsigned counted = 0;
 		for (const auto &item : ranked)
 		{
-			if (std::get<0>(item) && observer.limit && observer.visible.size() >= observer.limit)
-				break;
+			if (std::get<0>(item))
+			{
+				if (observer.limit && counted >= observer.limit)
+					break;
+				const uint16_t category = objects.at(std::get<3>(item)).scope.category;
+				auto limit = categoryLimits.find(category);
+				if (limit != categoryLimits.end() && categoryCounts[category] >= limit->second)
+				{
+					++stats.categoryCapped;
+					continue;
+				}
+				if (limit != categoryLimits.end())
+					++categoryCounts[category];
+				++counted;
+			}
 			observer.visible.insert(std::get<3>(item));
 			observer.ordered.push_back(std::get<3>(item));
 		}
@@ -195,6 +227,8 @@ bool InterestGrid::Configure(InterestGridConfig config)
 	for (const auto &[id, record] : impl->objects)
 		if (record.required != UNASSIGNED_PEER_GUID)
 			replacement.Require(id, record.required);
+	next.categoryLimits = impl->categoryLimits;
+	next.alwaysVisible = impl->alwaysVisible;
 	next.stats = impl->stats;
 	next.audience = std::move(impl->audience);
 	impl.swap(replacement.impl);
@@ -225,6 +259,8 @@ bool InterestGrid::SetScope(NetworkID id, SpatialScope scope)
 	r.cell = impl->Cell(scope.position);
 	impl->index.MoveEntry(&r, static_cast<float>(r.cell % impl->width), static_cast<float>(r.cell / impl->width));
 	impl->Dirty(r.cell);
+	if (impl->alwaysVisible.count(id))
+		impl->DirtyAll();
 	if (r.required != UNASSIGNED_PEER_GUID)
 		InvalidateObserver(r.required);
 	return true;
@@ -248,6 +284,8 @@ void InterestGrid::Remove(NetworkID id)
 		if (observer.visible.erase(id))
 			observer.dirty = true;
 	Require(id, UNASSIGNED_PEER_GUID);
+	if (impl->alwaysVisible.erase(id))
+		impl->DirtyAll();
 	impl->Dirty(it->second.cell);
 	impl->index.RemoveEntry(&it->second);
 	impl->objects.erase(it);
@@ -323,12 +361,32 @@ void InterestGrid::SetObserverLimits(PeerGuid guid, unsigned limit, unsigned bud
 	o.budget = budget;
 	o.dirty = true;
 }
+bool InterestGrid::SetCategoryLimit(uint16_t category, unsigned maxCount)
+{
+	impl->CheckWritable();
+	if (category == 0)
+		return false;
+	if (maxCount)
+		impl->categoryLimits[category] = maxCount;
+	else
+		impl->categoryLimits.erase(category);
+	impl->DirtyAll();
+	return true;
+}
+bool InterestGrid::SetAlwaysVisible(NetworkID id, bool enabled)
+{
+	impl->CheckWritable();
+	if (!impl->objects.count(id))
+		return false;
+	if (enabled ? impl->alwaysVisible.insert(id).second : impl->alwaysVisible.erase(id) != 0)
+		impl->DirtyAll();
+	return true;
+}
 void InterestGrid::SetAudience(std::function<bool(PeerGuid, NetworkID)> audience)
 {
 	impl->CheckWritable();
 	impl->audience = std::move(audience);
-	for (auto &entry : impl->observers)
-		entry.second.dirty = true;
+	impl->DirtyAll();
 }
 void InterestGrid::InvalidateObserver(PeerGuid guid)
 {
@@ -355,6 +413,8 @@ void InterestGrid::Clear()
 	impl->subscriptions.clear();
 	impl->observers.clear();
 	impl->objects.clear();
+	impl->alwaysVisible.clear();
+	impl->categoryLimits.clear();
 	impl->stats = {};
 }
 void InterestGrid::GetVisible(PeerGuid guid, std::vector<NetworkID> &out)

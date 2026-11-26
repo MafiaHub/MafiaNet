@@ -27,10 +27,14 @@ struct SpatialScope
 	uint8_t world = 0;
 	VirtualWorldId dimension = VIRTUAL_WORLD_DEFAULT;
 	int priority = 0;
+	/// Budget category for SetCategoryLimit. 0 is uncategorised and never limited.
+	uint16_t category = 0;
 };
 struct InterestStatistics
 {
 	uint64_t observersRebuilt = 0, cellsVisited = 0, candidatesInspected = 0;
+	/// Always-visible objects considered by a rebuild, and candidates skipped by a category limit.
+	uint64_t alwaysVisiblePulls = 0, categoryCapped = 0;
 };
 /// A bounded two-dimensional grid. Coordinates include the outer maximum.
 class RAK_DLL_EXPORT InterestGrid
@@ -52,6 +56,10 @@ public:
 	void SetObserverDimension(PeerGuid guid, VirtualWorldId dimension);
 	void SetObserverWorld(PeerGuid guid, uint8_t world, VirtualWorldId dimension);
 	void SetObserverLimits(PeerGuid guid, unsigned visibleLimit, unsigned constructionBudget);
+	/// Caps how many objects of a category any observer sees at once; nearest first. 0 removes the limit. False for category 0.
+	bool SetCategoryLimit(uint16_t category, unsigned maxCount);
+	/// An always-visible object ignores distance and observer limits, but not world, dimension or audience. False when id is not tracked.
+	bool SetAlwaysVisible(NetworkID id, bool enabled);
 	/// A read-only predicate. Mutating or reevaluating this grid inside it throws std::logic_error.
 	void SetAudience(std::function<bool(PeerGuid, NetworkID)> eligible);
 	void InvalidateObserver(PeerGuid guid);
@@ -62,6 +70,7 @@ public:
 
 private:
 	friend class ManagedReplication;
+	friend struct InterestGridTestAccess; // lets unit tests call Require without a ReplicationManager
 	bool Eligible(PeerGuid guid, NetworkID id) const;
 	void Require(NetworkID id, PeerGuid guid);
 	unsigned GetBudget(PeerGuid guid) const;

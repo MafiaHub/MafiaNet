@@ -1,6 +1,7 @@
 // Copyright (c) 2026, MafiaHub. MIT license.
 #include <gtest/gtest.h>
 #include "mafianet/interest_grid.h"
+#include <algorithm>
 #include <limits>
 #include <map>
 #include <set>
@@ -159,4 +160,100 @@ TEST(InterestGrid, RejectsMutationInsideAudienceBeforeChangingMembership)
 	grid.SetAudience({});
 	grid.GetVisible(camera, visible);
 	EXPECT_EQ(visible, std::vector<NetworkID>{7});
+}
+
+namespace MafiaNet
+{
+struct InterestGridTestAccess
+{
+	static void Require(InterestGrid &grid, NetworkID id, PeerGuid guid) { grid.Require(id, guid); }
+};
+}
+
+namespace
+{
+std::vector<NetworkID> Visible(InterestGrid &grid, PeerGuid guid)
+{
+	std::vector<NetworkID> out;
+	grid.GetVisible(guid, out);
+	return out;
+}
+}
+
+TEST(InterestGrid, CategoryLimitKeepsTheNearest)
+{
+	InterestGrid grid;
+	const PeerGuid camera{1};
+	ASSERT_TRUE(grid.Configure({{-100, -100}, {100, 100}, 20}));
+	ASSERT_TRUE(grid.SetObserverRadius(camera, {0, 0}, 50, 50));
+	EXPECT_FALSE(grid.SetCategoryLimit(0, 2));
+	ASSERT_TRUE(grid.SetCategoryLimit(3, 2));
+	for (NetworkID id = 1; id <= 4; ++id)
+		ASSERT_TRUE(grid.Track(id, {{static_cast<float>(id * 10), 0}, 0, VIRTUAL_WORLD_DEFAULT, 0, 3}));
+	EXPECT_EQ(Visible(grid, camera), (std::vector<NetworkID>{1, 2}));
+	EXPECT_GE(grid.GetStatistics().categoryCapped, 2u);
+	ASSERT_TRUE(grid.SetPosition(3, {5, 0}));
+	EXPECT_EQ(Visible(grid, camera), (std::vector<NetworkID>{3, 1}));
+	ASSERT_TRUE(grid.Track(9, {{45, 0}}));
+	const auto visible = Visible(grid, camera);
+	EXPECT_EQ(visible.size(), 3u);
+	EXPECT_NE(std::find(visible.begin(), visible.end(), 9), visible.end());
+	ASSERT_TRUE(grid.SetCategoryLimit(3, 0));
+	EXPECT_EQ(Visible(grid, camera).size(), 5u);
+}
+
+TEST(InterestGrid, CategoryLimitDoesNotCountRequiredObjects)
+{
+	InterestGrid grid;
+	const PeerGuid camera{1};
+	ASSERT_TRUE(grid.Configure({{-100, -100}, {100, 100}, 20}));
+	ASSERT_TRUE(grid.SetObserverRadius(camera, {0, 0}, 50, 50));
+	ASSERT_TRUE(grid.SetCategoryLimit(3, 1));
+	ASSERT_TRUE(grid.Track(1, {{10, 0}, 0, VIRTUAL_WORLD_DEFAULT, 0, 3}));
+	ASSERT_TRUE(grid.Track(2, {{80, 0}, 0, VIRTUAL_WORLD_DEFAULT, 0, 3}));
+	InterestGridTestAccess::Require(grid, 2, camera);
+	const auto visible = Visible(grid, camera);
+	EXPECT_EQ(std::set<NetworkID>(visible.begin(), visible.end()), (std::set<NetworkID>{1, 2}));
+}
+
+TEST(InterestGrid, UncountedObjectsDoNotUseTheObserverLimit)
+{
+	InterestGrid grid;
+	const PeerGuid camera{1};
+	ASSERT_TRUE(grid.Configure({{-100, -100}, {100, 100}, 20}));
+	ASSERT_TRUE(grid.SetObserverRadius(camera, {0, 0}, 50, 50));
+	grid.SetObserverLimits(camera, 1, 0);
+	ASSERT_TRUE(grid.Track(1, {{10, 0}}));
+	ASSERT_TRUE(grid.Track(2, {{20, 0}}));
+	ASSERT_TRUE(grid.Track(3, {{90, 90}}));
+	ASSERT_TRUE(grid.SetAlwaysVisible(3, true));
+	const auto visible = Visible(grid, camera);
+	EXPECT_EQ(std::set<NetworkID>(visible.begin(), visible.end()), (std::set<NetworkID>{1, 3}));
+}
+
+TEST(InterestGrid, AlwaysVisibleIgnoresDistanceButNotEligibility)
+{
+	InterestGrid grid;
+	const PeerGuid camera{1};
+	ASSERT_TRUE(grid.Configure({{0, 0}, {2000, 2000}, 100}));
+	ASSERT_TRUE(grid.SetObserverRadius(camera, {0, 0}, 50, 50));
+	EXPECT_FALSE(grid.SetAlwaysVisible(999, true));
+	ASSERT_TRUE(grid.Track(7, {{1000, 1000}}));
+	EXPECT_TRUE(Visible(grid, camera).empty());
+	ASSERT_TRUE(grid.SetAlwaysVisible(7, true));
+	EXPECT_EQ(Visible(grid, camera), std::vector<NetworkID>{7});
+	EXPECT_GE(grid.GetStatistics().alwaysVisiblePulls, 1u);
+	grid.SetObserverDimension(camera, 5);
+	ASSERT_TRUE(grid.SetScope(7, {{1000, 1000}, 0, 9}));
+	EXPECT_TRUE(Visible(grid, camera).empty());
+	ASSERT_TRUE(grid.SetScope(7, {{1000, 1000}}));
+	grid.SetObserverDimension(camera, VIRTUAL_WORLD_DEFAULT);
+	EXPECT_EQ(Visible(grid, camera), std::vector<NetworkID>{7});
+	grid.SetAudience([](PeerGuid, NetworkID)
+	                 { return false; });
+	EXPECT_TRUE(Visible(grid, camera).empty());
+	grid.SetAudience({});
+	EXPECT_EQ(Visible(grid, camera), std::vector<NetworkID>{7});
+	ASSERT_TRUE(grid.SetAlwaysVisible(7, false));
+	EXPECT_TRUE(Visible(grid, camera).empty());
 }
