@@ -57,7 +57,7 @@ public:
 	{
 		std::string notification(1, static_cast<char>(ID_DISCONNECTION_NOTIFICATION));
 		notification += EncodeReason(code, detail);
-		if (!send(key, notification.data(), BYTES_TO_BITS(notification.size()), Reliability::ReliableOrdered, Priority::High, 0, true))
+		if (!send(key, notification.data(), BYTES_TO_BITS(static_cast<BitSize_t>(notification.size())), Reliability::ReliableOrdered, Priority::High, 0, true))
 			return false;
 		auto &client = clients.at(key.guid);
 		client.code = code;
