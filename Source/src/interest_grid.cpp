@@ -79,6 +79,9 @@ public:
 	// Scratch buffers reused by every rebuild (a rebuild cannot nest: the audience predicate must not reevaluate the grid).
 	std::vector<Ranked> ranked;
 	std::vector<void *> hits;
+	// The membership a rebuild is building, published into the observer only once it is complete.
+	std::set<NetworkID> stagedVisible;
+	std::vector<NetworkID> stagedOrdered;
 	mutable bool queryingAudience = false;
 	void CheckWritable() const
 	{
@@ -110,14 +113,19 @@ public:
 	{
 		return Axis(p.y, config.minimum.y, height) * width + Axis(p.x, config.minimum.x, width);
 	}
-	std::pair<int64_t, int64_t> RangedCell(SpatialPoint p) const
+	// Takes doubles so query bounds are never narrowed to float before the clamp.
+	std::pair<int64_t, int64_t> RangedCell(double x, double y) const
 	{
-		// Clamped so a focus far outside the grid (a huge look-ahead) cannot overflow the integer conversion.
+		// Clamped so a focus or reach far outside the grid (a huge look-ahead or range) cannot overflow the integer conversion.
 		auto cellOf = [this](double value, double origin)
 		{
 			return static_cast<int64_t>(std::clamp(std::floor((value - origin) / rangedCellSize), -1e15, 1e15));
 		};
-		return {cellOf(p.x, config.minimum.x), cellOf(p.y, config.minimum.y)};
+		return {cellOf(x, config.minimum.x), cellOf(y, config.minimum.y)};
+	}
+	std::pair<int64_t, int64_t> RangedCell(SpatialPoint p) const
+	{
+		return RangedCell(static_cast<double>(p.x), static_cast<double>(p.y));
 	}
 	float LongestRange() const
 	{
@@ -137,7 +145,7 @@ public:
 		{
 			const double dx = static_cast<double>(observer.velocity.x) * lookaheadSeconds;
 			const double dy = static_cast<double>(observer.velocity.y) * lookaheadSeconds;
-			if (dx * dx + dy * dy > kMinLookaheadDist * kMinLookaheadDist)
+			if (dx * dx + dy * dy >= kMinLookaheadDist * kMinLookaheadDist)
 			{
 				// Clamped so a huge velocity cannot overflow the float conversion.
 				constexpr double kLimit = std::numeric_limits<float>::max();
@@ -209,10 +217,21 @@ public:
 			}
 		}
 	}
-	void RebuildRangedCells()
+	// The ranged cell size steps up by powers of two of the grid cell size, so a run of ever longer ranges refiles the index O(log) times.
+	// Queries scan every cell within the exact reach of LongestRange(), so any cell size is correct; a larger one only holds more objects per cell.
+	float RangedCellSizeFor(float longest) const
+	{
+		double size = config.cellSize;
+		while (size < static_cast<double>(longest))
+		{
+			size *= 2;
+		}
+		return static_cast<float>((std::min)(size, static_cast<double>(std::numeric_limits<float>::max())));
+	}
+	void RebuildRangedCells(float cellSize)
 	{
 		rangedCells.clear();
-		rangedCellSize = (std::max)(LongestRange(), config.cellSize);
+		rangedCellSize = cellSize;
 		for (auto &entry : objects)
 		{
 			if (entry.second.scope.range > 0)
@@ -227,11 +246,12 @@ public:
 		{
 			return;
 		}
-		const float before = rangedCellSize;
 		rangedLengths.insert(record.scope.range);
-		if ((std::max)(LongestRange(), config.cellSize) != before)
+		// Grow when the longest range outgrows the cells; shrink only once they are four times too large (hysteresis against thrashing).
+		const float wanted = RangedCellSizeFor(LongestRange());
+		if (wanted > rangedCellSize || wanted * 4 <= rangedCellSize)
 		{
-			RebuildRangedCells();
+			RebuildRangedCells(wanted);
 			return;
 		}
 		rangedCells[RangedCell(record.scope.position)].insert(&record);
@@ -252,7 +272,7 @@ public:
 			}
 		}
 		rangedLengths.erase(rangedLengths.find(record.scope.range));
-		// The cell size only grows lazily: it is recomputed the next time the longest range changes while filing.
+		// The cell size is only revisited while filing (see FileRanged).
 	}
 	void DirtyViewersOf(NetworkID id)
 	{
@@ -376,8 +396,8 @@ public:
 			for (int i = 0; i < foci.count; ++i)
 			{
 				const SpatialPoint focus = foci.points[i];
-				const auto low = RangedCell({static_cast<float>(focus.x - reach), static_cast<float>(focus.y - reach)});
-				const auto high = RangedCell({static_cast<float>(focus.x + reach), static_cast<float>(focus.y + reach)});
+				const auto low = RangedCell(static_cast<double>(focus.x) - reach, static_cast<double>(focus.y) - reach);
+				const auto high = RangedCell(static_cast<double>(focus.x) + reach, static_cast<double>(focus.y) + reach);
 				const double span = (static_cast<double>(high.first) - low.first + 1) * (static_cast<double>(high.second) - low.second + 1);
 				auto scanCell = [&](const std::set<Record *> &cell)
 				{
@@ -437,8 +457,8 @@ public:
 			Collect<false>(guid, observer, foci, stamp);
 		}
 		std::sort(ranked.begin(), ranked.end());
-		observer.visible.clear();
-		observer.ordered.clear();
+		stagedVisible.clear();
+		stagedOrdered.clear();
 		for (auto &entry : categoryLimits)
 		{
 			entry.second.used = 0;
@@ -465,31 +485,34 @@ public:
 				}
 				++counted;
 			}
-			observer.visible.insert(item.id);
-			observer.ordered.push_back(item.id);
+			stagedVisible.insert(item.id);
+			stagedOrdered.push_back(item.id);
 		}
 		// Dependency children of every visible object follow it, uncounted, while eligible.
 		if (!children.empty())
 		{
-			for (size_t i = 0; i < observer.ordered.size(); ++i)
+			for (size_t i = 0; i < stagedOrdered.size(); ++i)
 			{
-				auto found = children.find(observer.ordered[i]);
+				auto found = children.find(stagedOrdered[i]);
 				if (found == children.end())
 				{
 					continue;
 				}
 				for (auto child : found->second)
 				{
-					if (observer.visible.count(child) || !Eligible(guid, observer, objects.at(child)))
+					if (stagedVisible.count(child) || !Eligible(guid, observer, objects.at(child)))
 					{
 						continue;
 					}
 					++stats.dependencyPulls;
-					observer.visible.insert(child);
-					observer.ordered.push_back(child);
+					stagedVisible.insert(child);
+					stagedOrdered.push_back(child);
 				}
 			}
 		}
+		// Publish only now: an audience predicate that threw above leaves the previous membership (and dirty) intact.
+		observer.visible.swap(stagedVisible);
+		observer.ordered.swap(stagedOrdered);
 		observer.dirty = false;
 	}
 };

@@ -7,14 +7,14 @@ Unreleased
 ----------
 
 * ``SpatialScope::category`` and ``InterestGrid::SetCategoryLimit()`` cap how many objects of one category
-  each observer sees at once, nearest first. Category 0 is never limited. Candidates skipped by a cap are
+  each observer sees at once, highest priority first, then nearest. Category 0 is never limited. Candidates skipped by a cap are
   counted in ``InterestStatistics::categoryCapped``. See :doc:`guide/replication`.
 * ``SpatialScope::range`` streams an object within its own range: the larger of the range and the observer's
   enter radius, or the range alone for a category set with ``InterestGrid::SetCategoryUsesEntityRange()``.
   Ranged objects are indexed separately, so they do not widen every observer's cell query.
 * ``InterestGrid::SetObserverVelocity()`` and ``SetLookaheadSeconds()`` give a radius observer a second focus
-  point ahead of it. Distances use the nearer focus, so look-ahead only widens the visible set. A focus
-  closer than 5 units is ignored.
+  point ahead of it. Distances use the nearer focus, so look-ahead widens the area considered for visibility. Visible
+  limits and category limits can still displace objects. A focus less than 5 units ahead is ignored.
 * ``InterestGrid::SetDependency()`` and ``GetDependency()`` make a child visible whenever its parent is, wherever
   the child is. Chains are followed and cycles refused. The world, dimension and audience checks still apply.
   Pulled children are counted in ``InterestStatistics::dependencyPulls``.

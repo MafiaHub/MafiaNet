@@ -2,6 +2,7 @@
 #include <gtest/gtest.h>
 #include "mafianet/interest_grid.h"
 #include <algorithm>
+#include <cmath>
 #include <functional>
 #include <limits>
 #include <map>
@@ -476,7 +477,7 @@ TEST(InterestGrid, HugeVelocityDoesNotOverflowTheFocus)
 	EXPECT_EQ(Visible(grid, camera), std::vector<NetworkID>{1});
 }
 
-TEST(InterestGrid, ObserverVelocityValidationAndReconfigure)
+TEST(InterestGrid, ObserverVelocityRejectsInvalidObserversAndValues)
 {
 	InterestGrid grid;
 	const PeerGuid camera{1}, room{2};
@@ -494,10 +495,118 @@ TEST(InterestGrid, ObserverVelocityValidationAndReconfigure)
 	EXPECT_TRUE(Visible(grid, camera).empty());
 	grid.SetLookaheadSeconds(2);
 	EXPECT_EQ(Visible(grid, camera), std::vector<NetworkID>{1});
+}
+
+TEST(InterestGrid, ObserverVelocitySurvivesReconfigure)
+{
+	InterestGrid grid;
+	const PeerGuid camera{1};
+	ASSERT_TRUE(grid.Configure({{-100, -100}, {300, 100}, 50}));
+	grid.SetLookaheadSeconds(2);
+	ASSERT_TRUE(grid.SetObserverRadius(camera, {0, 0}, 20, 20));
+	ASSERT_TRUE(grid.SetObserverVelocity(camera, {30, 0}));
+	ASSERT_TRUE(grid.Track(1, {{70, 0}}));
+	EXPECT_EQ(Visible(grid, camera), std::vector<NetworkID>{1});
 	ASSERT_TRUE(grid.Configure({{-100, -100}, {300, 100}, 25}));
 	EXPECT_EQ(Visible(grid, camera), std::vector<NetworkID>{1});
 	ASSERT_TRUE(grid.SetObserverPosition(camera, {10, 0}));
 	EXPECT_EQ(Visible(grid, camera), std::vector<NetworkID>{1});
+}
+
+TEST(InterestGrid, LookaheadThresholdIsInclusive)
+{
+	auto visibleAt = [](float velocityX)
+	{
+		InterestGrid grid;
+		const PeerGuid camera{1};
+		EXPECT_TRUE(grid.Configure({{-100, -100}, {300, 100}, 50}));
+		grid.SetLookaheadSeconds(1);
+		EXPECT_TRUE(grid.SetObserverRadius(camera, {0, 0}, 1, 1));
+		EXPECT_TRUE(grid.SetObserverVelocity(camera, {velocityX, 0}));
+		EXPECT_TRUE(grid.Track(1, {{velocityX, 0}}));
+		return Visible(grid, camera);
+	};
+	// Exactly 5 units ahead: the second focus is used and sees the object standing on it.
+	EXPECT_EQ(visibleAt(5), std::vector<NetworkID>{1});
+	// 4 units ahead is ignored (the object, 4 units from the observer, is beyond the radius of 1).
+	EXPECT_TRUE(visibleAt(4).empty());
+}
+
+TEST(InterestGrid, AscendingRangesStayFindable)
+{
+	InterestGrid grid;
+	const PeerGuid camera{1};
+	ASSERT_TRUE(grid.Configure({{-100, -100}, {300, 100}, 50}));
+	ASSERT_TRUE(grid.SetObserverRadius(camera, {250, 0}, 5, 5));
+	std::set<NetworkID> expected;
+	for (NetworkID id = 1; id <= 300; ++id)
+	{
+		const float x = static_cast<float>(static_cast<int>(id % 100) * 3 - 100);
+		const float range = 20.0f + 7.0f * static_cast<float>(id);
+		ASSERT_TRUE(grid.Track(id, {{x, 0}, 0, VIRTUAL_WORLD_DEFAULT, 0, 0, range}));
+		if (std::abs(250.0f - x) <= range)
+		{
+			expected.insert(id);
+		}
+		if (id % 50 == 0)
+		{
+			const auto visible = Visible(grid, camera);
+			EXPECT_EQ(std::set<NetworkID>(visible.begin(), visible.end()), expected) << "after " << id;
+		}
+	}
+	for (NetworkID id = 300; id > 150; --id)
+	{
+		grid.Remove(id);
+		expected.erase(id);
+	}
+	const auto visible = Visible(grid, camera);
+	EXPECT_EQ(std::set<NetworkID>(visible.begin(), visible.end()), expected);
+}
+
+TEST(InterestGrid, MaximumRangeAndLeaveRadiusRunCleanly)
+{
+	constexpr float kMax = std::numeric_limits<float>::max();
+	InterestGrid grid;
+	const PeerGuid camera{1};
+	ASSERT_TRUE(grid.Configure({{-100, -100}, {300, 100}, 50}));
+	ASSERT_TRUE(grid.SetObserverRadius(camera, {0, 0}, 0, kMax));
+	ASSERT_TRUE(grid.Track(1, {{10, 0}, 0, VIRTUAL_WORLD_DEFAULT, 0, 0, kMax}));
+	EXPECT_EQ(Visible(grid, camera), std::vector<NetworkID>{1});
+	grid.SetLookaheadSeconds(kMax);
+	ASSERT_TRUE(grid.SetObserverVelocity(camera, {kMax, -kMax}));
+	ASSERT_TRUE(grid.Track(2, {{250, 50}, 0, VIRTUAL_WORLD_DEFAULT, 0, 0, 1}));
+	EXPECT_EQ(Visible(grid, camera), std::vector<NetworkID>{1});
+}
+
+TEST(InterestGrid, ThrowingAudienceDuringDependencyExpansionKeepsThePreviousMembership)
+{
+	InterestGrid grid;
+	const PeerGuid camera{1};
+	ASSERT_TRUE(grid.Configure({{-100, -100}, {1000, 100}, 50}));
+	ASSERT_TRUE(grid.SetObserverRadius(camera, {0, 0}, 50, 70));
+	ASSERT_TRUE(grid.Track(1, {{10, 0}}));
+	ASSERT_TRUE(grid.Track(2, {{900, 0}}));
+	ASSERT_TRUE(grid.SetDependency(2, 1));
+	ASSERT_TRUE(grid.Track(3, {{100, 0}}));
+	ASSERT_TRUE(grid.Track(4, {{900, 0}}));
+	ASSERT_TRUE(grid.SetDependency(4, 3));
+	EXPECT_EQ(Visible(grid, camera), (std::vector<NetworkID>{1, 2}));
+	bool failing = true;
+	grid.SetAudience([&](PeerGuid, NetworkID id)
+	                 {
+		if (failing && id == 4)
+		{
+			throw std::runtime_error("audience failed");
+		}
+		return true; });
+	// Object 3 enters the enter radius, so its child is expanded and the audience throws.
+	ASSERT_TRUE(grid.SetPosition(3, {40, 0}));
+	std::vector<NetworkID> out;
+	EXPECT_THROW(grid.GetVisible(camera, out), std::runtime_error);
+	// Between the enter and leave radius: a stranded object 3 would be treated as held and stay visible.
+	ASSERT_TRUE(grid.SetPosition(3, {60, 0}));
+	failing = false;
+	EXPECT_EQ(Visible(grid, camera), (std::vector<NetworkID>{1, 2}));
 }
 
 TEST(InterestGrid, DependencyFollowsItsParent)

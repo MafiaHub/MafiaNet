@@ -59,12 +59,12 @@ public:
 	bool SetObserverCells(PeerGuid guid, const std::vector<GridCell> &cells);
 	/// Velocity of a radius observer, used with SetLookaheadSeconds to add a second focus ahead of it. False for an unknown or explicit-cell observer or a non-finite velocity.
 	bool SetObserverVelocity(PeerGuid guid, SpatialPoint velocity);
-	/// How far ahead (seconds of velocity) radius observers also look. Negative or NaN is 0 (off). A look-ahead shorter than 5 units is ignored.
+	/// How far ahead (seconds of velocity) radius observers also look. Negative or NaN is 0 (off). A look-ahead displacement shorter than 5 units is ignored (5 or more is used).
 	void SetLookaheadSeconds(float seconds);
 	void SetObserverDimension(PeerGuid guid, VirtualWorldId dimension);
 	void SetObserverWorld(PeerGuid guid, uint8_t world, VirtualWorldId dimension);
 	void SetObserverLimits(PeerGuid guid, unsigned visibleLimit, unsigned constructionBudget);
-	/// Caps how many objects of a category any observer sees at once; nearest first. 0 removes the limit. False for category 0.
+	/// Caps how many objects of a category any observer sees at once; highest priority first, then nearest. 0 removes the limit. False for category 0.
 	bool SetCategoryLimit(uint16_t category, unsigned maxCount);
 	/// Objects of this category are seen within their own SpatialScope::range instead of the observer radius. False for category 0.
 	bool SetCategoryUsesEntityRange(uint16_t category, bool enabled);
