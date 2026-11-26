@@ -30,6 +30,13 @@ Unreleased
   accepted it. Now the client reports nothing, and the server reports
   ``ID_SESSION_CONFIG_ABANDONED``, or ``ID_DISCONNECTION_NOTIFICATION`` if it had
   already accepted. An acceptance that is queued but not yet read is taken back.
+* ``MafiaNet::Client`` is the client counterpart of ``Server``. It connects with a
+  session payload and an optional identity pin, and its ``poll()`` delivers queue
+  status, the accepted session's response, a typed ``ConnectionFailure`` and the
+  end of the session. A rejection and a graceful close carry an application
+  reason code with the detail on both ends; the server reports its own close as
+  ``LeaveReason::Closed``. ``Peer::client().session()`` sets the session payload.
+  See :doc:`guide/player-session-protocol`.
 
 Version 0.27.0
 --------------
