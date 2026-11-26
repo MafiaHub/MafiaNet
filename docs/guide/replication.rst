@@ -84,6 +84,50 @@ Older queued entries go first among ordinary construction requests. Read
 scope events and payload bytes. ``grid.GetStatistics()`` counts actual
 candidate inspections and observer rebuilds.
 
+Categories and ranges
+~~~~~~~~~~~~~~~~~~~~~
+
+Set ``SpatialScope::category`` to group objects, then call
+``SetCategoryLimit(category, maxCount)`` to cap how many objects of that
+category each observer sees. The highest priority objects are kept first, then
+the nearest, with the same five-percent distance margin for incumbents. Category 0 is uncategorised and never limited. Zero as
+``maxCount`` removes a limit.
+
+``SpatialScope::range`` lets an object stream at its own distance. By default
+an object is seen within the larger of its range and the observer's enter
+radius, so a range can only widen interest. For a category passed to
+``SetCategoryUsesEntityRange(category, true)`` the range replaces the observer's
+radius instead, so dense scenery can stream nearer than everything else. An
+object whose range is 0 keeps the observer's enter and leave radii, even in such
+a category. The observer's leave margin applies to both.
+
+Look-ahead
+~~~~~~~~~~
+
+``SetLookaheadSeconds(seconds)`` and ``SetObserverVelocity(guid, velocity)``
+give a radius observer a second focus point at its position plus velocity times
+seconds. An object is in range when it is within range of either point, so a
+fast driver sees the road ahead. A focus point less than 5 units from the
+observer is ignored; 5 units or more is used. Look-ahead widens the area
+considered for visibility, but the visible limit and category limits still apply
+afterwards, so a newly reachable object can displace one that was visible.
+
+Dependencies and always-visible objects
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+``SetDependency(child, parent)`` makes the child visible whenever the parent
+is, wherever the child is. Chains are followed. A link that would make a cycle,
+names an untracked object or links an object to itself returns false. Pass ``UNASSIGNED_NETWORK_ID`` as
+parent to clear the link. Removing an object drops its links.
+``SetAlwaysVisible(id, true)`` shows an object to every observer that may see
+it, whatever its position.
+
+Required objects, dependency children and always-visible objects are added on
+top of the limits: they do not count toward the ``visibleLimit`` argument of
+``SetObserverLimits`` or toward a category limit. World, dimension and audience rules still apply to all of them.
+``InterestStatistics`` reports ``alwaysVisiblePulls``, ``dependencyPulls`` and
+``categoryCapped``.
+
 Client ownership
 ----------------
 
