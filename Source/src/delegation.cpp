@@ -26,7 +26,8 @@ float DistanceSq(SpatialPoint a, SpatialPoint b)
 PeerGuid ElectSimulator(const DelegationPolicy &rawPolicy, SpatialPoint position, PeerGuid current, const std::vector<DelegationCandidate> &candidates, const std::vector<PeerGuid> &declined)
 {
 	const DelegationPolicy policy = rawPolicy.Normalized();
-	const auto isDeclined = [&](PeerGuid guid) { return std::find(declined.begin(), declined.end(), guid) != declined.end(); };
+	const auto isDeclined = [&](PeerGuid guid)
+	{ return std::find(declined.begin(), declined.end(), guid) != declined.end(); };
 	PeerGuid desired = UNASSIGNED_PEER_GUID;
 	float bestRank = (std::numeric_limits<float>::max)();
 
