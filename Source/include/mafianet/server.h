@@ -2,6 +2,8 @@
 #pragma once
 
 #include "mafianet/dispatcher.h"
+#include "mafianet/session_admission.h"
+#include <cstdint>
 #include <memory>
 #include <string_view>
 #include <tuple>
@@ -13,15 +15,6 @@ namespace detail
 class ServerState;
 struct PendingSession;
 }
-
-enum class LeaveReason
-{
-	Disconnected,
-	ConnectionLost,
-	/// The server closed the connection for exceeding InboundRateLimit::flood_per_second. The detail is the
-	/// configured flood_reason.
-	InboundFlood
-};
 
 /// Identifies one local incarnation of a remote connection. Safe to retain across polls.
 struct ConnectionKey
@@ -39,7 +32,10 @@ public:
 	const std::string &payload() const;
 	const SystemAddress &address() const;
 	SessionAcceptResult accept(ConnectionSlot slot = ConnectionSlot::Public, std::string_view response = {}) const;
-	bool reject(std::string_view reason = {}) const;
+	/// The client reports ConnectionFailed with ConnectionFailure::Rejected and this detail.
+	bool reject(std::string_view detail = {}) const;
+	/// Also carry an application-defined reason code (zero means none) to the client.
+	bool reject(uint32_t code, std::string_view detail = {}) const;
 	bool status(std::string_view update) const;
 
 private:
@@ -56,7 +52,9 @@ class RAK_DLL_EXPORT ClientConnection
 public:
 	ConnectionKey key() const { return key_; }
 	std::optional<PlayerId> accept_player() const;
-	bool disconnect() const;
+	/// Close gracefully. The remote reads \a code (application-defined, zero means none) and \a detail,
+	/// and this server reports LeaveReason::Closed with the same values.
+	bool disconnect(uint32_t code = 0, std::string_view detail = {}) const;
 	std::optional<int> ping() const;
 
 	template <class T>
@@ -87,7 +85,7 @@ class Player
 public:
 	PlayerId id() const { return id_; }
 	ConnectionKey key() const { return connection_.key(); }
-	bool disconnect() const { return connection_.disconnect(); }
+	bool disconnect(uint32_t code = 0, std::string_view detail = {}) const { return connection_.disconnect(code, detail); }
 	std::optional<int> ping() const { return connection_.ping(); }
 	template <class T>
 	uint32_t send(const T &message, Reliability reliability = Reliability::ReliableOrdered, Priority priority = Priority::High, char channel = 0) const
@@ -121,12 +119,14 @@ struct ConnectionAbandoned
 	using Argument = ConnectionAbandoned;
 	ConnectionKey connection;
 };
+/// detail and code are what the closing end sent (empty and zero for a lost connection).
 struct ClientDisconnected
 {
 	using Argument = ClientDisconnected;
 	ConnectionKey connection;
 	LeaveReason reason;
 	std::string detail;
+	uint32_t code = 0;
 };
 struct PlayerLeft
 {
@@ -135,6 +135,7 @@ struct PlayerLeft
 	PlayerId player_id;
 	LeaveReason reason;
 	std::string detail;
+	uint32_t code = 0;
 };
 
 /// Owns a listening Peer. Configure handlers before polling. Poll and use handles on the game thread.

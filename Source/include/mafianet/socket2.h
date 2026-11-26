@@ -311,8 +311,17 @@ protected:
 	// \a wantDualStack, AF_INET6 sockets get IPV6_V6ONLY=0; \a *dualStackUnavailable
 	// is then set when the host cannot provide that (no IPv6 address for the
 	// host, socket() refused, or the option rejected), so the caller can fall
-	// back to AF_INET. A failed bind() is not such a failure.
-	RNS2BindResult BindAddressFamily(RNS2_BerkleyBindParameters *bindParameters, int family, bool wantDualStack, bool *dualStackUnavailable);
+	// back to AF_INET. A failed bind() is not such a failure; it is printed
+	// unless \a reportBindFailure is false (a failure the caller expects).
+	RNS2BindResult BindAddressFamily(RNS2_BerkleyBindParameters *bindParameters, int family, bool wantDualStack, bool *dualStackUnavailable, bool reportBindFailure = true);
+	// The dual-stack wildcard bind: BindAddressFamily(AF_INET6, dual-stack) on
+	// a port that is free for IPv4 as well. Where the IPv4 and IPv6 UDP port
+	// spaces are separate (macOS; not Linux), the OS lets an AF_INET6 socket
+	// take a port an AF_INET socket holds, whose IPv4 datagrams then never
+	// reach it. The port is first claimed with an IPv4 socket, held until the
+	// dual-stack bind is done. A requested port held for IPv4 fails as BR_FAILED_TO_BIND_SOCKET; an
+	// OS-assigned one is drawn again.
+	RNS2BindResult BindDualStackWildcard(RNS2_BerkleyBindParameters *bindParameters, bool *dualStackUnavailable);
 	// Where the socket sends datagrams to itself (bind send test, waking the
 	// recv thread): the bound address, which is 127.0.0.1 on a dual-stack
 	// socket (IPv4 loopback always works there, ::1 may be disabled).

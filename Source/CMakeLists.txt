@@ -53,6 +53,7 @@ set(MAFIANET_SOURCES
     src/packet_output_window_logger.cpp
     src/peer_handle.cpp
     src/server.cpp
+    src/client.cpp
     src/plugin_interface2.cpp
     src/point_grid_sectorizer.cpp
     src/connect_candidates.cpp
@@ -191,6 +192,7 @@ set(MAFIANET_HEADERS
     include/mafianet/instance_ptr.h
     include/mafianet/peer_handle.h
     include/mafianet/server.h
+    include/mafianet/client.h
     include/mafianet/peer.h
     include/mafianet/peer_interface.h
     include/mafianet/plugin_interface2.h

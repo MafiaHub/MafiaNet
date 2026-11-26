@@ -1,6 +1,7 @@
 // Copyright (c) 2026, MafiaHub. MIT license.
 #include "mafianet/inbound_rate_limit.h"
 #include "mafianet/bit_stream.h"
+#include "mafianet/client.h"
 #include "mafianet/get_time.h"
 #include "mafianet/message_identifiers.h"
 #include "mafianet/server.h"
@@ -336,6 +337,34 @@ TEST(InboundRateLimit, ServerReportsAFloodedPlayerLeaving)
 	EXPECT_EQ(left[0].detail, "flood");
 	EXPECT_EQ(disconnected[0].reason, LeaveReason::InboundFlood);
 	EXPECT_TRUE(server.players().empty());
+}
+
+TEST(InboundRateLimit, ClientReportsClosingAFloodingServer)
+{
+	SimulatedNetwork net;
+	auto &server = net.AddServer({1});
+	auto *host = static_cast<RakPeer *>(&server.transport());
+	server.on<ConnectionRequested>([](const ConnectionRequest &request)
+	                               { EXPECT_EQ(request.accept(), SessionAcceptResult::Accepted); });
+	auto &client = net.AddClient(host);
+	auto *clientPeer = static_cast<RakPeer *>(&client.transport());
+	ASSERT_TRUE(clientPeer->SetInboundRateLimit(Flood(10, FloodAction::Disconnect, "flood")));
+	bool accepted = false;
+	std::vector<ServerDisconnected> disconnected;
+	client.on<ConnectionAccepted>([&](const ConnectionAccepted &)
+	                              { accepted = true; });
+	client.on<ServerDisconnected>([&](const ServerDisconnected &event)
+	                              { disconnected.push_back(event); });
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { server.poll(); client.poll(); return accepted; }, 5000));
+
+	SendGameMessages(host, clientPeer, net, 50);
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { server.poll(); client.poll(); return !disconnected.empty(); }, 5000));
+	ASSERT_EQ(disconnected.size(), 1u);
+	EXPECT_EQ(disconnected[0].reason, LeaveReason::InboundFlood);
+	EXPECT_EQ(disconnected[0].detail, "flood");
+	EXPECT_EQ(disconnected[0].code, 0u);
 }
 
 TEST(InboundRateLimit, ServerBuilderRejectsAnInvalidLimit)

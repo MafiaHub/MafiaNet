@@ -71,12 +71,16 @@ finishes. Only that call assigns a player number and produces ``PlayerJoined``.
        poll dispatches it after the running handler returns.
    * - ``PlayerLeft``
      - A joined player departed. The snapshot retains its original number, connection
-       key, disconnect reason and any reason payload, even across a reconnect.
+       key, leave reason, reason code and detail, even across a reconnect.
    * - ``ClientDisconnected``
      - An established client departed. This arrives after ``PlayerLeft`` for a joined
        player. A client leaving mid-login produces only the client event.
 
 A saved ``Player`` supports ``id()``, ``ping()``, ``send()`` and ``disconnect()``.
+``disconnect(code, detail)`` and ``request.reject(code, detail)`` send an
+application-defined reason code with the text. The client reads both, and the
+server reports its own close as ``LeaveReason::Closed`` with the same values.
+See :doc:`player-session-protocol` for the codes and their wire format.
 ``server.player(id)`` looks up an active player. ``server.players()`` returns a
 snapshot of accepted players in number order. Use the original handle for
 deferred operations. The server also checks the connection generation when
@@ -122,6 +126,8 @@ thread enforces it before a message is queued, so a flooding client costs the ga
      - With ``FloodAction::Disconnect``, the client receives it in ``ID_DISCONNECTION_NOTIFICATION``.
        The server reports ``PlayerLeft`` and ``ClientDisconnected`` with ``LeaveReason::InboundFlood``
        and the reason as their detail, so the game can log the client or ban its address.
+       The client receives it as the detail of ``ServerDisconnected``. A ``Client`` whose own limit closes
+       a flooding server reports ``ServerDisconnected`` with ``LeaveReason::InboundFlood``.
 
 Only application messages count: identifiers from ``ID_USER_PACKET_ENUM`` up, also behind an
 ``ID_TIMESTAMP``. Connection upkeep, the session handshake, RPC, replication and plugin traffic are
@@ -145,6 +151,9 @@ admission policy independently. For an existing server with custom bind or
 identity settings, move the ``Peer`` returned by ``Peer::server().start()`` into
 ``Server`` before receiving its first packet.
 
-For a runnable client and server, follow :doc:`player-session-protocol`.
+``MafiaNet::Client`` is the matching client: it connects with a session payload,
+reports queue status and a typed connect outcome, and sends game messages through
+the same ``Dispatcher``. For a runnable client and server, follow
+:doc:`player-session-protocol`.
 The ``PlayerWelcome`` sample also demonstrates assigning a player number as
 soon as the connection is accepted.

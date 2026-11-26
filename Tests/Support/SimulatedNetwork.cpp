@@ -7,6 +7,7 @@
 
 #include "SimulatedNetwork.h"
 #include "mafianet/server.h"
+#include "mafianet/client.h"
 
 #include <algorithm>
 #include <atomic>
@@ -83,7 +84,7 @@ SimulatedNetwork::~SimulatedNetwork()
 	for (RakPeer *peer : peers)
 	{
 		peer->Shutdown(0);
-		if (servers.erase(peer))
+		if (servers.erase(peer) || clients.erase(peer))
 			continue;
 		if (peersInStorage.count(peer) != 0)
 			peer->~RakPeer();
@@ -118,6 +119,23 @@ Server &SimulatedNetwork::AddServer(ServerCapacity capacity)
 	peer->SetMaximumPendingSessions(static_cast<unsigned short>(capacity.pending), static_cast<unsigned short>(capacity.pending_per_address));
 	SetReceiveEnabled(peer, false);
 	auto inserted = servers.emplace(peer, std::make_unique<Server>(std::move(owner)));
+	return *inserted.first->second;
+}
+
+Client &SimulatedNetwork::AddClient(const RakPeer *server, std::string_view session, PublicKey *pin)
+{
+	Peer owner;
+	auto *peer = static_cast<RakPeer *>(owner.get());
+	peer->SetSessionConfig(session.data(), static_cast<unsigned int>(session.size()));
+	StartPeer(peer, 1, 0, 0);
+	SetReceiveEnabled(peer, false);
+	const SystemAddress target = AddressOf(server);
+	char host[64];
+	target.ToString(false, host, sizeof(host));
+	const ConnectionAttemptResult started = peer->Connect(host, target.GetPort(), nullptr, 0, pin);
+	RakAssert(started == CONNECTION_ATTEMPT_STARTED);
+	(void) started;
+	auto inserted = clients.emplace(peer, std::make_unique<Client>(std::move(owner)));
 	return *inserted.first->second;
 }
 

@@ -19,7 +19,7 @@ void admit(const ConnectionRequest &request)
 		slot = ConnectionSlot::Reserved;
 	else
 	{
-		request.reject("Unknown ticket");
+		request.reject(Login::unknownTicket, "Unknown ticket");
 		return;
 	}
 	switch (request.accept(slot))
@@ -29,7 +29,7 @@ void admit(const ConnectionRequest &request)
 		break;
 	case SessionAcceptResult::InvalidPayload:
 	case SessionAcceptResult::OutOfMemory:
-		request.reject("Login unavailable");
+		request.reject(Login::loginUnavailable, "Login unavailable");
 		break;
 	case SessionAcceptResult::Accepted:
 	case SessionAcceptResult::Expired:
@@ -62,7 +62,7 @@ int main()
 			if (message.revision == Login::worldRevision)
 				connection->accept_player();
 			else
-				connection->disconnect();
+				connection->disconnect(Login::wrongRevision, "Update the game to join this server");
 		} });
 	server.messages().register_message<Login::Welcome>(Login::welcomeId);
 	server.on<PlayerJoined>([](Player player)
@@ -71,7 +71,7 @@ int main()
 		std::cout << "Player " << number << " joined" << std::endl;
 		player.send(Login::Welcome{number}); });
 	server.on<PlayerLeft>([](const PlayerLeft &left)
-	                      { std::cout << "Player " << static_cast<uint32_t>(left.player_id) << " left" << std::endl; });
+	                      { std::cout << "Player " << static_cast<uint32_t>(left.player_id) << " left (" << left.detail << ")" << std::endl; });
 
 	std::cout << "Listening on 127.0.0.1:" << Login::port << std::endl;
 	auto nextQueueUpdate = std::chrono::steady_clock::now() + 1s;
