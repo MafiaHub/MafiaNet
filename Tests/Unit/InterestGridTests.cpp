@@ -401,3 +401,84 @@ TEST(InterestGrid, ObserverMovesFindAndLoseARangedObject)
 	ASSERT_TRUE(grid.SetObserverPosition(camera, {1000, 0}));
 	EXPECT_TRUE(Visible(grid, camera).empty());
 }
+
+TEST(InterestGrid, LookaheadAddsASecondFocus)
+{
+	InterestGrid grid;
+	const PeerGuid camera{1};
+	ASSERT_TRUE(grid.Configure({{-100, -100}, {300, 100}, 50}));
+	grid.SetLookaheadSeconds(2);
+	ASSERT_TRUE(grid.SetObserverRadius(camera, {0, 0}, 20, 20));
+	ASSERT_TRUE(grid.SetObserverVelocity(camera, {30, 0}));
+	ASSERT_TRUE(grid.Track(1, {{70, 0}}));
+	ASSERT_TRUE(grid.Track(2, {{-15, 0}}));
+	ASSERT_TRUE(grid.Track(3, {{150, 0}}));
+	auto visible = Visible(grid, camera);
+	std::sort(visible.begin(), visible.end());
+	EXPECT_EQ(visible, (std::vector<NetworkID>{1, 2}));
+	ASSERT_TRUE(grid.SetObserverVelocity(camera, {0, 0}));
+	visible = Visible(grid, camera);
+	EXPECT_EQ(visible, std::vector<NetworkID>{2});
+}
+
+TEST(InterestGrid, LookaheadAppliesToRangedObjectsAndDirtying)
+{
+	InterestGrid grid;
+	const PeerGuid camera{1};
+	ASSERT_TRUE(grid.Configure({{-100, -100}, {600, 100}, 50}));
+	grid.SetLookaheadSeconds(2);
+	ASSERT_TRUE(grid.SetObserverRadius(camera, {0, 0}, 20, 20));
+	ASSERT_TRUE(grid.SetObserverVelocity(camera, {100, 0}));
+	// Ranged object near the look-ahead focus (200,0), far from the observer.
+	ASSERT_TRUE(grid.Track(1, {{250, 0}, 0, VIRTUAL_WORLD_DEFAULT, 0, 0, 60}));
+	EXPECT_EQ(Visible(grid, camera), std::vector<NetworkID>{1});
+	// Moving the ranged object out of the look-ahead reach dirties the observer.
+	ASSERT_TRUE(grid.SetPosition(1, {500, 0}));
+	EXPECT_TRUE(Visible(grid, camera).empty());
+	ASSERT_TRUE(grid.SetPosition(1, {240, 0}));
+	EXPECT_EQ(Visible(grid, camera), std::vector<NetworkID>{1});
+}
+
+TEST(InterestGrid, ShortLookaheadIsIgnored)
+{
+	auto inspected = [](bool withVelocity)
+	{
+		InterestGrid grid;
+		const PeerGuid camera{1};
+		EXPECT_TRUE(grid.Configure({{-100, -100}, {300, 100}, 50}));
+		grid.SetLookaheadSeconds(2);
+		EXPECT_TRUE(grid.SetObserverRadius(camera, {0, 0}, 20, 20));
+		if (withVelocity)
+		{
+			EXPECT_TRUE(grid.SetObserverVelocity(camera, {1, 0}));
+		}
+		EXPECT_TRUE(grid.Track(1, {{10, 0}}));
+		Visible(grid, camera);
+		return grid.GetStatistics().candidatesInspected;
+	};
+	EXPECT_EQ(inspected(true), inspected(false));
+}
+
+TEST(InterestGrid, ObserverVelocityValidationAndReconfigure)
+{
+	InterestGrid grid;
+	const PeerGuid camera{1}, room{2};
+	ASSERT_TRUE(grid.Configure({{-100, -100}, {300, 100}, 50}));
+	grid.SetLookaheadSeconds(-1);
+	grid.SetLookaheadSeconds(std::numeric_limits<float>::quiet_NaN());
+	ASSERT_TRUE(grid.SetObserverRadius(camera, {0, 0}, 20, 20));
+	ASSERT_TRUE(grid.SetObserverCells(room, {{0, 0}}));
+	EXPECT_FALSE(grid.SetObserverVelocity(PeerGuid{99}, {1, 0}));
+	EXPECT_FALSE(grid.SetObserverVelocity(room, {1, 0}));
+	EXPECT_FALSE(grid.SetObserverVelocity(camera, {std::numeric_limits<float>::infinity(), 0}));
+	EXPECT_FALSE(grid.SetObserverVelocity(camera, {0, std::numeric_limits<float>::quiet_NaN()}));
+	ASSERT_TRUE(grid.SetObserverVelocity(camera, {30, 0}));
+	ASSERT_TRUE(grid.Track(1, {{70, 0}}));
+	EXPECT_TRUE(Visible(grid, camera).empty());
+	grid.SetLookaheadSeconds(2);
+	EXPECT_EQ(Visible(grid, camera), std::vector<NetworkID>{1});
+	ASSERT_TRUE(grid.Configure({{-100, -100}, {300, 100}, 25}));
+	EXPECT_EQ(Visible(grid, camera), std::vector<NetworkID>{1});
+	ASSERT_TRUE(grid.SetObserverPosition(camera, {10, 0}));
+	EXPECT_EQ(Visible(grid, camera), std::vector<NetworkID>{1});
+}

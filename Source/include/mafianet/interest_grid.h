@@ -55,6 +55,10 @@ public:
 	bool SetObserverRadius(PeerGuid guid, SpatialPoint position, float enterRadius, float leaveRadius);
 	bool SetObserverPosition(PeerGuid guid, SpatialPoint position);
 	bool SetObserverCells(PeerGuid guid, const std::vector<GridCell> &cells);
+	/// Velocity of a radius observer, used with SetLookaheadSeconds to add a second focus ahead of it. False for an unknown or explicit-cell observer or a non-finite velocity.
+	bool SetObserverVelocity(PeerGuid guid, SpatialPoint velocity);
+	/// How far ahead (seconds of velocity) radius observers also look. Negative or NaN is 0 (off). A look-ahead shorter than 5 units is ignored.
+	void SetLookaheadSeconds(float seconds);
 	void SetObserverDimension(PeerGuid guid, VirtualWorldId dimension);
 	void SetObserverWorld(PeerGuid guid, uint8_t world, VirtualWorldId dimension);
 	void SetObserverLimits(PeerGuid guid, unsigned visibleLimit, unsigned constructionBudget);

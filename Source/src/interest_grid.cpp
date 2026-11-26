@@ -25,7 +25,7 @@ public:
 	struct Observer
 	{
 		bool radius = false, dirty = true;
-		SpatialPoint position;
+		SpatialPoint position, velocity;
 		float enter = 0, leave = 0;
 		uint8_t world = 0;
 		VirtualWorldId dimension = VIRTUAL_WORLD_DEFAULT;
@@ -41,6 +41,8 @@ public:
 	std::map<NetworkID, Record> objects;
 	std::map<PeerGuid, Observer> observers;
 	std::map<uint16_t, unsigned> categoryLimits;
+	float lookaheadSeconds = 0;
+	static constexpr double kMinLookaheadDist = 5;
 	std::set<NetworkID> alwaysVisible;
 	std::set<uint16_t> entityRangeCategories;
 	// Objects with range > 0 are also filed here, in cells sized to the longest range, so a radius observer finds them beyond its own cells.
@@ -89,6 +91,62 @@ public:
 	{
 		return rangedLengths.empty() ? 0.0f : *rangedLengths.rbegin();
 	}
+	// The points an observer looks at: its position, plus one ahead of it when look-ahead moves it far enough.
+	struct Foci
+	{
+		SpatialPoint points[2];
+		int count = 1;
+	};
+	Foci FociOf(const Observer &observer) const
+	{
+		Foci foci;
+		foci.points[0] = observer.position;
+		if (observer.radius && lookaheadSeconds > 0)
+		{
+			const double dx = static_cast<double>(observer.velocity.x) * lookaheadSeconds;
+			const double dy = static_cast<double>(observer.velocity.y) * lookaheadSeconds;
+			if (dx * dx + dy * dy > kMinLookaheadDist * kMinLookaheadDist)
+			{
+				foci.points[1] = {static_cast<float>(observer.position.x + dx), static_cast<float>(observer.position.y + dy)};
+				foci.count = 2;
+			}
+		}
+		return foci;
+	}
+	static double NearestDistSq(const Foci &foci, SpatialPoint p)
+	{
+		double best = std::numeric_limits<double>::infinity();
+		for (int i = 0; i < foci.count; ++i)
+		{
+			const double dx = static_cast<double>(p.x) - foci.points[i].x;
+			const double dy = static_cast<double>(p.y) - foci.points[i].y;
+			best = (std::min)(best, dx * dx + dy * dy);
+		}
+		return best;
+	}
+	// The cells within the leave radius of any focus.
+	std::set<int> CellsOf(const Observer &observer) const
+	{
+		const Foci foci = FociOf(observer);
+		const double radius = observer.leave;
+		std::set<int> cells;
+		for (int i = 0; i < foci.count; ++i)
+		{
+			const SpatialPoint p = foci.points[i];
+			const int left = Axis(p.x - radius, config.minimum.x, width);
+			const int right = Axis(p.x + radius, config.minimum.x, width);
+			const int low = Axis(p.y - radius, config.minimum.y, height);
+			const int high = Axis(p.y + radius, config.minimum.y, height);
+			for (int y = low; y <= high; ++y)
+			{
+				for (int x = left; x <= right; ++x)
+				{
+					cells.insert(y * width + x);
+				}
+			}
+		}
+		return cells;
+	}
 	// The distance from which an observer (holding the object or not) sees it; negative when the object is not a spatial candidate.
 	double Reach(const Observer &observer, const SpatialScope &scope, bool held) const
 	{
@@ -111,9 +169,7 @@ public:
 				continue;
 			}
 			const double reach = Reach(observer, scope, true);
-			const double dx = static_cast<double>(scope.position.x) - observer.position.x;
-			const double dy = static_cast<double>(scope.position.y) - observer.position.y;
-			if (dx * dx + dy * dy <= reach * reach)
+			if (NearestDistSq(FociOf(observer), scope.position) <= reach * reach)
 			{
 				observer.dirty = true;
 			}
@@ -208,6 +264,7 @@ public:
 		std::vector<std::tuple<bool, int64_t, double, NetworkID>> ranked;
 		std::set<NetworkID> considered;
 		std::vector<void *> hits;
+		const Foci foci = FociOf(observer);
 		auto consider = [&](const Record &record, bool uncounted)
 		{
 			if (!considered.insert(record.id).second)
@@ -215,9 +272,7 @@ public:
 			++stats.candidatesInspected;
 			if (!Eligible(guid, observer, record))
 				return;
-			const double dx = static_cast<double>(record.scope.position.x) - observer.position.x;
-			const double dy = static_cast<double>(record.scope.position.y) - observer.position.y;
-			double d = observer.radius ? dx * dx + dy * dy : 0;
+			double d = observer.radius ? NearestDistSq(foci, record.scope.position) : 0;
 			const bool held = observer.visible.count(record.id) != 0;
 			const double r = (record.scope.range > 0 || !entityRangeCategories.empty()) ? Reach(observer, record.scope, held) : (held ? observer.leave : observer.enter);
 			if (!uncounted && observer.radius && d > r * r)
@@ -248,37 +303,41 @@ public:
 		{
 			const double margin = static_cast<double>(observer.leave) - observer.enter;
 			const double reach = (std::max)(static_cast<double>(LongestRange()), static_cast<double>(observer.enter)) + margin;
-			const auto low = RangedCell({static_cast<float>(observer.position.x - reach), static_cast<float>(observer.position.y - reach)});
-			const auto high = RangedCell({static_cast<float>(observer.position.x + reach), static_cast<float>(observer.position.y + reach)});
-			const double span = (static_cast<double>(high.first) - low.first + 1) * (static_cast<double>(high.second) - low.second + 1);
-			auto scanCell = [&](const std::set<Record *> &cell)
+			for (int i = 0; i < foci.count; ++i)
 			{
-				++stats.cellsVisited;
-				for (auto *record : cell)
+				const SpatialPoint focus = foci.points[i];
+				const auto low = RangedCell({static_cast<float>(focus.x - reach), static_cast<float>(focus.y - reach)});
+				const auto high = RangedCell({static_cast<float>(focus.x + reach), static_cast<float>(focus.y + reach)});
+				const double span = (static_cast<double>(high.first) - low.first + 1) * (static_cast<double>(high.second) - low.second + 1);
+				auto scanCell = [&](const std::set<Record *> &cell)
 				{
-					if (record->required != guid)
+					++stats.cellsVisited;
+					for (auto *record : cell)
 					{
-						consider(*record, false);
+						if (record->required != guid)
+						{
+							consider(*record, false);
+						}
+					}
+				};
+				if (span > static_cast<double>(rangedCells.size()))
+				{
+					for (const auto &cell : rangedCells)
+					{
+						scanCell(cell.second);
 					}
 				}
-			};
-			if (span > static_cast<double>(rangedCells.size()))
-			{
-				for (const auto &cell : rangedCells)
+				else
 				{
-					scanCell(cell.second);
-				}
-			}
-			else
-			{
-				for (int64_t y = low.second; y <= high.second; ++y)
-				{
-					for (int64_t x = low.first; x <= high.first; ++x)
+					for (int64_t y = low.second; y <= high.second; ++y)
 					{
-						auto cell = rangedCells.find({x, y});
-						if (cell != rangedCells.end())
+						for (int64_t x = low.first; x <= high.first; ++x)
 						{
-							scanCell(cell->second);
+							auto cell = rangedCells.find({x, y});
+							if (cell != rangedCells.end())
+							{
+								scanCell(cell->second);
+							}
 						}
 					}
 				}
@@ -333,6 +392,7 @@ bool InterestGrid::Configure(InterestGridConfig config)
 	next.config = config;
 	next.width = static_cast<int>(w);
 	next.height = static_cast<int>(h);
+	next.lookaheadSeconds = impl->lookaheadSeconds;
 	if (!next.index.Init(1, 1, 0, 0, static_cast<float>(w), static_cast<float>(h)))
 		return false;
 	for (const auto &[id, record] : impl->objects)
@@ -342,7 +402,7 @@ bool InterestGrid::Configure(InterestGridConfig config)
 	{
 		if (observer.radius)
 		{
-			if (!replacement.SetObserverRadius(guid, observer.position, observer.enter, observer.leave))
+			if (!replacement.SetObserverRadius(guid, observer.position, observer.enter, observer.leave) || !replacement.SetObserverVelocity(guid, observer.velocity))
 				return false;
 		}
 		else
@@ -461,22 +521,42 @@ bool InterestGrid::SetObserverRadius(PeerGuid guid, SpatialPoint p, float enter,
 	o.position = p;
 	o.enter = enter;
 	o.leave = leave;
-	const double radius = leave;
-	const int left = impl->Axis(p.x - radius, impl->config.minimum.x, impl->width);
-	const int right = impl->Axis(p.x + radius, impl->config.minimum.x, impl->width);
-	const int low = impl->Axis(p.y - radius, impl->config.minimum.y, impl->height);
-	const int high = impl->Axis(p.y + radius, impl->config.minimum.y, impl->height);
-	std::set<int> next;
-	for (int y = low; y <= high; ++y)
-		for (int x = left; x <= right; ++x)
-			next.insert(y * impl->width + x);
-	impl->Subscribe(guid, o, std::move(next));
+	impl->Subscribe(guid, o, impl->CellsOf(o));
 	return true;
 }
 bool InterestGrid::SetObserverPosition(PeerGuid guid, SpatialPoint p)
 {
 	auto it = impl->observers.find(guid);
 	return it != impl->observers.end() && it->second.radius && SetObserverRadius(guid, p, it->second.enter, it->second.leave);
+}
+bool InterestGrid::SetObserverVelocity(PeerGuid guid, SpatialPoint velocity)
+{
+	impl->CheckWritable();
+	auto it = impl->observers.find(guid);
+	if (it == impl->observers.end() || !it->second.radius || !std::isfinite(velocity.x) || !std::isfinite(velocity.y))
+	{
+		return false;
+	}
+	it->second.velocity = velocity;
+	impl->Subscribe(guid, it->second, impl->CellsOf(it->second));
+	return true;
+}
+void InterestGrid::SetLookaheadSeconds(float seconds)
+{
+	impl->CheckWritable();
+	const float next = seconds > 0 && std::isfinite(seconds) ? seconds : 0;
+	if (next == impl->lookaheadSeconds)
+	{
+		return;
+	}
+	impl->lookaheadSeconds = next;
+	for (auto &[guid, observer] : impl->observers)
+	{
+		if (observer.radius)
+		{
+			impl->Subscribe(guid, observer, impl->CellsOf(observer));
+		}
+	}
 }
 bool InterestGrid::SetObserverCells(PeerGuid guid, const std::vector<GridCell> &cells)
 {
