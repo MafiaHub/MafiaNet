@@ -85,7 +85,10 @@ startup, configure ``SetMaximumPendingSessions(pending, perAddress)`` and
 ``SetMaximumIncomingConnections(connected, reserved)``, then pass the sum of
 connected and pending capacities to ``Startup()``. The physical slot limit is
 65,535. A full pending pool or transport returns ``ID_NO_FREE_INCOMING_CONNECTIONS``
-before delivering an application request.
+before delivering an application request. Connections that are still closing,
+such as a kicked player whose disconnection notification has not been
+acknowledged yet, do not count. A newcomer the limits admit takes the slot of
+the connection closing longest, and that connection ends as it would have.
 
 Answer ``ID_SESSION_CONFIG_REQUEST`` using ``AcceptSession()`` or
 ``RejectSession()``. The raw accept returns the same result and observes the same

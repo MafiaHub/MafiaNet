@@ -18,6 +18,12 @@ Unreleased
   OS-assigned port could equal one an ``AF_INET`` socket already held, and that
   socket then received the client's IPv4 traffic. A fixed port held for IPv4 now fails ``Startup()`` with
   ``SOCKET_PORT_ALREADY_IN_USE`` on every platform. See :doc:`advanced/ipv6-support`.
+* A connection that is closing no longer holds a slot a new connection needs.
+  A server sized to its ``ServerCapacity`` used to refuse newcomers while kicked
+  players waited for the ack of their disconnection notification, and a
+  ``Startup(1)`` client could not connect elsewhere right after
+  ``CloseConnection()``. The new connection now ends the connection closing
+  longest, which reports its end as before. See :doc:`guide/admission-queue`.
 
 Version 0.27.0
 --------------
