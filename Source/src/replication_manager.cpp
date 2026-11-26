@@ -381,6 +381,20 @@ uint32_t ReplicationManager::GetDelegatedLoad(PeerGuid guid) const
 	ReplicaManager3::WorldGuard guard(*managed);
 	return managed->delegation.Load(guid);
 }
+void ReplicationManager::SetReleaseVeto(std::function<bool(NetworkID, PeerGuid)> canRelease)
+{
+	if (role != ReplicationRole::Server)
+		return;
+	WorldGuard guard(*this);
+	managed->delegation.SetReleaseVeto(std::move(canRelease));
+}
+bool ReplicationManager::DeclineAuthority(Replica3 &replica, bool declined)
+{
+	if (role != ReplicationRole::Client)
+		return false;
+	WorldGuard guard(*this);
+	return managed->Decline(replica, declined);
+}
 std::optional<double> ReplicationManager::GetRenderTick(PeerGuid source, unsigned delay) const
 {
 	if (!managed)

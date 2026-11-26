@@ -27,6 +27,9 @@ class DelegationService final
 {
 public:
 	using Callback = std::function<void(NetworkID, PeerGuid, PeerGuid, DelegationChange)>;
+	using Veto = std::function<bool(NetworkID, PeerGuid)>;
+	/// Decline changes ask for a pass at most this often (V1 kDeclinedPassGapMs): the message is not rate limited.
+	static constexpr TimeUS kDeclinedPassGapUs = 100000;
 
 	explicit DelegationService(ManagedReplication &manager)
 	    : manager(manager) {}
@@ -42,6 +45,11 @@ public:
 	bool Unpin(Replica3 &replica);
 	bool IsPinned(Replica3 &replica) const;
 	void SetCallback(Callback next) { callback = next ? std::make_shared<Callback>(std::move(next)) : nullptr; }
+	void SetReleaseVeto(Veto next) { veto = next ? std::make_shared<Veto>(std::move(next)) : nullptr; }
+	/// A client declined a replica it has constructed, or withdrew that. Ignored for a replica that is not delegated.
+	void Declined(NetworkID id, PeerGuid guid, bool declined);
+	/// The replica left the client's visible set: its decline is forgotten.
+	void LeftScope(NetworkID id, PeerGuid guid);
 	DelegationStatistics Statistics() const;
 	uint32_t Load(PeerGuid guid) const;
 
@@ -69,8 +77,11 @@ private:
 		bool scheduled = false;
 		bool pinned = false;
 		PeerGuid pinnedTo = UNASSIGNED_PEER_GUID;
-		// Reserved for the release veto and declines.
+		// The holder's veto has refused the handover the election wants since refusingSince.
+		bool refusing = false;
 		TimeUS refusingSince = 0;
+		// Clients that declined it; each is passed over by the election until it withdraws, loses sight of the
+		// replica or disconnects. A pin ignores them.
 		std::vector<PeerGuid> declined;
 	};
 	struct Notice
@@ -92,6 +103,13 @@ private:
 	TimeUS intervalUs = 500000;
 	DelegationStatistics stats;
 	std::shared_ptr<Callback> callback;
+	std::shared_ptr<Veto> veto;
+	// Replicas whose declines changed since the last decline pass, and when that pass ran.
+	std::set<NetworkID> declineChanged;
+	TimeUS lastDeclinePass = 0;
+	bool declinePassRan = false;
+	// Bumped whenever an entry is erased, so an evaluation can tell that the veto it called broke the rules.
+	uint64_t erasures = 0;
 	std::deque<Notice> notices;
 	bool applying = false, delivering = false;
 	std::vector<DelegationCandidate> candidates;
@@ -104,6 +122,9 @@ private:
 	void Charge(Entry &entry, PeerGuid holder);
 	bool Candidate(PeerGuid guid, NetworkID id) const;
 	void Evaluate(NetworkID id, Entry &entry);
+	// Whether the release veto is asked before a handover away from this holder.
+	bool Vetoable(const Entry &entry, PeerGuid holder) const;
+	void DeclineChanged(NetworkID id, const Entry &entry);
 	uint32_t CapacityOf(PeerGuid guid) const;
 	// Evaluates the urgent replicas; returns them.
 	std::vector<NetworkID> RunUrgent();

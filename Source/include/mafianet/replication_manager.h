@@ -258,10 +258,31 @@ public:
 	/// simulated and dormant: delegated replicas held by a client or by nobody, now. elections: replicas evaluated.
 	/// handovers: grant changes the delegation applied, every kind counted: an acquisition, a migration and a release
 	/// to dormant each count one. A revocation MafiaNet or the game made outside the election does not count.
+	/// refusals: elections the release veto postponed. forced: handovers made against the veto once the grace ran out.
+	/// declines: declines the server recorded (withdrawals are not counted). Decline changes re-elect the replica at the
+	/// next Tick, at most one such pass every 100 ms.
 	DelegationStatistics GetDelegationStatistics() const;
 	/// Summed policy weight of the delegated replicas \a guid holds.
 	uint32_t GetDelegatedLoad(PeerGuid guid) const;
+	/// Lets the game postpone a handover away from a holder: \a canRelease returns true when \a holder may give the
+	/// replica up now. It is asked only when an election (a pin included) wants to move the replica away from a client
+	/// holding it; never for a disconnect, a suspension or a holder that declined the replica. A refusal postpones the
+	/// handover (counted in refusals, once per postponed election) for at most the policy's graceMs from the first
+	/// refusal; after that the handover happens anyway (counted in forced). Null removes it.
+	/// It is called during Tick with MafiaNet's world lock held, unlike the delegation callback: answer from game state
+	/// only. It must not call any ReplicationManager function that changes replication state (if it does, that election
+	/// is void and redone at the next Tick), and must not wait on a lock that another thread can hold while calling
+	/// into this ReplicationManager.
+	void SetReleaseVeto(std::function<bool(NetworkID, PeerGuid holder)> canRelease);
 	/// @}
+
+	/// Client: asks the server not to elect this client to simulate \a replica (\a declined true) or withdraws that,
+	/// by a reliable message. The server passes a declining client over in its elections, takes the replica from it if
+	/// it holds it (without asking the release veto), and forgets the decline when the replica leaves this client's
+	/// visible set or either side disconnects. A pin overrides a decline without clearing it. The server ignores it for
+	/// a replica that is not delegated. \return false in any role but Client, for a replica this client did not
+	/// receive from the server, or when the message cannot be sent.
+	bool DeclineAuthority(Replica3 &replica, bool declined);
 
 private:
 	friend class RakPeer;

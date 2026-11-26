@@ -66,6 +66,8 @@ public:
 	/// Server: tracked in the interest grid, with an owner report, and not a static binding.
 	bool Delegable(Replica3 &replica) const;
 	PeerGuid HolderOf(NetworkID id) const;
+	/// Client: asks the server that sent \a replica not to elect this client to simulate it, or withdraws that.
+	bool Decline(Replica3 &replica, bool declined);
 	DelegationService delegation{*this};
 
 private:
@@ -161,6 +163,7 @@ private:
 	uint64_t nextEpoch = 0;
 	void UpdateGrants(bool publish);
 	void OwnerPacket(Connection &connection, Kind kind, BitStream &in);
+	void DeclinePacket(Connection &connection, BitStream &in);
 	void FinishTick();
 	struct TickScope
 	{

@@ -148,6 +148,8 @@ public:
 		{
 			Forget(object->GetNetworkID());
 			runtime.Unobserve(*object, *this);
+			// Out of its visible set: a decline it made is forgotten.
+			runtime.delegation.LeftScope(object->GetNetworkID(), observer);
 		}
 		FlushRefusedStates();
 		FlushUnconfirmed();
@@ -208,6 +210,7 @@ public:
 			OnDereference(replica, &runtime);
 			runtime.Unobserve(*replica, *this);
 		}
+		runtime.delegation.LeftScope(id, ToPeerGuid(guid));
 		Forget(id);
 		--stats.constructed;
 		++stats.deferred;
@@ -1286,6 +1289,11 @@ void ManagedReplication::Receive(Packet &packet)
 			return;
 		if (kind == Kind::OwnerUpdate || kind == Kind::Grant || kind == Kind::Revoke || kind == Kind::OwnerCorrection)
 			OwnerPacket(*conn, kind, in);
+		else if (kind == Kind::Decline)
+		{
+			if (owner.GetRole() == ReplicationRole::Server)
+				DeclinePacket(*conn, in);
+		}
 		else if (owner.GetRole() == ReplicationRole::Peer || !server)
 			Apply(*conn, kind, in);
 	}
@@ -1559,6 +1567,34 @@ void ManagedReplication::OwnerPacket(Connection &connection, Kind kind, BitStrea
 		grants.insert_or_assign(id, Grant{sender, epoch, 0, epoch});
 		Notify(correction ? ReplicaEventKind::AuthorityCorrected : ReplicaEventKind::AuthorityGranted, id, sender, {epoch, 0});
 	}
+}
+
+bool ManagedReplication::Decline(Replica3 &replica, bool declined)
+{
+	const auto id = replica.GetNetworkID();
+	const auto download = downloads.find(id);
+	if (owner.GetRole() != ReplicationRole::Client || download == downloads.end() || owner.FindReplica(id) != &replica)
+		return false;
+	const auto session = sessions.find(download->second.source);
+	if (session == sessions.end() || session->second.status != ReplicationPeerStatus::Active)
+		return false;
+	BitStream out;
+	WriteHeader(out, Kind::Decline, session->second);
+	ReplicationWire::Decline{id, declined}.Write(out);
+	return Send(download->second.source, out);
+}
+
+void ManagedReplication::DeclinePacket(Connection &connection, BitStream &in)
+{
+	ReplicationWire::Decline decline;
+	if (!decline.Read(in))
+		return;
+	// Only a replica the sender has: what it cannot see it cannot be elected for, and a decline is forgotten when
+	// the replica leaves its visible set.
+	auto *object = owner.FindReplica(decline.id);
+	if (!object || !connection.HasReplicaConstructed(object))
+		return;
+	delegation.Declined(decline.id, ToPeerGuid(connection.GetRakNetGUID()), decline.declined);
 }
 
 void ManagedReplication::Apply(Connection &connection, Kind kind, BitStream &in)

@@ -5,6 +5,7 @@
 #include "mafianet/replication_manager.h"
 #include "mafianet/snapshot_replica.h"
 #include "SimulatedNetwork.h"
+#include "../../Source/src/replication_wire.h"
 
 #include <array>
 #include <memory>
@@ -55,6 +56,24 @@ SpatialPoint East(float distance)
 	return {kCenter.x + distance, kCenter.y};
 }
 
+// Remembers the session header of the last decline it sent, so a test can forge malformed ones.
+class RecordingPeer final : public RakPeer
+{
+public:
+	using RakPeer::Send;
+	ReplicationWire::Header decline{};
+	uint32_t Send(const BitStream *data, Priority priority, Reliability reliability, char channel, const AddressOrGUID destination, bool broadcast, uint32_t receipt) override
+	{
+		BitStream input(data->GetData(), data->GetNumberOfBytesUsed(), false);
+		ReplicationWire::Header header{};
+		if (ReplicationWire::ReadHeader(input, header) && header.kind == ReplicationWire::Kind::Decline)
+		{
+			decline = header;
+		}
+		return RakPeer::Send(data, priority, reliability, channel, destination, broadcast, receipt);
+	}
+};
+
 // A server and three clients; each client is a radius observer the server places on the grid.
 class Delegation : public ::testing::Test
 {
@@ -62,11 +81,12 @@ protected:
 	static constexpr size_t kClients = 3;
 	SimulatedNetwork net{57};
 	RakPeer *server = net.AddPeer(kClients, kClients);
-	std::array<RakPeer *, kClients> clients{net.AddPeer(1), net.AddPeer(1), net.AddPeer(1)};
+	std::array<RakPeer *, kClients> clients{AddClient(), AddClient(), AddClient()};
 	std::array<PeerGuid, kClients> guids{};
 	Seat seat;
 	std::vector<Change> changes;
 
+	RakPeer *AddClient() { return net.AddCustomPeer(std::make_unique<RecordingPeer>(), 1); }
 	ReplicationManager &Host() { return server->GetReplication(); }
 	InterestGrid &Grid() { return Host().GetInterestGrid(); }
 	Seat *Copy(size_t client, Seat &original)
@@ -130,11 +150,36 @@ protected:
 		Host().SetDelegationCallback([this](NetworkID id, PeerGuid previous, PeerGuid current, DelegationChange change)
 		                             { changes.push_back({id, previous, current, change}); });
 	}
-	void Delegate(Seat &replica, uint32_t weight = 1)
+	void Delegate(Seat &replica, uint32_t weight = 1, uint32_t graceMs = 5000)
 	{
 		DelegationPolicy policy;
 		policy.weight = weight;
+		policy.graceMs = graceMs;
 		ASSERT_TRUE(Host().SetDelegation(replica, &policy));
+	}
+	// The client declines (or withdraws) its copy of the seat; waits until the server has counted it.
+	void Decline(size_t client, bool declined)
+	{
+		ASSERT_TRUE(net.RunUntil([&]
+		                         { return Copy(client, seat) != nullptr; }, 3000));
+		const uint64_t before = Host().GetDelegationStatistics().declines;
+		ASSERT_TRUE(clients[client]->GetReplication().DeclineAuthority(*Copy(client, seat), declined));
+		if (declined)
+		{
+			ASSERT_TRUE(net.RunUntil([&]
+			                         { return Host().GetDelegationStatistics().declines == before + 1; }, 3000));
+		}
+		else
+		{
+			Run(100);
+		}
+	}
+	// The seat is delegated while the client sees it but is beyond acquire range, and the client declines it.
+	void DeclineFromAfar(size_t client)
+	{
+		Place(client, East(150));
+		Delegate(seat);
+		Decline(client, true);
 	}
 	// Client 0 near the seat, elected and holding it.
 	void AcquireBy(size_t client)
@@ -529,4 +574,206 @@ TEST_F(Delegation, UnknownClientsAreRefused)
 	ASSERT_TRUE(Host().SetDelegation(seat, nullptr));
 	EXPECT_FALSE(Host().Pin(seat, guids[0]));
 	EXPECT_FALSE(Host().Unpin(seat));
+}
+
+TEST_F(Delegation, DeclinedClientIsPassedOver)
+{
+	// Client 0 is nearest, but 70^2 > 0.72 * 80^2: once client 1 holds the seat, client 0 cannot take it back.
+	DeclineFromAfar(0);
+	Place(0, East(70));
+	Place(1, East(80));
+	ASSERT_TRUE(AwaitChange([](const Change &)
+	                        { return true; }));
+	EXPECT_EQ(changes[0].current, guids[1]);
+	EXPECT_EQ(changes[0].change, DelegationChange::Acquired);
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return Holds(1, seat); }, 3000));
+	EXPECT_FALSE(Holds(0, seat));
+
+	// Withdrawn: the incumbent is inside release and the sticky rule keeps it.
+	Decline(0, false);
+	Run(1500);
+	EXPECT_EQ(changes.size(), 1u);
+	EXPECT_TRUE(Holds(1, seat));
+
+	// Two decline changes within 100 ms run one extra pass, not two.
+	Place(2, East(120));
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return Copy(2, seat) != nullptr; }, 3000));
+	Host().SetDelegationInterval(100000);
+	Host().SetTickMode(ReplicationTickMode::Manual);
+	Run(20);
+	Host().Tick();
+	const uint64_t before = Host().GetDelegationStatistics().elections;
+	ASSERT_TRUE(clients[0]->GetReplication().DeclineAuthority(*Copy(0, seat), true));
+	Run(20);
+	Host().Tick();
+	EXPECT_EQ(Host().GetDelegationStatistics().elections, before + 1);
+	ASSERT_TRUE(clients[2]->GetReplication().DeclineAuthority(*Copy(2, seat), true));
+	for (int tick = 0; tick < 6; ++tick)
+	{
+		Run(10);
+		Host().Tick();
+	}
+	EXPECT_EQ(Host().GetDelegationStatistics().declines, 3u);
+	EXPECT_EQ(Host().GetDelegationStatistics().elections, before + 1);
+	// The second change is not lost: it runs once the gap has passed.
+	for (int tick = 0; tick < 10; ++tick)
+	{
+		Run(10);
+		Host().Tick();
+	}
+	EXPECT_EQ(Host().GetDelegationStatistics().elections, before + 2);
+	EXPECT_EQ(changes.size(), 1u);
+}
+
+TEST_F(Delegation, DeclineClearsWhenTheReplicaLeavesScope)
+{
+	DeclineFromAfar(0);
+	Place(0, East(50));
+	Run(1500);
+	EXPECT_TRUE(changes.empty());
+	EXPECT_EQ(Host().GetDelegationStatistics().dormant, 1u);
+
+	// Out of its visible set, then back: the decline is forgotten.
+	Place(0, {100, 100});
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return Copy(0, seat) == nullptr; }, 3000));
+	Place(0, East(50));
+	ASSERT_TRUE(AwaitChange([&](const Change &c)
+	                        { return c.change == DelegationChange::Acquired && c.current == guids[0]; }));
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return Holds(0, seat); }, 3000));
+}
+
+TEST_F(Delegation, PinOverridesDecline)
+{
+	DeclineFromAfar(0);
+	Place(0, East(50));
+	Run(1500);
+	EXPECT_TRUE(changes.empty());
+
+	ASSERT_TRUE(Host().Pin(seat, guids[0]));
+	ASSERT_TRUE(AwaitChange([&](const Change &c)
+	                        { return c.change == DelegationChange::Acquired && c.current == guids[0]; }));
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return Holds(0, seat); }, 3000));
+
+	// Unpinned, the decline is still in force.
+	ASSERT_TRUE(Host().Unpin(seat));
+	ASSERT_TRUE(AwaitChange([](const Change &)
+	                        { return true; }));
+	EXPECT_EQ(changes.back().previous, guids[0]);
+	EXPECT_EQ(changes.back().current, UNASSIGNED_PEER_GUID);
+	EXPECT_EQ(changes.back().change, DelegationChange::Dormant);
+}
+
+TEST_F(Delegation, VetoPostponesThenForces)
+{
+	AcquireBy(0);
+	Delegate(seat, 1, 1000);
+	std::vector<std::pair<NetworkID, PeerGuid>> asked;
+	Host().SetReleaseVeto([&](NetworkID id, PeerGuid holder)
+	                      {
+		asked.emplace_back(id, holder);
+		return false; });
+	Host().SetDelegationInterval(100);
+	Place(0, East(150));
+	Place(1, East(50));
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return Host().GetDelegationStatistics().refusals > 0; }, 3000));
+	const TimeUS firstRefusal = net.Now();
+	ASSERT_FALSE(asked.empty());
+	EXPECT_EQ(asked.front().first, seat.GetNetworkID());
+	EXPECT_EQ(asked.front().second, guids[0]);
+	Run(500);
+	EXPECT_EQ(changes.size(), 1u);
+	EXPECT_TRUE(Holds(0, seat));
+	EXPECT_GE(Host().GetDelegationStatistics().refusals, 3u);
+	EXPECT_EQ(Host().GetDelegationStatistics().forced, 0u);
+
+	ASSERT_TRUE(AwaitChange([](const Change &)
+	                        { return true; }));
+	EXPECT_GE(net.Now() - firstRefusal, 900000u);
+	EXPECT_EQ(changes.back().previous, guids[0]);
+	EXPECT_EQ(changes.back().current, guids[1]);
+	EXPECT_EQ(changes.back().change, DelegationChange::Migrated);
+	const auto stats = Host().GetDelegationStatistics();
+	EXPECT_EQ(stats.forced, 1u);
+	EXPECT_EQ(stats.handovers, 2u);
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return Holds(1, seat) && !Holds(0, seat); }, 3000));
+}
+
+TEST_F(Delegation, DisconnectIgnoresTheVeto)
+{
+	AcquireBy(0);
+	Host().SetReleaseVeto([](NetworkID, PeerGuid)
+	                      { return false; });
+	Host().SetDelegationInterval(100);
+	Place(0, East(150));
+	Place(1, East(50));
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return Host().GetDelegationStatistics().refusals > 0; }, 3000));
+	Host().SetDelegationInterval(100000);
+	Host().SetTickMode(ReplicationTickMode::Manual);
+	clients[0]->CloseConnection(server->GetMyGUID(), true);
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return Host().GetPeerStatus(guids[0]) != ReplicationPeerStatus::Active; }, 3000));
+	// Re-elected by the disconnect itself, before any Tick, and the callback follows the next one.
+	EXPECT_EQ(Host().GetDelegatedLoad(guids[1]), 1u);
+	Host().Tick();
+	ASSERT_EQ(changes.size(), 2u);
+	EXPECT_EQ(changes[1].previous, guids[0]);
+	EXPECT_EQ(changes[1].current, guids[1]);
+	EXPECT_EQ(changes[1].change, DelegationChange::Migrated);
+	EXPECT_EQ(Host().GetDelegationStatistics().forced, 0u);
+}
+
+TEST_F(Delegation, MalformedDeclinesAreDropped)
+{
+	using namespace ReplicationWire;
+	DeclineFromAfar(0);
+	Place(0, East(50));
+	// Only a client may decline, and only a replica it has.
+	EXPECT_FALSE(Host().DeclineAuthority(seat, true));
+	Seat stranger;
+	EXPECT_FALSE(clients[0]->GetReplication().DeclineAuthority(stranger, true));
+	const Header session = static_cast<RecordingPeer *>(clients[0])->decline;
+	ASSERT_EQ(session.kind, Kind::Decline);
+	auto forge = [&](NetworkID id, bool withFlag, uint8_t flag, bool trailing)
+	{
+		auto out = std::make_unique<BitStream>();
+		ReplicationWire::WriteHeader(*out, Kind::Decline, session.clientToken, session.serverToken);
+		out->Write(id);
+		if (withFlag)
+			out->Write(flag);
+		if (trailing)
+			out->Write(static_cast<uint8_t>(7));
+		return out;
+	};
+	const NetworkID id = seat.GetNetworkID();
+	std::vector<std::unique_ptr<BitStream>> malformed;
+	malformed.push_back(forge(id, false, 0, false));
+	malformed.push_back(forge(id, true, 2, false));
+	malformed.push_back(forge(id, true, 0, true));
+	malformed.push_back(forge(id + 1000, true, 0, false));
+	malformed.push_back(forge(UNASSIGNED_NETWORK_ID, true, 0, false));
+	malformed.push_back(std::make_unique<BitStream>());
+	malformed.back()->Write(static_cast<MessageID>(ID_REPLICATION));
+	malformed.back()->Write(Version);
+	malformed.back()->Write(Kind::Decline);
+	for (auto &packet : malformed)
+		clients[0]->Send(packet.get(), Priority::High, Reliability::ReliableOrdered, 0, server->GetMyGUID(), false);
+	// A server-role peer sending one to a client: the client drops it.
+	const auto fromServer = forge(id, true, 0, false);
+	server->Send(fromServer.get(), Priority::High, Reliability::ReliableOrdered, 0, clients[0]->GetMyGUID(), false);
+	Run(500);
+	// None was applied: the decline still stands, and only the real one was counted.
+	EXPECT_EQ(Host().GetDelegationStatistics().declines, 1u);
+	EXPECT_TRUE(changes.empty());
+	// The session still works: a well-formed withdrawal lets the client acquire.
+	ASSERT_TRUE(clients[0]->GetReplication().DeclineAuthority(*Copy(0, seat), false));
+	ASSERT_TRUE(AwaitChange([&](const Change &c)
+	                        { return c.change == DelegationChange::Acquired && c.current == guids[0]; }));
 }

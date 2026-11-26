@@ -29,7 +29,8 @@ enum class Kind : uint8_t
 	SnapshotBatch,
 	OwnerCorrection,
 	ClockSample,
-	SnapshotSingleAck
+	SnapshotSingleAck,
+	Decline
 };
 
 constexpr unsigned HeaderBytes = 3 + 2 * sizeof(uint64_t);
@@ -119,6 +120,26 @@ struct ClockSample
 	bool Read(BitStream &in)
 	{
 		return in.Read(tick) && tick && in.Read(sent) && !in.GetNumberOfUnreadBits();
+	}
+};
+
+// Client to server: the sender asks not to be elected to simulate `id`, or withdraws that.
+struct Decline
+{
+	NetworkID id = UNASSIGNED_NETWORK_ID;
+	bool declined = false;
+	void Write(BitStream &out) const
+	{
+		out.Write(id);
+		out.Write(static_cast<uint8_t>(declined ? 1 : 0));
+	}
+	bool Read(BitStream &in)
+	{
+		uint8_t flag;
+		if (!in.Read(id) || id == UNASSIGNED_NETWORK_ID || !in.Read(flag) || flag > 1 || in.GetNumberOfUnreadBits())
+			return false;
+		declined = flag != 0;
+		return true;
 	}
 };
 

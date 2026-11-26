@@ -199,3 +199,37 @@ TEST(ReplicationWire, SingleReceiptAndTruncatedMaskHaveDistinctEncodings)
 	in.ResetReadPointer();
 	EXPECT_FALSE(window.Read(in, Kind::SnapshotSingleAck));
 }
+
+TEST(ReplicationWire, DeclineRoundTripsAndRejectsEveryTruncationAndBadFlag)
+{
+	using namespace ReplicationWire;
+	for (bool declined : {false, true})
+	{
+		BitStream wire;
+		Decline{5, declined}.Write(wire);
+		const auto full = wire.GetNumberOfBitsUsed();
+		EXPECT_EQ(full, (sizeof(NetworkID) + 1) * 8);
+		// One spare byte, so trailing data can be offered too.
+		wire.Write(static_cast<uint8_t>(0));
+		for (BitSize_t length = 0; length <= full + 8; ++length)
+		{
+			BitStream in(wire.GetData(), wire.GetNumberOfBytesUsed(), false);
+			in.SetWriteOffset(length);
+			Decline read;
+			ASSERT_EQ(read.Read(in), length == full) << length;
+			if (length == full)
+			{
+				EXPECT_EQ(read.id, 5u);
+				EXPECT_EQ(read.declined, declined);
+			}
+		}
+	}
+	BitStream badFlag;
+	badFlag.Write(NetworkID{5});
+	badFlag.Write(static_cast<uint8_t>(2));
+	Decline read;
+	EXPECT_FALSE(read.Read(badFlag));
+	BitStream unassigned;
+	Decline{UNASSIGNED_NETWORK_ID, true}.Write(unassigned);
+	EXPECT_FALSE(read.Read(unassigned));
+}

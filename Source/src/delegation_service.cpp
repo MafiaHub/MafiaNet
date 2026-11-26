@@ -101,7 +101,9 @@ bool DelegationService::Set(Replica3 &replica, const DelegationPolicy *policy)
 			Charge(it->second, UNASSIGNED_PEER_GUID);
 			Unschedule(id, it->second);
 			urgent.erase(id);
+			declineChanged.erase(id);
 			entries.erase(it);
+			++erasures;
 		}
 		return true;
 	}
@@ -235,6 +237,62 @@ DelegationStatistics DelegationService::Statistics() const
 	return out;
 }
 
+bool DelegationService::Vetoable(const Entry &entry, PeerGuid holder) const
+{
+	// Nobody to refuse for, a suspension (never vetoed), or a holder that gave the replica up itself.
+	return veto && holder != UNASSIGNED_PEER_GUID && !suspended.count(holder) && std::find(entry.declined.begin(), entry.declined.end(), holder) == entry.declined.end();
+}
+
+void DelegationService::Declined(NetworkID id, PeerGuid guid, bool declined)
+{
+	auto it = entries.find(id);
+	if (it == entries.end())
+	{
+		return;
+	}
+	auto &list = it->second.declined;
+	const auto at = std::find(list.begin(), list.end(), guid);
+	if ((at != list.end()) == declined)
+	{
+		return;
+	}
+	if (declined)
+	{
+		list.push_back(guid);
+		++stats.declines;
+	}
+	else
+	{
+		list.erase(at);
+	}
+	DeclineChanged(id, it->second);
+}
+
+void DelegationService::LeftScope(NetworkID id, PeerGuid guid)
+{
+	auto it = entries.find(id);
+	if (it == entries.end())
+	{
+		return;
+	}
+	auto &list = it->second.declined;
+	const auto at = std::find(list.begin(), list.end(), guid);
+	if (at != list.end())
+	{
+		list.erase(at);
+		DeclineChanged(id, it->second);
+	}
+}
+
+void DelegationService::DeclineChanged(NetworkID id, const Entry &entry)
+{
+	// Coalesced into a pass at most every kDeclinedPassGapUs. A pinned replica's holder does not depend on it.
+	if (!entry.pinned)
+	{
+		declineChanged.insert(id);
+	}
+}
+
 void DelegationService::Evaluate(NetworkID id, Entry &entry)
 {
 	++stats.elections;
@@ -270,15 +328,61 @@ void DelegationService::Evaluate(NetworkID id, Entry &entry)
 		}
 		desired = ElectSimulator(entry.policy, scope.position, current, candidates, entry.declined);
 	}
-	if (desired != current)
+	bool forcing = false, postponed = false;
+	if (desired != current && Vetoable(entry, current))
 	{
-		// GrantChanged charges the new holder. A refused grant leaves everything as it was, for the next pass.
+		const uint64_t before = erasures;
+		const std::shared_ptr<Veto> ask = veto;
+		const bool allowed = (*ask)(id, current);
+		// The veto must not change replication state. If it did anyway, this evaluation is void: the replica is
+		// elected again at the next pass, from whatever state the veto left.
+		if (erasures != before || manager.owner.FindReplica(id) != replica || entry.charged != current)
+		{
+			if (entries.count(id))
+			{
+				urgent.insert(id);
+			}
+			return;
+		}
+		if (allowed)
+		{
+			entry.refusing = false;
+		}
+		else
+		{
+			const TimeUS now = GetSteadyTimeUS();
+			if (!entry.refusing)
+			{
+				entry.refusing = true;
+				entry.refusingSince = now;
+			}
+			// The grace stops a replica that is always busy from staying with a holder the election has left behind.
+			forcing = now - entry.refusingSince >= static_cast<TimeUS>(entry.policy.graceMs) * 1000;
+			if (!forcing)
+			{
+				++stats.refusals;
+				postponed = true;
+			}
+		}
+	}
+	if (desired == current)
+	{
+		entry.refusing = false;
+	}
+	else if (!postponed)
+	{
+		// GrantChanged charges the new holder and ends the refusal. A refused grant leaves everything as it was, for
+		// the next pass.
 		applying = true;
 		const bool assigned = manager.Assign(*replica, desired);
 		applying = false;
 		if (assigned)
 		{
 			++stats.handovers;
+			if (forcing)
+			{
+				++stats.forced;
+			}
 		}
 	}
 	if (entry.charged != entry.reported)
@@ -320,6 +424,13 @@ void DelegationService::Pass()
 		return;
 	}
 	const TimeUS now = GetSteadyTimeUS();
+	if (!declineChanged.empty() && (!declinePassRan || now - lastDeclinePass >= kDeclinedPassGapUs))
+	{
+		urgent.insert(declineChanged.begin(), declineChanged.end());
+		declineChanged.clear();
+		declinePassRan = true;
+		lastDeclinePass = now;
+	}
 	const std::vector<NetworkID> ran = RunUrgent();
 	while (!schedule.empty() && schedule.begin()->first <= now)
 	{
@@ -341,6 +452,8 @@ void DelegationService::GrantChanged(NetworkID id, PeerGuid current)
 		return;
 	}
 	Charge(it->second, current);
+	// A refusal is the holder's; a new holder starts with none.
+	it->second.refusing = false;
 	if (!applying)
 	{
 		// Revoked by MafiaNet (the holder became ineligible) or changed by the game: elect again at the next pass.
@@ -380,14 +493,19 @@ void DelegationService::Forget(NetworkID id)
 	Charge(it->second, UNASSIGNED_PEER_GUID);
 	Unschedule(id, it->second);
 	urgent.erase(id);
+	declineChanged.erase(id);
 	entries.erase(it);
+	++erasures;
 }
 
 void DelegationService::Reset()
 {
 	entries.clear();
+	++erasures;
 	schedule.clear();
 	urgent.clear();
+	declineChanged.clear();
+	declinePassRan = false;
 	loads.clear();
 	capacities.clear();
 	suspended.clear();
