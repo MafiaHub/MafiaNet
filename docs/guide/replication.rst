@@ -112,6 +112,14 @@ A grant can extend the streaming radius. Losing world, dimension or audience
 eligibility revokes it. Disconnecting releases the grant and keeps the server
 object alive. The application chooses whether to destroy a departing avatar.
 
+Bound how often a driver can report with
+``SetOwnerUpdateRateLimit(vehicleType, 60, 90)`` on the server. Each grant gets
+its own budget of 90 reports, refilled at 60 per second. Reports beyond it are
+dropped before ``Drive`` runs and counted in ``GetStatistics(guid).ownerUpdatesDropped``.
+A dropped report does not advance the grant's sequence, so a correction never
+claims to have processed it. The limit is local server policy, not part of the
+session schema, and can change at any time. Zero accepts every report.
+
 Scene lifecycle
 ---------------
 
