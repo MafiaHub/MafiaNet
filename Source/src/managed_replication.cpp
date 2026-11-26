@@ -670,6 +670,7 @@ ReplicationStatistics ManagedReplication::Statistics(PeerGuid guid)
 		sum.lifecycleBytes += s.lifecycleBytes;
 		sum.stateBytes += s.stateBytes;
 		sum.clockBytes += s.clockBytes;
+		sum.ownerUpdatesDropped += s.ownerUpdatesDropped;
 	}
 	return sum;
 }
@@ -1287,6 +1288,40 @@ bool ManagedReplication::RegisterReport(std::type_index object, Report report)
 	return !HasSessions() && it != typeIds.end() && reports.emplace(it->second, std::move(report)).second;
 }
 
+bool ManagedReplication::LimitReports(ReplicaTypeId id, uint32_t perSecond, uint32_t burst)
+{
+	auto it = reports.find(id);
+	if (it == reports.end() || (burst != 0 && perSecond == 0))
+		return false;
+	it->second.perSecond = perSecond;
+	it->second.burst = burst;
+	return true;
+}
+
+bool ManagedReplication::Grant::SpendReport(const Report &limit, TimeUS now)
+{
+	if (limit.perSecond == 0)
+		return true;
+	constexpr uint64_t unit = 1000000;
+	const uint64_t capacity = static_cast<uint64_t>(limit.burst != 0 ? limit.burst : limit.perSecond) * unit;
+	if (!reportBudgetStarted)
+		reportBudget = capacity;
+	else if (now > reportBudgetRefilled)
+	{
+		// A rate in reports per second refills perSecond millionths per microsecond. Bound the elapsed time first
+		// so the product cannot overflow: anything past a full refill is moot.
+		const uint64_t elapsed = std::min<uint64_t>(now - reportBudgetRefilled, capacity / limit.perSecond + 1);
+		reportBudget = std::min(capacity, reportBudget + elapsed * limit.perSecond);
+	}
+	reportBudget = std::min(reportBudget, capacity);
+	reportBudgetStarted = true;
+	reportBudgetRefilled = now;
+	if (reportBudget < unit)
+		return false;
+	reportBudget -= unit;
+	return true;
+}
+
 bool ManagedReplication::Assign(Replica3 &object, PeerGuid guid, bool force)
 {
 	const auto id = object.GetNetworkID();
@@ -1434,10 +1469,18 @@ void ManagedReplication::OwnerPacket(Connection &connection, Kind kind, BitStrea
 		bool feedback;
 		if (!in.Read(seq) || !seq || seq <= it->second.sequence || !in.Read(feedback) || !ReadBlock(in, payload) || in.GetNumberOfUnreadBits())
 			return;
+		const auto &report = reports.at(static_cast<ReplicaTypeId>(object->registeredType));
+		// Over the budget: dropped as if never sent. The sequence stays where it was, so no correction claims to
+		// have processed it, and the client's next report is accepted once the budget refills.
+		if (!it->second.SpendReport(report, GetSteadyTimeUS()))
+		{
+			++connection.stats.ownerUpdatesDropped;
+			return;
+		}
 		it->second.sequence = seq;
 		if ((feedback || it->second.requestedFeedback) && types.at(static_cast<ReplicaTypeId>(object->registeredType)).snapshot)
 			it->second.requestedFeedback = seq;
-		if (reports.at(static_cast<ReplicaTypeId>(object->registeredType)).accept(*object, sender, payload) && owner.FindReplica(id) == object)
+		if (report.accept(*object, sender, payload) && owner.FindReplica(id) == object)
 			Mark(*object);
 		return;
 	}

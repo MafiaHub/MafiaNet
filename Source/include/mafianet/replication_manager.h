@@ -84,6 +84,8 @@ struct ReplicationStatistics
 	uint64_t deferredState = 0;
 	uint64_t enters = 0, leaves = 0, destroys = 0;
 	uint64_t lifecycleBytes = 0, stateBytes = 0, clockBytes = 0;
+	/// Owner reports from this peer dropped by SetOwnerUpdateRateLimit() before the accept callback.
+	uint64_t ownerUpdatesDropped = 0;
 };
 
 enum class ReplicationTickMode
@@ -150,6 +152,13 @@ public:
 			Report report{};
 			return report.Read(in) && !in.GetNumberOfUnreadBits() && (static_cast<T&>(object).*accept)(sender,report); });
 	}
+	/// Server: accept at most \a reportsPerSecond owner reports per replica of type \a id from its authority
+	/// holder, with bursts of up to \a burst (zero means \a reportsPerSecond). Each grant starts with a full
+	/// burst. Reports beyond it are dropped before the accept callback and counted in
+	/// ReplicationStatistics::ownerUpdatesDropped; the client is not told. Zero, the default, accepts every
+	/// report. A local policy, not part of the session schema: callable at any time.
+	/// \return false when \a id has no registered owner report, or \a burst is set without a rate.
+	bool SetOwnerUpdateRateLimit(ReplicaTypeId id, uint32_t reportsPerSecond, uint32_t burst = 0);
 	bool SetSnapshotPolicy(ReplicaTypeId id, ChangeDetection detection, SnapshotDelivery delivery);
 	bool MarkDirty(Replica3 &object);
 	void MarkAllDirty();

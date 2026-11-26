@@ -140,6 +140,11 @@ bool ReplicationManager::RegisterReport(std::type_index object, std::type_index 
 	WorldGuard guard(*this);
 	return Managed().RegisterReport(object, {type, version, std::move(accept)});
 }
+bool ReplicationManager::SetOwnerUpdateRateLimit(ReplicaTypeId id, uint32_t reportsPerSecond, uint32_t burst)
+{
+	WorldGuard guard(*this);
+	return managed->LimitReports(id, reportsPerSecond, burst);
+}
 bool ReplicationManager::SetSnapshotPolicy(ReplicaTypeId id, ChangeDetection detection, SnapshotDelivery delivery)
 {
 	WorldGuard guard(*this);
