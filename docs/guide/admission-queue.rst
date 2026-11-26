@@ -52,7 +52,10 @@ Two callbacks competing for one free slot can therefore act on the result immedi
 the client left, or the server closed. ``InvalidPayload`` and ``OutOfMemory``
 leave the decision open. Both acceptance and rejection remove a decided request
 from ``pending_requests()``. Losing a pending client also removes it and
-produces ``ConnectionAbandoned`` with the original connection key.
+produces ``ConnectionAbandoned`` with the original connection key. A waiting
+client that gives up calls ``CancelConnectionAttempt()``. The server sees
+``ConnectionAbandoned`` at once, or ``ClientDisconnected`` if it accepted the
+request meanwhile, and the client never reports the connection.
 
 Serving the queue
 -----------------
@@ -85,7 +88,10 @@ startup, configure ``SetMaximumPendingSessions(pending, perAddress)`` and
 ``SetMaximumIncomingConnections(connected, reserved)``, then pass the sum of
 connected and pending capacities to ``Startup()``. The physical slot limit is
 65,535. A full pending pool or transport returns ``ID_NO_FREE_INCOMING_CONNECTIONS``
-before delivering an application request.
+before delivering an application request. Connections that are still closing,
+such as a kicked player whose disconnection notification has not been
+acknowledged yet, do not count. A newcomer the limits admit takes the slot of
+the connection closing longest, and that connection ends as it would have.
 
 Answer ``ID_SESSION_CONFIG_REQUEST`` using ``AcceptSession()`` or
 ``RejectSession()``. The raw accept returns the same result and observes the same

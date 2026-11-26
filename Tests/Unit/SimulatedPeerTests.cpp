@@ -172,6 +172,56 @@ TEST(SimulatedPeer, DisconnectNotifiesTheOtherSide)
 	EXPECT_TRUE(state == IS_DISCONNECTED || state == IS_NOT_CONNECTED) << "state " << state;
 }
 
+// Startup(1) is enough to move to another server right after CloseConnection(). The old connection waits
+// for the ack of its disconnection notification -- for the whole connection timeout when the old server is
+// gone -- and used to make the new attempt fail with ID_CONNECTION_ATTEMPT_FAILED meanwhile.
+TEST(SimulatedPeer, ClosingConnectionGivesItsSlotToTheNextConnect)
+{
+	SimulatedNetwork net;
+	RakPeer *oldServer = net.AddPeer(1, 1);
+	RakPeer *newServer = net.AddPeer(1, 1);
+	RakPeer *client = net.AddPeer(1);
+	client->SetTimeoutTime(60000, UNASSIGNED_SYSTEM_ADDRESS);
+	ASSERT_TRUE(net.Connect(client, oldServer));
+	net.Inbox(client).clear();
+
+	SimulatedNetwork::LinkRule dark;
+	dark.dark = true;
+	net.SetLinkBothWays(client, oldServer, dark);
+	client->CloseConnection(net.AddressOf(oldServer), true);
+	net.Step(100);
+	ASSERT_NE(IS_DISCONNECTED, client->GetConnectionState(net.AddressOf(oldServer)));
+	ASSERT_NE(IS_NOT_CONNECTED, client->GetConnectionState(net.AddressOf(oldServer)));
+
+	ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, net.StartConnect(client, newServer));
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return net.Received(client, ID_CONNECTION_REQUEST_ACCEPTED) || net.Received(client, ID_CONNECTION_ATTEMPT_FAILED); }, 5000));
+	ASSERT_TRUE(net.Received(client, ID_CONNECTION_REQUEST_ACCEPTED)) << "the closing connection kept the only slot";
+	EXPECT_EQ(net.AddressOf(newServer), net.Find(client, ID_CONNECTION_REQUEST_ACCEPTED)->systemAddress);
+
+	// The old connection still reported its end, once.
+	net.Step(2000);
+	const auto &inbox = net.Inbox(client);
+	EXPECT_EQ(1, std::count_if(inbox.begin(), inbox.end(), [&](const SimulatedNetwork::Message &message)
+	                           { return message.id == ID_DISCONNECTION_NOTIFICATION && message.systemAddress == net.AddressOf(oldServer); }));
+	EXPECT_EQ(1u, client->NumberOfConnections());
+}
+
+// The slot goes to a new connection only when the old one is closing: an open connection keeps it.
+TEST(SimulatedPeer, OpenConnectionKeepsTheOnlySlot)
+{
+	SimulatedNetwork net;
+	RakPeer *firstServer = net.AddPeer(1, 1);
+	RakPeer *secondServer = net.AddPeer(1, 1);
+	RakPeer *client = net.AddPeer(1);
+	ASSERT_TRUE(net.Connect(client, firstServer));
+
+	ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, net.StartConnect(client, secondServer));
+	ASSERT_TRUE(net.RunUntilReceived(client, ID_CONNECTION_ATTEMPT_FAILED, 5000));
+	EXPECT_FALSE(net.Received(client, ID_DISCONNECTION_NOTIFICATION));
+	EXPECT_EQ(IS_CONNECTED, client->GetConnectionState(net.AddressOf(firstServer)));
+}
+
 TEST(SimulatedPeer, ConnectionTimesOutWhenTheLinkGoesDark)
 {
 	SimulatedNetwork net;

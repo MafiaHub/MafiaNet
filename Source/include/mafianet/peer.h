@@ -895,6 +895,9 @@ public:
 		// Network thread only. Captured when a connection leaves CONNECTED.
 		PlayerId departingPlayerId{};
 		uint64_t generation = 0;
+		// Network thread only. GetTimeMS() when the slot started closing (IsClosing()), so ReclaimClosingSlot()
+		// can take the connection that has been closing longest.
+		MafiaNet::TimeMS closingSince = 0;
 	};
 
 protected:
@@ -1007,6 +1010,17 @@ protected:
 	std::unique_ptr<PlayerRoster> playerRoster;
 	uint64_t lastConnectionGeneration = 0; // Network thread only, retained across Startup.
 	void SetConnectMode(RemoteSystemStruct &system, RemoteSystemStruct::ConnectMode mode);
+	/// A connection being torn down (DISCONNECT_*): it only waits to deliver or acknowledge its last messages.
+	static bool IsClosing(RemoteSystemStruct::ConnectMode mode);
+	/// Active slots that are not closing. Startup()'s maxConnections bounds these; closing connections may
+	/// occupy the remaining slots until a new connection needs one (ReclaimClosingSlot()).
+	unsigned int CountOpenSystems(void) const;
+	/// Free the slot of the connection that has been closing longest, ending it as its normal teardown would
+	/// (notification to the application, final acks). False when no connection is closing. Network thread only.
+	bool ReclaimClosingSlot(void);
+	/// End a connection now: report it to the application if it was reported or is our pending Connect(),
+	/// flush outstanding acks and free the slot. Network thread only.
+	void EndConnection(RemoteSystemStruct *remoteSystem, MafiaNet::TimeUS timeNS, BitStream &updateBitStream);
 	void PublishConnectedSystems();
 	PlayerId RetirePlayer(const RemoteSystemStruct &system);
 
@@ -1234,6 +1248,9 @@ protected:
 	void ClearSocketQueryOutput(void);
 	void ClearRequestedConnectionList(void);
 	void AddPacketToProducer(MafiaNet::Packet *p);
+	// Frees a packet AllocPacket() made that never reached the application (DeallocatePacket's legacy single-block
+	// branch does not apply to those).
+	void FreeUndeliveredPacket(MafiaNet::Packet *p);
 	unsigned int GenerateSeedFromGuid(void);
 	MafiaNet::Time GetClockDifferentialInt(RemoteSystemStruct *remoteSystem) const;
 
@@ -1294,6 +1311,15 @@ protected:
 
 	SimpleMutex packetReturnMutex;
 	std::deque<Packet *> packetReturnQueue;
+	// CancelConnectionAttempt() for attempts that already hold a connection slot, guarded by packetReturnMutex.
+	// cancelledAttempts: targets the network thread has yet to abandon (ApplyCancelledAttempts()).
+	// withdrawnConnections: connections whose queued ID_CONNECTION_REQUEST_ACCEPTED the cancel took back before the
+	// application read it. AddPacketToProducer() drops their packets until the slot is freed.
+	// reportedRaceAttempts: GUID and first address of each Happy Eyeballs attempt whose acceptance was queued, so a
+	// cancel by the race's first address finds it.
+	std::vector<SystemAddress> cancelledAttempts;
+	std::vector<RakNetGUID> withdrawnConnections;
+	std::vector<std::pair<RakNetGUID, SystemAddress>> reportedRaceAttempts;
 	// Wakes WaitForPackets. Notified under packetReturnMutex at every push and by Shutdown().
 	std::condition_variable_any packetReturnCondition;
 	Packet *AllocPacket(unsigned dataSize);
@@ -1367,6 +1393,13 @@ private:
 	/// Connecting side: end a session handshake the remote broke (held-message limit exceeded). Reports
 	/// ID_CONNECTION_ATTEMPT_FAILED, tells the remote it is disconnected and closes the slot.
 	void FailSessionHandshakeAsConnectingSide(RemoteSystemStruct *remoteSystem);
+	/// Connecting side: drop a connection attempt the application cancelled. Reports nothing, tells the remote it
+	/// is disconnected (a server holding the request reports ID_SESSION_CONFIG_ABANDONED) and closes the slot.
+	void AbandonConnectionAttempt(RemoteSystemStruct *remoteSystem);
+	/// Network thread: abandon the attempts CancelConnectionAttempt() named that hold a slot.
+	void ApplyCancelledAttempts(void);
+	/// True when CancelConnectionAttempt() named this slot's attempt. Call with packetReturnMutex held.
+	bool IsAttemptCancelled_NoLock(const RemoteSystemStruct &remoteSystem) const;
 	/// Hand an application message a connected remote sent to the network-thread plugins, then to the
 	/// application queue. Takes ownership of \a data.
 	void DeliverApplicationMessage(RemoteSystemStruct *remoteSystem, unsigned char *data, BitSize_t bitSize);

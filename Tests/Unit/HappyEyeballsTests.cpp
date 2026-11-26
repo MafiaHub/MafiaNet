@@ -309,6 +309,59 @@ TEST(HappyEyeballs, CancelStopsWholeRace)
 	EXPECT_EQ(Count(net, client, ID_CONNECTION_ATTEMPT_FAILED), 0u);
 }
 
+// The race's first address also cancels the winning candidate once it holds a slot: while the server holds
+// its session request, and after its acceptance was queued but not read.
+TEST(HappyEyeballs, CancelByTheFirstAddressDropsTheWinnerWaitingForTheServer)
+{
+	SimulatedNetwork net;
+	net.onSessionRequest = {};
+	RakPeer *server = net.AddPeerDualStack(4, 4);
+	RakPeer *client = net.AddPeerDualStack(1);
+	const SystemAddress server6 = net.AddressOf(server, 6);
+	const SystemAddress server4 = net.AddressOf(server, 4);
+	net.SetLinkBothWays(net.AddressOf(client, 6), server6, Dark());
+	net.AddHostName("srv.test", {server6, server4});
+
+	ASSERT_EQ(client->Connect("srv.test", server6.GetPort(), nullptr, 0), CONNECTION_ATTEMPT_STARTED);
+	ASSERT_TRUE(net.RunUntilReceived(server, ID_SESSION_CONFIG_REQUEST, 5000));
+	client->CancelConnectionAttempt(server6);
+	ASSERT_TRUE(net.RunUntilReceived(server, ID_SESSION_CONFIG_ABANDONED, 1000));
+
+	net.Step(5000);
+	EXPECT_EQ(Count(net, client, ID_CONNECTION_REQUEST_ACCEPTED), 0u);
+	EXPECT_EQ(Count(net, client, ID_CONNECTION_ATTEMPT_FAILED), 0u);
+	EXPECT_EQ(Count(net, server, ID_NEW_INCOMING_CONNECTION), 0u);
+	EXPECT_EQ(client->NumberOfConnections(), 0u);
+	EXPECT_EQ(server->NumberOfConnections(), 0u);
+}
+
+TEST(HappyEyeballs, CancelByTheFirstAddressTakesBackAnUnreadAcceptance)
+{
+	SimulatedNetwork net;
+	net.onSessionRequest = {};
+	RakPeer *server = net.AddPeerDualStack(4, 4);
+	RakPeer *client = net.AddPeerDualStack(1);
+	const SystemAddress server6 = net.AddressOf(server, 6);
+	const SystemAddress server4 = net.AddressOf(server, 4);
+	net.SetLinkBothWays(net.AddressOf(client, 6), server6, Dark());
+	net.AddHostName("srv.test", {server6, server4});
+
+	ASSERT_EQ(client->Connect("srv.test", server6.GetPort(), nullptr, 0), CONNECTION_ATTEMPT_STARTED);
+	ASSERT_TRUE(net.RunUntilReceived(server, ID_SESSION_CONFIG_REQUEST, 5000));
+	net.SetReceiveEnabled(client, false);
+	ASSERT_EQ(server->AcceptSession(net.Find(server, ID_SESSION_CONFIG_REQUEST)->guid, nullptr, 0), SessionAcceptResult::Accepted);
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return client->GetConnectionState(server4) == IS_CONNECTED; }, 5000));
+
+	client->CancelConnectionAttempt(server6);
+	net.SetReceiveEnabled(client, true);
+	ASSERT_TRUE(net.RunUntilReceived(server, ID_DISCONNECTION_NOTIFICATION, 1000));
+	net.Step(5000);
+	EXPECT_TRUE(net.Inbox(client).empty());
+	EXPECT_EQ(client->NumberOfConnections(), 0u);
+	EXPECT_EQ(server->NumberOfConnections(), 0u);
+}
+
 TEST(HappyEyeballs, ReconnectRightAfterCancelStartsAFreshRace)
 {
 	SimulatedNetwork net;

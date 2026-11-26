@@ -879,6 +879,61 @@ TEST_F(SessionConfigSim, PendingPoolSlotIsFreedByADecision)
 	EXPECT_FALSE(Has(server, ID_SESSION_CONFIG_ABANDONED)) << "a peer the application refused was reported as abandoned";
 }
 
+// A server sized exactly to its capacity (one connected, one pending) keeps admitting while a kicked player
+// is still closing. That player's slot waits for the ack of its disconnection notification, for the whole
+// connection timeout once the player is gone, and used to refuse the next newcomer meanwhile.
+TEST_F(SessionConfigSim, ClosingConnectionDoesNotTakeAnAdmissionSlot)
+{
+	RakPeer *server = AddPooledServer(1, 1, 0);
+	ReplyToRequests(server);
+	RakPeer *kicked = AddClient(60000);
+	ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, StartConnect(kicked, server));
+	ASSERT_TRUE(WaitForBoth(kicked, ID_CONNECTION_REQUEST_ACCEPTED, server, ID_NEW_INCOMING_CONNECTION));
+
+	SimulatedNetwork::LinkRule dark;
+	dark.dark = true;
+	net.SetLinkBothWays(kicked, server, dark);
+	server->CloseConnection(kicked->GetMyGUID(), true);
+	Pump(100);
+	ASSERT_TRUE(SlotInspector::SlotFor(server, kicked->GetMyGUID()).sawSlot) << "the kicked player is no longer closing";
+
+	RakPeer *player = AddClient(60000);
+	ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, StartConnect(player, server));
+	ASSERT_TRUE(WaitFor(player, ID_CONNECTION_REQUEST_ACCEPTED));
+
+	net.onSessionRequest = {};
+	RakPeer *waiting = AddClient(60000);
+	ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, StartConnect(waiting, server));
+	ASSERT_TRUE(Until([&]
+	                  { return Count(server, ID_SESSION_CONFIG_REQUEST) == 3 || Has(waiting, ID_NO_FREE_INCOMING_CONNECTIONS); }, kConnectTimeoutMs));
+	EXPECT_EQ(3u, Count(server, ID_SESSION_CONFIG_REQUEST)) << "a closing connection held the pending slot; waiting saw " << IdList(Inbox(waiting));
+	EXPECT_EQ(waiting->GetMyGUID(), Inbox(server).back().guid);
+
+	// The closing connection gave its slot up and still ended the way it would have.
+	EXPECT_FALSE(SlotInspector::SlotFor(server, kicked->GetMyGUID()).sawSlot);
+	Pump(2000);
+	ASSERT_EQ(1u, Count(server, ID_DISCONNECTION_NOTIFICATION));
+	EXPECT_EQ(kicked->GetMyGUID(), Find(server, ID_DISCONNECTION_NOTIFICATION)->guid);
+	EXPECT_FALSE(Has(server, ID_CONNECTION_LOST));
+	EXPECT_EQ(1u, server->NumberOfConnections());
+}
+
+// Closing connections give way, open ones do not: with every slot open, the newcomer is still refused.
+TEST_F(SessionConfigSim, OpenConnectionsStillFillTheSlots)
+{
+	RakPeer *server = AddServer(1, 1, 60000);
+	ReplyToRequests(server);
+	RakPeer *first = AddClient(60000);
+	ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, StartConnect(first, server));
+	ASSERT_TRUE(WaitForBoth(first, ID_CONNECTION_REQUEST_ACCEPTED, server, ID_NEW_INCOMING_CONNECTION));
+
+	RakPeer *second = AddClient(60000);
+	ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, StartConnect(second, server));
+	ASSERT_TRUE(WaitFor(second, ID_NO_FREE_INCOMING_CONNECTIONS)) << "second saw " << IdList(Inbox(second));
+	EXPECT_EQ(1u, server->NumberOfConnections());
+	EXPECT_FALSE(Has(server, ID_DISCONNECTION_NOTIFICATION));
+}
+
 // A full server keeps the same request alive until the application retries.
 TEST_F(SessionConfigSim, FullAcceptKeepsRequestAvailableForStatusAndRetry)
 {
@@ -1081,6 +1136,113 @@ TEST_F(SessionConfigSim, ClientLeavingMidDecisionIsReportedAsAbandoned)
 	EXPECT_FALSE(Has(server, ID_DISCONNECTION_NOTIFICATION)) << "a connection never reported was reported closed";
 	EXPECT_EQ(0u, server->NumberOfConnections());
 	EXPECT_FALSE(SlotInspector::FirstActiveSlot(server).sawSlot);
+}
+
+// CancelConnectionAttempt() also drops an attempt that already reached the server and waits for its decision.
+// The client never reports it, and the server learns the request is gone at once instead of accepting it
+// into a connection the client then has to close by hand.
+TEST_F(SessionConfigSim, CancelWhileTheServerHoldsTheRequestNeverConnects)
+{
+	RakPeer *server = AddPooledServer(4, 4, 0, 60000);
+	RakPeer *client = AddClient(60000);
+	ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, StartConnect(client, server));
+	RakNetGUID guid;
+	ASSERT_TRUE(WaitForRequest(server, guid));
+	ASSERT_EQ(IS_CONNECTING, client->GetConnectionState(net.AddressOf(server)));
+
+	client->CancelConnectionAttempt(net.AddressOf(server));
+	ASSERT_TRUE(WaitFor(server, ID_SESSION_CONFIG_ABANDONED, 1000)) << "the server was never told the request went away";
+	EXPECT_EQ(guid, Find(server, ID_SESSION_CONFIG_ABANDONED)->guid);
+	EXPECT_EQ(SessionAcceptResult::Expired, server->AcceptSession(guid, nullptr, 0));
+
+	Pump(2000);
+	EXPECT_FALSE(Has(client, ID_CONNECTION_REQUEST_ACCEPTED)) << "a cancelled attempt connected; client saw " << IdList(Inbox(client));
+	EXPECT_FALSE(Has(client, ID_CONNECTION_ATTEMPT_FAILED)) << "a cancelled attempt was reported";
+	EXPECT_FALSE(Has(client, ID_DISCONNECTION_NOTIFICATION));
+	EXPECT_FALSE(Has(server, ID_NEW_INCOMING_CONNECTION));
+	EXPECT_FALSE(Has(server, ID_CONNECTION_LOST));
+	EXPECT_EQ(0u, client->NumberOfConnections());
+	EXPECT_EQ(0u, server->NumberOfConnections());
+	EXPECT_FALSE(SlotInspector::FirstActiveSlot(client).sawSlot);
+	EXPECT_FALSE(SlotInspector::FirstActiveSlot(server).sawSlot);
+
+	// Nothing is left of it: the same client connects again.
+	Inbox(server).clear();
+	ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, StartConnect(client, server));
+	ASSERT_TRUE(WaitForRequest(server, guid));
+	EXPECT_EQ(SessionAcceptResult::Accepted, server->AcceptSession(guid, nullptr, 0));
+	EXPECT_TRUE(WaitForBoth(client, ID_CONNECTION_REQUEST_ACCEPTED, server, ID_NEW_INCOMING_CONNECTION));
+}
+
+// The server accepts while the cancel is on its way: the server reports a connection that closes right away,
+// the client reports nothing.
+TEST_F(SessionConfigSim, CancelCrossingTheAcceptanceClosesTheServerSide)
+{
+	RakPeer *server = AddPooledServer(4, 4, 0, 60000);
+	RakPeer *client = AddClient(60000);
+	ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, StartConnect(client, server));
+	RakNetGUID guid;
+	ASSERT_TRUE(WaitForRequest(server, guid));
+
+	ASSERT_EQ(SessionAcceptResult::Accepted, server->AcceptSession(guid, nullptr, 0));
+	client->CancelConnectionAttempt(net.AddressOf(server));
+	ASSERT_TRUE(WaitFor(server, ID_DISCONNECTION_NOTIFICATION, 1000)) << "server saw " << IdList(Inbox(server));
+	Pump(2000);
+	EXPECT_EQ(1u, Count(server, ID_NEW_INCOMING_CONNECTION));
+	EXPECT_EQ(1u, Count(server, ID_DISCONNECTION_NOTIFICATION));
+	EXPECT_FALSE(Has(server, ID_CONNECTION_LOST));
+	EXPECT_FALSE(Has(client, ID_CONNECTION_REQUEST_ACCEPTED)) << "client saw " << IdList(Inbox(client));
+	EXPECT_FALSE(Has(client, ID_CONNECTION_ATTEMPT_FAILED));
+	EXPECT_EQ(0u, client->NumberOfConnections());
+	EXPECT_EQ(0u, server->NumberOfConnections());
+}
+
+// The acceptance is already queued but the application has not read it (a stalled frame): the cancel takes it
+// back, with what the server sent behind it, and closes the connection.
+TEST_F(SessionConfigSim, CancelTakesBackAnAcceptanceTheApplicationHasNotRead)
+{
+	RakPeer *server = AddPooledServer(4, 4, 0, 60000);
+	RakPeer *client = AddClient(60000);
+	ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, StartConnect(client, server));
+	RakNetGUID guid;
+	ASSERT_TRUE(WaitForRequest(server, guid));
+
+	net.SetReceiveEnabled(client, false);
+	ASSERT_EQ(SessionAcceptResult::Accepted, server->AcceptSession(guid, nullptr, 0));
+	ASSERT_TRUE(WaitFor(server, ID_NEW_INCOMING_CONNECTION));
+	BitStream hello;
+	WriteUserMessage(hello, "welcome");
+	ASSERT_NE(0u, server->Send(&hello, Priority::High, Reliability::ReliableOrdered, 0, guid, false));
+	ASSERT_TRUE(Until([&]
+	                  { return SlotInspector::SlotFor(client, server->GetMyGUID()).reported; }, kConnectTimeoutMs));
+	Pump(200);
+	ASSERT_EQ(IS_CONNECTED, client->GetConnectionState(net.AddressOf(server)));
+
+	client->CancelConnectionAttempt(net.AddressOf(server));
+	net.SetReceiveEnabled(client, true);
+	ASSERT_TRUE(WaitFor(server, ID_DISCONNECTION_NOTIFICATION, 1000)) << "server saw " << IdList(Inbox(server));
+	Pump(2000);
+	EXPECT_TRUE(Inbox(client).empty()) << "the cancelled connection reached the application: " << IdList(Inbox(client));
+	EXPECT_EQ(0u, client->NumberOfConnections());
+	EXPECT_EQ(0u, server->NumberOfConnections());
+	EXPECT_FALSE(Has(server, ID_CONNECTION_LOST));
+}
+
+// Once the application has read the acceptance the attempt is over: a cancel leaves the connection open.
+TEST_F(SessionConfigSim, CancelAfterTheApplicationReadTheAcceptanceKeepsTheConnection)
+{
+	RakPeer *server = AddPooledServer(4, 4, 0, 60000);
+	ReplyToRequests(server);
+	RakPeer *client = AddClient(60000);
+	ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, StartConnect(client, server));
+	ASSERT_TRUE(WaitForBoth(client, ID_CONNECTION_REQUEST_ACCEPTED, server, ID_NEW_INCOMING_CONNECTION));
+
+	client->CancelConnectionAttempt(net.AddressOf(server));
+	Pump(2000);
+	EXPECT_EQ(IS_CONNECTED, client->GetConnectionState(net.AddressOf(server)));
+	EXPECT_EQ(1u, server->NumberOfConnections());
+	EXPECT_FALSE(Has(server, ID_DISCONNECTION_NOTIFICATION));
+	EXPECT_FALSE(Has(client, ID_DISCONNECTION_NOTIFICATION));
 }
 
 // =========================================================================================================
