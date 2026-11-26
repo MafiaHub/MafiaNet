@@ -20,9 +20,10 @@ public:
 		SpatialScope scope;
 		int cell;
 		PeerGuid required = UNASSIGNED_PEER_GUID;
-		std::pair<int64_t, int64_t> rangedCell{0, 0};
 		// The rebuild that last considered this record, so a record reached by several paths is inspected once.
 		uint64_t considered = 0;
+		// A ranged record's cell in rangedCells is not stored (a smaller record keeps the rebuild's cache footprint down):
+		// RangedCell(scope.position) recomputes it, since the position only changes while unfiled and every cell size change refiles all.
 	};
 	struct Observer
 	{
@@ -42,7 +43,13 @@ public:
 	PointGridSectorizer index;
 	std::map<NetworkID, Record> objects;
 	std::map<PeerGuid, Observer> observers;
-	std::map<uint16_t, unsigned> categoryLimits;
+	struct CategoryLimit
+	{
+		unsigned limit = 0;
+		// Objects of the category counted by the rebuild in progress.
+		unsigned used = 0;
+	};
+	std::map<uint16_t, CategoryLimit> categoryLimits;
 	float lookaheadSeconds = 0;
 	static constexpr double kMinLookaheadDist = 5;
 	std::set<NetworkID> alwaysVisible;
@@ -57,6 +64,21 @@ public:
 	std::function<bool(PeerGuid, NetworkID)> audience;
 	InterestStatistics stats;
 	uint64_t rebuildStamp = 0;
+	// A rebuild's candidates, sorted uncounted first, then by descending priority, distance and id.
+	struct Ranked
+	{
+		// Uncounted entries take -priority, counted ones kCounted - priority: the two groups stay apart and ordered for any int priority.
+		static constexpr int64_t kCounted = int64_t(1) << 33;
+		int64_t key;
+		double distance;
+		NetworkID id;
+		Record *record;
+		bool Counted() const { return key >= kCounted / 2; }
+		bool operator<(const Ranked &other) const { return std::tie(key, distance, id) < std::tie(other.key, other.distance, other.id); }
+	};
+	// Scratch buffers reused by every rebuild (a rebuild cannot nest: the audience predicate must not reevaluate the grid).
+	std::vector<Ranked> ranked;
+	std::vector<void *> hits;
 	mutable bool queryingAudience = false;
 	void CheckWritable() const
 	{
@@ -195,8 +217,7 @@ public:
 		{
 			if (entry.second.scope.range > 0)
 			{
-				entry.second.rangedCell = RangedCell(entry.second.scope.position);
-				rangedCells[entry.second.rangedCell].insert(&entry.second);
+				rangedCells[RangedCell(entry.second.scope.position)].insert(&entry.second);
 			}
 		}
 	}
@@ -213,8 +234,7 @@ public:
 			RebuildRangedCells();
 			return;
 		}
-		record.rangedCell = RangedCell(record.scope.position);
-		rangedCells[record.rangedCell].insert(&record);
+		rangedCells[RangedCell(record.scope.position)].insert(&record);
 	}
 	void UnfileRanged(Record &record)
 	{
@@ -222,7 +242,7 @@ public:
 		{
 			return;
 		}
-		auto cell = rangedCells.find(record.rangedCell);
+		auto cell = rangedCells.find(RangedCell(record.scope.position));
 		if (cell != rangedCells.end())
 		{
 			cell->second.erase(&record);
@@ -292,34 +312,43 @@ public:
 	{
 		return observer.world == record.scope.world && VirtualWorldsCanSee(observer.dimension, record.scope.dimension) && AudienceAllows(guid, record.id);
 	}
-	void Evaluate(PeerGuid guid, Observer &observer)
+	// Gathers a rebuild's candidates into ranked. kPlain is the path without ranged objects, entity-range categories, always-visible objects or a look-ahead
+	// focus: every candidate is reached once (a required record is skipped in the cells), so no stamp, one focus and the observer radius alone.
+	template <bool kPlain>
+	void Collect(PeerGuid guid, Observer &observer, const Foci &foci, uint64_t stamp)
 	{
-		if (!observer.dirty)
-			return;
-		++stats.observersRebuilt;
-		// Entries are ranked uncounted first (required by an authority holder, always visible), then spatial candidates.
-		// Uncounted entries bypass the distance test, the category limits and the observer limit.
-		std::vector<std::tuple<bool, int64_t, double, NetworkID>> ranked;
-		const uint64_t stamp = ++rebuildStamp;
-		std::vector<void *> hits;
-		const Foci foci = FociOf(observer);
 		auto consider = [&](Record &record, bool uncounted)
 		{
-			if (record.considered == stamp)
+			if constexpr (!kPlain)
 			{
-				return;
+				if (record.considered == stamp)
+				{
+					return;
+				}
+				record.considered = stamp;
 			}
-			record.considered = stamp;
 			++stats.candidatesInspected;
 			if (!Eligible(guid, observer, record))
 				return;
-			double d = observer.radius ? NearestDistSq(foci, record.scope.position) : 0;
+			double d = 0;
+			double r = 0;
 			const bool held = observer.visible.count(record.id) != 0;
-			const double r = (record.scope.range > 0 || !entityRangeCategories.empty()) ? Reach(observer, record.scope, held) : (held ? observer.leave : observer.enter);
+			if constexpr (kPlain)
+			{
+				const double dx = static_cast<double>(record.scope.position.x) - foci.points[0].x;
+				const double dy = static_cast<double>(record.scope.position.y) - foci.points[0].y;
+				d = observer.radius ? dx * dx + dy * dy : 0;
+				r = held ? observer.leave : observer.enter;
+			}
+			else
+			{
+				d = observer.radius ? NearestDistSq(foci, record.scope.position) : 0;
+				r = (record.scope.range > 0 || !entityRangeCategories.empty()) ? Reach(observer, record.scope, held) : (held ? observer.leave : observer.enter);
+			}
 			if (!uncounted && observer.radius && d > r * r)
 				return;
 			// Retain an incumbent within 5% of a challenger's distance at the cap.
-			ranked.emplace_back(!uncounted, -static_cast<int64_t>(record.scope.priority), held ? d * 0.9025 : d, record.id);
+			ranked.push_back({(uncounted ? 0 : Ranked::kCounted) - static_cast<int64_t>(record.scope.priority), held ? d * 0.9025 : d, record.id, &record});
 		};
 		for (auto id : observer.required)
 			consider(objects.at(id), true);
@@ -386,35 +415,57 @@ public:
 				}
 			}
 		}
+	}
+	void Evaluate(PeerGuid guid, Observer &observer)
+	{
+		if (!observer.dirty)
+			return;
+		++stats.observersRebuilt;
+		// Entries are ranked uncounted first (required by an authority holder, always visible), then spatial candidates.
+		// Uncounted entries bypass the distance test, the category limits and the observer limit.
+		ranked.clear();
+		const uint64_t stamp = ++rebuildStamp;
+		const Foci foci = FociOf(observer);
+		const bool plain = rangedCells.empty() && entityRangeCategories.empty() && alwaysVisible.empty() && foci.count == 1;
+		if (plain)
+		{
+			Collect<true>(guid, observer, foci, stamp);
+		}
+		else
+		{
+			Collect<false>(guid, observer, foci, stamp);
+		}
 		std::sort(ranked.begin(), ranked.end());
 		observer.visible.clear();
 		observer.ordered.clear();
-		std::map<uint16_t, unsigned> categoryCounts;
+		for (auto &entry : categoryLimits)
+		{
+			entry.second.used = 0;
+		}
 		unsigned counted = 0;
 		for (const auto &item : ranked)
 		{
-			if (std::get<0>(item))
+			if (item.Counted())
 			{
 				if (observer.limit && counted >= observer.limit)
 					break;
 				if (!categoryLimits.empty())
 				{
-					const uint16_t category = objects.at(std::get<3>(item)).scope.category;
-					auto limit = categoryLimits.find(category);
+					auto limit = categoryLimits.find(item.record->scope.category);
 					if (limit != categoryLimits.end())
 					{
-						if (categoryCounts[category] >= limit->second)
+						if (limit->second.used >= limit->second.limit)
 						{
 							++stats.categoryCapped;
 							continue;
 						}
-						++categoryCounts[category];
+						++limit->second.used;
 					}
 				}
 				++counted;
 			}
-			observer.visible.insert(std::get<3>(item));
-			observer.ordered.push_back(std::get<3>(item));
+			observer.visible.insert(item.id);
+			observer.ordered.push_back(item.id);
 		}
 		// Dependency children of every visible object follow it, uncounted, while eligible.
 		if (!children.empty())
@@ -684,7 +735,7 @@ bool InterestGrid::SetCategoryLimit(uint16_t category, unsigned maxCount)
 	if (category == 0)
 		return false;
 	if (maxCount)
-		impl->categoryLimits[category] = maxCount;
+		impl->categoryLimits[category].limit = maxCount;
 	else
 		impl->categoryLimits.erase(category);
 	impl->DirtyAll();
