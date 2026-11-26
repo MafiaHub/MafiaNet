@@ -14,6 +14,15 @@ enum : unsigned char
 	welcomeId
 };
 
+// Application-defined reason codes sent with a refusal or a leave. Zero means none.
+enum Reason : uint32_t
+{
+	unknownTicket = 1,
+	loginUnavailable,
+	wrongRevision,
+	finished
+};
+
 struct WorldLoaded
 {
 	uint32_t revision;

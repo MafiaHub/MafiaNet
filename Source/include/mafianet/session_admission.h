@@ -12,6 +12,14 @@ enum class ConnectionSlot
 	Reserved
 };
 
+/// How an established session ended. Disconnected and Closed carry the code and detail sent with the close.
+enum class LeaveReason
+{
+	Disconnected,   ///< The remote end closed the connection.
+	ConnectionLost, ///< The connection timed out or failed without a notification.
+	Closed          ///< This end closed the connection with disconnect().
+};
+
 /// Accepted claims a slot immediately. Full leaves the request pending for another decision.
 enum class SessionAcceptResult
 {

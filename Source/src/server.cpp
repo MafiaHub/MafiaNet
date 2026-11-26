@@ -2,6 +2,7 @@
 #include "mafianet/server.h"
 #include "mafianet/peer.h"
 #include "player_roster.h"
+#include "session_reason.h"
 #include <deque>
 
 namespace MafiaNet
@@ -52,6 +53,18 @@ public:
 		return receipt;
 	}
 
+	bool close(ConnectionKey key, uint32_t code, std::string_view detail)
+	{
+		std::string notification(1, static_cast<char>(ID_DISCONNECTION_NOTIFICATION));
+		notification += EncodeReason(code, detail);
+		if (!send(key, notification.data(), BYTES_TO_BITS(notification.size()), Reliability::ReliableOrdered, Priority::High, 0, true))
+			return false;
+		auto &client = clients.at(key.guid);
+		client.code = code;
+		client.detail = std::string(detail);
+		return true;
+	}
+
 	SessionAcceptResult answer(ConnectionKey key, SessionDecision decision, std::string_view data, ConnectionSlot slot = ConnectionSlot::Public)
 	{
 		if (data.size() > MAXIMUM_SESSION_CONFIG_SIZE)
@@ -90,9 +103,12 @@ public:
 
 	struct Client
 	{
-		uint64_t generation;
+		uint64_t generation = 0;
 		bool joined = false;
 		bool closing = false;
+		// What disconnect() sent, reported again when the close completes.
+		uint32_t code = 0;
+		std::string detail;
 	};
 	Peer peer;
 	Dispatcher messages;
@@ -131,10 +147,16 @@ SessionAcceptResult ConnectionRequest::accept(ConnectionSlot slot, std::string_v
 	return state ? state->answer(key(), detail::SessionDecision::Accept, data, slot) : SessionAcceptResult::Expired;
 }
 
-bool ConnectionRequest::reject(std::string_view reason) const
+bool ConnectionRequest::reject(std::string_view text) const
+{
+	return reject(0, text);
+}
+
+bool ConnectionRequest::reject(uint32_t code, std::string_view text) const
 {
 	auto state = state_.lock();
-	return state && state->answer(key(), detail::SessionDecision::Reject, reason) == SessionAcceptResult::Accepted;
+	// Framed even when empty, so the client can tell a refusal from an attempt nobody answered.
+	return state && state->answer(key(), detail::SessionDecision::Reject, detail::EncodeReason(code, text, text.empty())) == SessionAcceptResult::Accepted;
 }
 
 bool ConnectionRequest::status(std::string_view update) const
@@ -158,11 +180,10 @@ std::optional<int> ClientConnection::ping() const
 	return std::nullopt;
 }
 
-bool ClientConnection::disconnect() const
+bool ClientConnection::disconnect(uint32_t code, std::string_view detail) const
 {
 	auto state = state_.lock();
-	const char notification = ID_DISCONNECTION_NOTIFICATION;
-	return state && state->send(key_, &notification, 8, Reliability::ReliableOrdered, Priority::High, 0, true);
+	return state && state->close(key_, code, detail);
 }
 
 Dispatcher &ClientConnection::messages(ServerState &state)
@@ -264,7 +285,9 @@ void Server::poll()
 				continue;
 			case ID_NEW_INCOMING_CONNECTION:
 			{
-				state->clients.insert_or_assign(key.guid, ServerState::Client{key.generation});
+				ServerState::Client client;
+				client.generation = key.generation;
+				state->clients.insert_or_assign(key.guid, std::move(client));
 				ClientConnection connection(state, key);
 				state->emit<ClientConnected>(connection);
 				continue;
@@ -275,12 +298,17 @@ void Server::poll()
 				auto it = state->clients.find(key.guid);
 				if (it == state->clients.end() || it->second.generation != key.generation)
 					continue;
+				auto reason = packet->data[0] == ID_CONNECTION_LOST ? LeaveReason::ConnectionLost : LeaveReason::Disconnected;
+				auto sent = detail::DecodeReason(packet->data + 1, packet->length - 1);
+				if (it->second.closing)
+				{
+					reason = LeaveReason::Closed;
+					sent = {it->second.code, std::move(it->second.detail)};
+				}
 				state->clients.erase(it);
-				const auto reason = packet->data[0] == ID_CONNECTION_LOST ? LeaveReason::ConnectionLost : LeaveReason::Disconnected;
-				const std::string detail(reinterpret_cast<const char *>(packet->data + 1), packet->length - 1);
 				if (packet->playerId != PlayerId{})
-					state->emit<PlayerLeft>({key, packet->playerId, reason, detail});
-				state->emit<ClientDisconnected>({key, reason, detail});
+					state->emit<PlayerLeft>({key, packet->playerId, reason, sent.detail, sent.code});
+				state->emit<ClientDisconnected>({key, reason, std::move(sent.detail), sent.code});
 				continue;
 			}
 			}

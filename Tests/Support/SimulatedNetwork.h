@@ -31,6 +31,7 @@
 #include <memory>
 #include <set>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "SimulatedBottleneck.h"
@@ -43,6 +44,7 @@
 namespace MafiaNet
 {
 class Server;
+class Client;
 class SimulatedNetwork : public RakNetSocket2Factory
 {
 public:
@@ -75,6 +77,8 @@ public:
 	SimulatedNetwork &operator=(const SimulatedNetwork &) = delete;
 
 	Server &AddServer(ServerCapacity capacity);
+	// A Client owned by this network whose attempt to reach `server` is underway. Poll it like a Server.
+	Client &AddClient(const RakPeer *server, std::string_view session = {}, PublicKey *pin = nullptr);
 
 	// Test application decision for raw peers. Handshake tests can retain requests in the inbox instead.
 	std::function<void(RakPeer &, const Packet &)> onSessionRequest = [](RakPeer &peer, const Packet &request)
@@ -221,6 +225,7 @@ private:
 
 	std::vector<RakPeer *> peers;
 	std::map<RakPeer *, std::unique_ptr<Server>> servers;
+	std::map<RakPeer *, std::unique_ptr<Client>> clients;
 	std::set<const RakPeer *> peersInStorage;
 	std::map<const RakPeer *, std::vector<Message>> inboxes;
 	std::set<const RakPeer *> receiveDisabled;

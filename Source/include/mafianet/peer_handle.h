@@ -15,10 +15,11 @@
 
 #pragma once
 
-#include <cstring>  // std::memcpy (identity keys in the builders)
-#include <optional> // std::optional (Result storage for a move-only Peer)
-#include <string>   // std::string (owned password / bind-address in the builders)
-#include <utility>  // std::move
+#include <cstring>     // std::memcpy (identity keys in the builders)
+#include <optional>    // std::optional (Result storage for a move-only Peer)
+#include <string>      // std::string (owned password / bind-address in the builders)
+#include <string_view> // std::string_view (ClientBuilder::session)
+#include <utility>     // std::move
 
 #include "mafianet/peer_interface.h"  // RakPeerInterface, Send, Receive, DeallocatePacket, GetInstance, DestroyInstance
 #include "mafianet/types.h"           // Packet, StartupResult, ConnectionAttemptResult, SocketDescriptor, AddressOrGUID
@@ -491,6 +492,15 @@ public:
 		return *this;
 	}
 
+	/// \brief Session payload sent with the connection request (SetSessionConfig()).
+	/// \details The server reads it from ConnectionRequest::payload() before deciding. At most
+	/// MAXIMUM_SESSION_CONFIG_SIZE bytes; a longer payload makes start() fail with INVALID_PARAMETER.
+	ClientBuilder &session(std::string_view payload)
+	{
+		session_.assign(payload.data(), payload.size());
+		return *this;
+	}
+
 	/// \brief Start up and, if a target was given, begin connecting.
 	/// \return Result carrying the live Peer on success. On failure the
 	/// PeerError names the stage: PeerStage::Startup carries the StartupResult,
@@ -499,6 +509,14 @@ public:
 	{
 		Peer peer;
 		SocketDescriptor sd(port_, host_.empty() ? nullptr : host_.c_str());
+		if (session_.size() > MAXIMUM_SESSION_CONFIG_SIZE)
+		{
+			PeerError e;
+			e.stage = PeerStage::Connect;
+			e.connect = INVALID_PARAMETER;
+			return Result<Peer>::err(e);
+		}
+		peer->SetSessionConfig(session_.data(), static_cast<unsigned int>(session_.size()));
 		if (!peer->SetEncryptionMode(encryption_))
 		{
 			PeerError e;
@@ -540,6 +558,7 @@ private:
 	unsigned short connectPort_ = 0;
 	std::string connectPassword_;
 	bool wantConnect_ = false;
+	std::string session_;
 	EncryptionMode encryption_ = EncryptionMode::Required;
 	bool pinned_ = false;
 	PublicKey pin_ = {};

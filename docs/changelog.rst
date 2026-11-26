@@ -9,6 +9,13 @@ Unreleased
 * Every incoming session requires an application decision. Answer ``ConnectionRequested``
   (or ``ID_SESSION_CONFIG_REQUEST`` on a raw peer), then call ``accept_player()``
   when the connected client can join the game. See :doc:`guide/player-server`.
+* ``MafiaNet::Client`` is the client counterpart of ``Server``. It connects with a
+  session payload and an optional identity pin, and its ``poll()`` delivers queue
+  status, the accepted session's response, a typed ``ConnectionFailure`` and the
+  end of the session. A rejection and a graceful close carry an application
+  reason code with the detail on both ends; the server reports its own close as
+  ``LeaveReason::Closed``. ``Peer::client().session()`` sets the session payload.
+  See :doc:`guide/player-session-protocol`.
 
 Version 0.27.0
 --------------
