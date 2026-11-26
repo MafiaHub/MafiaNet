@@ -273,3 +273,99 @@ TEST(InterestGrid, RequiredObjectsDoNotUseTheObserverLimit)
 	const auto visible = Visible(grid, camera);
 	EXPECT_EQ(std::set<NetworkID>(visible.begin(), visible.end()), (std::set<NetworkID>{1, 2, 4}));
 }
+
+TEST(InterestGrid, EntityRangeWidensInterest)
+{
+	InterestGrid grid;
+	const PeerGuid camera{1};
+	ASSERT_TRUE(grid.Configure({{0, 0}, {2000, 2000}, 100}));
+	ASSERT_TRUE(grid.SetObserverRadius(camera, {0, 0}, 50, 60));
+	ASSERT_TRUE(grid.Track(1, {{150, 0}, 0, VIRTUAL_WORLD_DEFAULT, 0, 0, 200}));
+	EXPECT_EQ(Visible(grid, camera), std::vector<NetworkID>{1});
+	ASSERT_TRUE(grid.SetPosition(1, {205, 0}));
+	EXPECT_EQ(Visible(grid, camera), std::vector<NetworkID>{1});
+	ASSERT_TRUE(grid.SetPosition(1, {215, 0}));
+	EXPECT_TRUE(Visible(grid, camera).empty());
+	// Moving back into reach rebuilds the observer.
+	ASSERT_TRUE(grid.SetPosition(1, {150, 0}));
+	EXPECT_EQ(Visible(grid, camera), std::vector<NetworkID>{1});
+	// Giving up the range removes the widened interest.
+	ASSERT_TRUE(grid.SetScope(1, {{150, 0}}));
+	EXPECT_TRUE(Visible(grid, camera).empty());
+}
+
+TEST(InterestGrid, UsesEntityRangeReplacesTheObserverRadius)
+{
+	InterestGrid grid;
+	const PeerGuid camera{1};
+	ASSERT_TRUE(grid.Configure({{0, 0}, {2000, 2000}, 100}));
+	EXPECT_FALSE(grid.SetCategoryUsesEntityRange(0, true));
+	ASSERT_TRUE(grid.SetCategoryUsesEntityRange(5, true));
+	ASSERT_TRUE(grid.SetObserverRadius(camera, {0, 0}, 50, 50));
+	ASSERT_TRUE(grid.Track(2, {{30, 0}, 0, VIRTUAL_WORLD_DEFAULT, 0, 5, 10}));
+	EXPECT_TRUE(Visible(grid, camera).empty());
+	ASSERT_TRUE(grid.SetPosition(2, {8, 0}));
+	EXPECT_EQ(Visible(grid, camera), std::vector<NetworkID>{2});
+	ASSERT_TRUE(grid.SetCategoryUsesEntityRange(5, false));
+	ASSERT_TRUE(grid.SetPosition(2, {30, 0}));
+	EXPECT_EQ(Visible(grid, camera), std::vector<NetworkID>{2});
+}
+
+TEST(InterestGrid, RangedObjectsDoNotWidenOtherObserversQueries)
+{
+	InterestGrid grid;
+	const PeerGuid camera{1};
+	ASSERT_TRUE(grid.Configure({{0, 0}, {2000, 2000}, 100}));
+	for (NetworkID id = 1; id <= 1000; ++id)
+		ASSERT_TRUE(grid.Track(id, {{static_cast<float>((id * 37) % 2000), static_cast<float>((id * 91) % 2000)}}));
+	ASSERT_TRUE(grid.Track(5000, {{0, 0}, 0, VIRTUAL_WORLD_DEFAULT, 0, 0, 500}));
+	ASSERT_TRUE(grid.SetObserverRadius(camera, {1900, 1900}, 10, 10));
+	std::vector<NetworkID> out;
+	grid.GetVisible(camera, out);
+	EXPECT_LT(grid.GetStatistics().candidatesInspected, 50u);
+	EXPECT_EQ(std::count(out.begin(), out.end(), NetworkID(5000)), 0);
+}
+
+TEST(InterestGrid, RangedObjectOutsideSubscribedCellsIsFoundAndDirtiesOnlyNearbyObservers)
+{
+	InterestGrid grid;
+	const PeerGuid near{1}, far{2};
+	ASSERT_TRUE(grid.Configure({{0, 0}, {5000, 5000}, 100}));
+	ASSERT_TRUE(grid.SetObserverRadius(near, {0, 0}, 50, 50));
+	ASSERT_TRUE(grid.SetObserverRadius(far, {4000, 4000}, 50, 50));
+	ASSERT_TRUE(grid.Track(1, {{900, 0}, 0, VIRTUAL_WORLD_DEFAULT, 0, 0, 1000}));
+	EXPECT_EQ(Visible(grid, near), std::vector<NetworkID>{1});
+	EXPECT_TRUE(Visible(grid, far).empty());
+	const auto rebuilt = grid.GetStatistics().observersRebuilt;
+	ASSERT_TRUE(grid.SetPosition(1, {950, 0}));
+	EXPECT_EQ(Visible(grid, near), std::vector<NetworkID>{1});
+	EXPECT_EQ(Visible(grid, far).size(), 0u);
+	EXPECT_EQ(grid.GetStatistics().observersRebuilt, rebuilt + 1);
+	grid.Remove(1);
+	EXPECT_TRUE(Visible(grid, near).empty());
+}
+
+TEST(InterestGrid, ExplicitCellObserversSeeRangedObjectsInTheirOwnCellOnly)
+{
+	InterestGrid grid;
+	const PeerGuid cells{1};
+	ASSERT_TRUE(grid.Configure({{0, 0}, {2000, 2000}, 100}));
+	ASSERT_TRUE(grid.SetObserverCells(cells, {{0, 0}}));
+	ASSERT_TRUE(grid.Track(1, {{50, 50}, 0, VIRTUAL_WORLD_DEFAULT, 0, 0, 1000}));
+	ASSERT_TRUE(grid.Track(2, {{500, 500}, 0, VIRTUAL_WORLD_DEFAULT, 0, 0, 1000}));
+	EXPECT_EQ(Visible(grid, cells), std::vector<NetworkID>{1});
+}
+
+TEST(InterestGrid, ReconfigurationKeepsEntityRange)
+{
+	InterestGrid grid;
+	const PeerGuid camera{1};
+	ASSERT_TRUE(grid.Configure({{0, 0}, {2000, 2000}, 100}));
+	ASSERT_TRUE(grid.SetCategoryUsesEntityRange(5, true));
+	ASSERT_TRUE(grid.SetObserverRadius(camera, {0, 0}, 50, 50));
+	ASSERT_TRUE(grid.Track(1, {{900, 0}, 0, VIRTUAL_WORLD_DEFAULT, 0, 0, 1000}));
+	ASSERT_TRUE(grid.Track(2, {{30, 0}, 0, VIRTUAL_WORLD_DEFAULT, 0, 5, 10}));
+	ASSERT_TRUE(grid.Configure({{0, 0}, {2000, 2000}, 200}));
+	EXPECT_EQ(Visible(grid, camera), std::vector<NetworkID>{1});
+	EXPECT_FALSE(grid.Track(3, {{0, 0}, 0, VIRTUAL_WORLD_DEFAULT, 0, 0, -1}));
+}

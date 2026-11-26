@@ -20,6 +20,7 @@ public:
 		SpatialScope scope;
 		int cell;
 		PeerGuid required = UNASSIGNED_PEER_GUID;
+		std::pair<int64_t, int64_t> rangedCell{0, 0};
 	};
 	struct Observer
 	{
@@ -41,6 +42,11 @@ public:
 	std::map<PeerGuid, Observer> observers;
 	std::map<uint16_t, unsigned> categoryLimits;
 	std::set<NetworkID> alwaysVisible;
+	std::set<uint16_t> entityRangeCategories;
+	// Objects with range > 0 are also filed here, in cells sized to the longest range, so a radius observer finds them beyond its own cells.
+	std::map<std::pair<int64_t, int64_t>, std::set<Record *>> rangedCells;
+	std::multiset<float> rangedLengths;
+	float rangedCellSize = 0;
 	std::map<int, std::set<PeerGuid>> subscriptions;
 	std::function<bool(PeerGuid, NetworkID)> audience;
 	InterestStatistics stats;
@@ -74,6 +80,91 @@ public:
 	int Cell(SpatialPoint p) const
 	{
 		return Axis(p.y, config.minimum.y, height) * width + Axis(p.x, config.minimum.x, width);
+	}
+	std::pair<int64_t, int64_t> RangedCell(SpatialPoint p) const
+	{
+		return {static_cast<int64_t>(std::floor((static_cast<double>(p.x) - config.minimum.x) / rangedCellSize)), static_cast<int64_t>(std::floor((static_cast<double>(p.y) - config.minimum.y) / rangedCellSize))};
+	}
+	float LongestRange() const
+	{
+		return rangedLengths.empty() ? 0.0f : *rangedLengths.rbegin();
+	}
+	// The distance from which an observer (holding the object or not) sees it; negative when the object is not a spatial candidate.
+	double Reach(const Observer &observer, const SpatialScope &scope, bool held) const
+	{
+		const double margin = static_cast<double>(observer.leave) - observer.enter;
+		double base = observer.enter;
+		if (scope.range > 0)
+		{
+			base = entityRangeCategories.count(scope.category) ? static_cast<double>(scope.range) : (std::max)(static_cast<double>(scope.range), base);
+		}
+		return held ? base + margin : base;
+	}
+	// Dirties the radius observers that could see (or have seen) a ranged object at this position.
+	void DirtyRanged(const SpatialScope &scope)
+	{
+		for (auto &entry : observers)
+		{
+			auto &observer = entry.second;
+			if (!observer.radius || observer.dirty)
+			{
+				continue;
+			}
+			const double reach = Reach(observer, scope, true);
+			const double dx = static_cast<double>(scope.position.x) - observer.position.x;
+			const double dy = static_cast<double>(scope.position.y) - observer.position.y;
+			if (dx * dx + dy * dy <= reach * reach)
+			{
+				observer.dirty = true;
+			}
+		}
+	}
+	void RebuildRangedCells()
+	{
+		rangedCells.clear();
+		rangedCellSize = (std::max)(LongestRange(), config.cellSize);
+		for (auto &entry : objects)
+		{
+			if (entry.second.scope.range > 0)
+			{
+				entry.second.rangedCell = RangedCell(entry.second.scope.position);
+				rangedCells[entry.second.rangedCell].insert(&entry.second);
+			}
+		}
+	}
+	void FileRanged(Record &record)
+	{
+		if (record.scope.range <= 0)
+		{
+			return;
+		}
+		const float before = rangedCellSize;
+		rangedLengths.insert(record.scope.range);
+		if ((std::max)(LongestRange(), config.cellSize) != before)
+		{
+			RebuildRangedCells();
+			return;
+		}
+		record.rangedCell = RangedCell(record.scope.position);
+		rangedCells[record.rangedCell].insert(&record);
+	}
+	void UnfileRanged(Record &record)
+	{
+		if (record.scope.range <= 0)
+		{
+			return;
+		}
+		auto cell = rangedCells.find(record.rangedCell);
+		if (cell != rangedCells.end())
+		{
+			cell->second.erase(&record);
+			if (cell->second.empty())
+			{
+				rangedCells.erase(cell);
+			}
+		}
+		rangedLengths.erase(rangedLengths.find(record.scope.range));
+		// The cell size only grows lazily: it is recomputed the next time the longest range changes while filing.
 	}
 	void DirtyAll()
 	{
@@ -128,7 +219,7 @@ public:
 			const double dy = static_cast<double>(record.scope.position.y) - observer.position.y;
 			double d = observer.radius ? dx * dx + dy * dy : 0;
 			const bool held = observer.visible.count(record.id) != 0;
-			const double r = held ? observer.leave : observer.enter;
+			const double r = (record.scope.range > 0 || !entityRangeCategories.empty()) ? Reach(observer, record.scope, held) : (held ? observer.leave : observer.enter);
 			if (!uncounted && observer.radius && d > r * r)
 				return;
 			// Retain an incumbent within 5% of a challenger's distance at the cap.
@@ -151,6 +242,46 @@ public:
 				auto &record = *static_cast<Record *>(entry);
 				if (record.required != guid)
 					consider(record, false);
+			}
+		}
+		if (observer.radius && !rangedCells.empty())
+		{
+			const double margin = static_cast<double>(observer.leave) - observer.enter;
+			const double reach = (std::max)(static_cast<double>(LongestRange()), static_cast<double>(observer.enter)) + margin;
+			const auto low = RangedCell({static_cast<float>(observer.position.x - reach), static_cast<float>(observer.position.y - reach)});
+			const auto high = RangedCell({static_cast<float>(observer.position.x + reach), static_cast<float>(observer.position.y + reach)});
+			const double span = (static_cast<double>(high.first) - low.first + 1) * (static_cast<double>(high.second) - low.second + 1);
+			auto scanCell = [&](const std::set<Record *> &cell)
+			{
+				++stats.cellsVisited;
+				for (auto *record : cell)
+				{
+					if (record->required != guid)
+					{
+						consider(*record, false);
+					}
+				}
+			};
+			if (span > static_cast<double>(rangedCells.size()))
+			{
+				for (const auto &cell : rangedCells)
+				{
+					scanCell(cell.second);
+				}
+			}
+			else
+			{
+				for (int64_t y = low.second; y <= high.second; ++y)
+				{
+					for (int64_t x = low.first; x <= high.first; ++x)
+					{
+						auto cell = rangedCells.find({x, y});
+						if (cell != rangedCells.end())
+						{
+							scanCell(cell->second);
+						}
+					}
+				}
 			}
 		}
 		std::sort(ranked.begin(), ranked.end());
@@ -234,6 +365,7 @@ bool InterestGrid::Configure(InterestGridConfig config)
 			replacement.Require(id, record.required);
 	next.categoryLimits = impl->categoryLimits;
 	next.alwaysVisible = impl->alwaysVisible;
+	next.entityRangeCategories = impl->entityRangeCategories;
 	next.stats = impl->stats;
 	next.audience = std::move(impl->audience);
 	impl.swap(replacement.impl);
@@ -242,7 +374,7 @@ bool InterestGrid::Configure(InterestGridConfig config)
 bool InterestGrid::Track(NetworkID id, SpatialScope scope)
 {
 	impl->CheckWritable();
-	if (!impl->Valid(scope.position) || id == UNASSIGNED_NETWORK_ID)
+	if (!impl->Valid(scope.position) || id == UNASSIGNED_NETWORK_ID || !(scope.range >= 0 && std::isfinite(scope.range)))
 		return false;
 	const int cell = impl->Cell(scope.position);
 	auto inserted = impl->objects.emplace(id, Impl::Record{id, scope, cell});
@@ -250,17 +382,23 @@ bool InterestGrid::Track(NetworkID id, SpatialScope scope)
 		return false;
 	impl->index.AddEntry(&inserted.first->second, static_cast<float>(cell % impl->width), static_cast<float>(cell / impl->width));
 	impl->Dirty(cell);
+	impl->FileRanged(inserted.first->second);
+	impl->DirtyRanged(scope);
 	return true;
 }
 bool InterestGrid::SetScope(NetworkID id, SpatialScope scope)
 {
 	impl->CheckWritable();
 	auto it = impl->objects.find(id);
-	if (it == impl->objects.end() || !impl->Valid(scope.position))
+	if (it == impl->objects.end() || !impl->Valid(scope.position) || !(scope.range >= 0 && std::isfinite(scope.range)))
 		return false;
 	auto &r = it->second;
 	impl->Dirty(r.cell);
+	impl->DirtyRanged(r.scope);
+	impl->UnfileRanged(r);
 	r.scope = scope;
+	impl->FileRanged(r);
+	impl->DirtyRanged(r.scope);
 	r.cell = impl->Cell(scope.position);
 	impl->index.MoveEntry(&r, static_cast<float>(r.cell % impl->width), static_cast<float>(r.cell / impl->width));
 	impl->Dirty(r.cell);
@@ -292,6 +430,8 @@ void InterestGrid::Remove(NetworkID id)
 	if (impl->alwaysVisible.erase(id))
 		impl->DirtyAll();
 	impl->Dirty(it->second.cell);
+	impl->DirtyRanged(it->second.scope);
+	impl->UnfileRanged(it->second);
 	impl->index.RemoveEntry(&it->second);
 	impl->objects.erase(it);
 }
@@ -378,6 +518,15 @@ bool InterestGrid::SetCategoryLimit(uint16_t category, unsigned maxCount)
 	impl->DirtyAll();
 	return true;
 }
+bool InterestGrid::SetCategoryUsesEntityRange(uint16_t category, bool enabled)
+{
+	impl->CheckWritable();
+	if (category == 0)
+		return false;
+	if (enabled ? impl->entityRangeCategories.insert(category).second : impl->entityRangeCategories.erase(category) != 0)
+		impl->DirtyAll();
+	return true;
+}
 bool InterestGrid::SetAlwaysVisible(NetworkID id, bool enabled)
 {
 	impl->CheckWritable();
@@ -419,6 +568,10 @@ void InterestGrid::Clear()
 	impl->observers.clear();
 	impl->objects.clear();
 	impl->alwaysVisible.clear();
+	impl->entityRangeCategories.clear();
+	impl->rangedCells.clear();
+	impl->rangedLengths.clear();
+	impl->rangedCellSize = 0;
 	impl->categoryLimits.clear();
 	impl->stats = {};
 }

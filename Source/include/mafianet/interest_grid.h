@@ -29,6 +29,8 @@ struct SpatialScope
 	int priority = 0;
 	/// Budget category for SetCategoryLimit. 0 is uncategorised and never limited.
 	uint16_t category = 0;
+	/// Streaming range. Above 0 the object is seen by radius observers within max(range, observer enter radius), or within range alone for a category set by SetCategoryUsesEntityRange.
+	float range = 0;
 };
 struct InterestStatistics
 {
@@ -58,6 +60,8 @@ public:
 	void SetObserverLimits(PeerGuid guid, unsigned visibleLimit, unsigned constructionBudget);
 	/// Caps how many objects of a category any observer sees at once; nearest first. 0 removes the limit. False for category 0.
 	bool SetCategoryLimit(uint16_t category, unsigned maxCount);
+	/// Objects of this category are seen within their own SpatialScope::range instead of the observer radius. False for category 0.
+	bool SetCategoryUsesEntityRange(uint16_t category, bool enabled);
 	/// An always-visible object ignores distance and observer limits, but not world, dimension or audience. False when id is not tracked.
 	bool SetAlwaysVisible(NetworkID id, bool enabled);
 	/// A read-only predicate. Mutating or reevaluating this grid inside it throws std::logic_error.
