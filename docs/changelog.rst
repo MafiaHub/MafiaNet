@@ -20,6 +20,26 @@ Unreleased
   Pulled children are counted in ``InterestStatistics::dependencyPulls``.
 * ``InterestGrid::SetAlwaysVisible()`` shows an object to every eligible observer whatever its position
   (``InterestStatistics::alwaysVisiblePulls``).
+* Delegated simulation: ``ReplicationManager::SetDelegation()`` hands each opted-in replica to the nearest
+  eligible client to simulate, through ``SetAuthority()``. ``DelegationPolicy`` sets the acquire and release
+  ranges, a weight and the veto's grace. The incumbent keeps the replica unless a challenger's squared distance
+  beats 0.72 times its own. Each replica is re-elected about once per ``SetDelegationInterval()`` (500 ms by
+  default), staggered over ticks. The rule is public as ``ElectSimulator()``. See :doc:`guide/replication`.
+* ``SetClientCapacity()`` bounds the summed weight a client simulates; ``GetDelegatedLoad()`` reads it.
+  ``Suspend()`` and ``Resume()`` take a client out of the election and back. ``Pin()``, ``Unpin()`` and
+  ``IsPinned()`` keep a replica on one client, or dormant on the server. A disconnect re-elects what the client
+  held at once.
+* ``DeclineAuthority()`` lets a client ask not to simulate a replica. The server passes it over until it withdraws,
+  loses sight of the replica or disconnects. A pin overrides a decline.
+* ``SetReleaseVeto()`` lets the server game postpone a handover away from a holder, for at most the policy's
+  ``graceMs``; then the handover is forced. Disconnects, suspensions and declines are never vetoed.
+* ``SetDelegationGroup()`` links replicas that must share a simulator, such as a truck and its trailer. A group is
+  elected once, with its root's policy and position and the summed weight, by clients eligible for every member,
+  and changes hands all or nothing. Members of a root set by hand follow it. The link also sets the interest
+  grid dependency.
+* ``SetDelegationCallback()`` reports ``Acquired``, ``Migrated`` and ``Dormant`` changes after they are applied,
+  outside MafiaNet's locks. ``GetDelegationStatistics()`` counts simulated and dormant replicas, elections,
+  handovers, refusals, forced handovers and declines.
 * Behaviour change: objects an authority holder requires no longer count toward the per-observer visible
   limit of ``SetObserverLimits()``. They are always added on top of it, as are dependency children and
   always-visible objects.

@@ -164,6 +164,94 @@ A dropped report does not advance the grant's sequence, so a correction never
 claims to have processed it. The limit is local server policy, not part of the
 session schema, and can change at any time. Zero accepts every report.
 
+Delegated simulation
+--------------------
+
+The server can choose which client simulates each object, instead of calling
+``SetAuthority`` itself. Opt an object in with a policy. It must be tracked in
+the interest grid, which gives its position, and its type needs an owner
+report.
+
+.. code-block:: cpp
+
+   MafiaNet::DelegationPolicy policy; // acquire 100, release 140, weight 1, grace 5000 ms
+   policy.weight = 2;
+   if (!replication.SetDelegation(pedestrian, &policy))
+       return false;
+   replication.SetDelegationCallback([](MafiaNet::NetworkID id, MafiaNet::PeerGuid previous,
+                                        MafiaNet::PeerGuid current, MafiaNet::DelegationChange change)
+   {
+       // Acquired, Migrated or Dormant: mirror the new simulator in the game.
+   });
+
+**Election.** The candidates are the Active radius observers that
+``SetAuthority`` would accept for the object: same world, a dimension that can
+see it, and an audience that allows it. The current holder is kept while it is
+within ``releaseRange``; a challenger must be within ``acquireRange``. With
+``proximitySteal`` on, a nearer challenger takes over only when its squared
+distance beats 0.72 times the holder's (``kDelegationStickyDiscount``, about 15%
+nearer in distance), so a holder is not swapped for a client at the same
+distance. Nobody in range leaves the object dormant: the server holds it and its
+replicated state stays as it was until a client reports again. The pure rule is
+public as ``ElectSimulator`` for tests and tools. Each object is re-elected about
+once per ``SetDelegationInterval`` (500 ms by default), spread over ticks by its
+network ID, inside ``Tick`` after the interest rebuild. The handover itself is
+``SetAuthority``, so the epoch, revocation and eligibility rules above apply
+unchanged.
+
+**Capacity.** ``SetClientCapacity(maxWeight)`` and
+``SetClientCapacity(guid, maxWeight)`` bound the summed weight a client holds
+(0 is unlimited). A client at capacity keeps what it holds and takes nothing
+new. ``GetDelegatedLoad(guid)`` reads its load.
+
+**Pin and suspend.** ``Pin(object, guid)`` keeps the object on that client
+whatever the ranges say, ``Pin(object, UNASSIGNED_PEER_GUID)`` keeps it dormant,
+and ``Unpin`` returns it to the election. ``Suspend(guid)`` releases everything
+the client holds and keeps it out of elections until ``Resume`` or its
+disconnect. A disconnect re-elects what the client held at once.
+
+**Decline.** A client calls ``DeclineAuthority(copy, true)`` to ask not to
+simulate an object, for example while its own game is loading, and ``false`` to
+withdraw. The server passes it over and takes the object from it if it holds
+it. A decline ends when the object leaves that client's visible set or either
+side disconnects. A pin overrides a decline without clearing it. Decline
+changes re-elect at most once every 100 ms.
+
+**Release veto.** ``SetReleaseVeto(canRelease)`` lets the game postpone a
+handover away from a holder, for example while a vehicle is mid-jump.
+``canRelease(id, holder)`` returning false postpones it for at most the
+policy's ``graceMs`` from the first refusal; after that the handover happens
+anyway. It is not asked for a disconnect, a suspension or a holder that
+declined. It runs during ``Tick`` with the replication world guard held, so it
+must answer from game state and must not change replication state.
+
+**Groups.** ``SetDelegationGroup(trailer, &truck)`` keeps a member with its
+leader's simulator. Links chain to the group's root; a cycle returns false.
+Members always have the root's holder, whatever the root's mode. A delegated
+root is elected once for the group, with its policy and position and the
+group's summed weight, and a client must be eligible for every member to win.
+The members of a root the game owns by hand (``SetAuthority``) follow it at the
+next ``Tick``. A handover is all or nothing: if a grant is refused, the ones
+already made in that pass are undone and the group is retried at its next pass.
+Pinning or declining any member acts on the whole group, and the veto is asked
+once, with the root's ID. The link also sets
+``InterestGrid::SetDependency(member, leader)``, so a client that sees the
+leader sees its members. Pass ``nullptr`` as the leader to unlink.
+
+**Timing.** ``Pin``, ``Unpin`` and ``Suspend`` take effect at the next
+``Tick``, never inside the call. A newly delegated object waits for its turn
+in the schedule. The delegation
+callback runs after the change is applied, outside every MafiaNet lock, in the
+order the changes were made. A pass asked for from inside it waits for the
+next ``Tick``. A ``SetAuthority`` or ``RevokeAuthority`` on a delegated object
+is re-elected at the next ``Tick``; pin it, or opt it out with
+``SetDelegation(object, nullptr)``, to choose its holder yourself. Opting out
+leaves the current holder in place.
+
+``GetDelegationStatistics()`` reports ``simulated`` and ``dormant`` objects,
+``elections`` run, ``handovers`` (one per grant the delegation changed),
+``refusals`` and ``forced`` handovers of the veto, and ``declines`` recorded.
+
 Scene lifecycle
 ---------------
 

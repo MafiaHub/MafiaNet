@@ -22,7 +22,13 @@ class Replica3;
 /// Server side of delegation: which client simulates each opted-in replica. Owned by ManagedReplication and used
 /// under its world guard. It hands replicas over only through ManagedReplication::Assign, so the epoch, revocation
 /// and eligibility rules of SetAuthority apply unchanged, and it follows every grant change through GrantChanged, so
-/// a client's load is always the summed weight of the delegated replicas it actually holds.
+/// a client's load is always the summed weight of the managed replicas it actually holds.
+///
+/// Managed replicas are the delegated ones and the members and leaders of delegation groups. A group is the tree of
+/// followers under a root (its leader that follows nobody); it has one holder. A delegated root is elected once for
+/// the group, with its policy and position and the group's summed weight, by candidates eligible for every member; a
+/// root that is not delegated is the game's, and its followers take whatever holder it has. Pins, declines, refusals
+/// and the schedule live on the root; a member's own policy only gives its weight.
 class DelegationService final
 {
 public:
@@ -44,6 +50,8 @@ public:
 	bool Pin(Replica3 &replica, PeerGuid guid);
 	bool Unpin(Replica3 &replica);
 	bool IsPinned(Replica3 &replica) const;
+	/// Links \a member under \a leader (null: unlinks it), and sets the matching interest grid dependency.
+	bool SetGroup(Replica3 &member, Replica3 *leader);
 	void SetCallback(Callback next) { callback = next ? std::make_shared<Callback>(std::move(next)) : nullptr; }
 	void SetReleaseVeto(Veto next) { veto = next ? std::make_shared<Veto>(std::move(next)) : nullptr; }
 	/// A client declined a replica it has constructed, or withdrew that. Ignored for a replica that is not delegated.
@@ -57,8 +65,9 @@ public:
 	void Pass();
 	/// Every grant change on a delegated replica, whoever made it. Not the delegation's own: it rechecks at once.
 	void GrantChanged(NetworkID id, PeerGuid current);
-	/// A session ended. Its grants are already gone (GrantChanged); what it held is re-elected here, at once.
-	void Disconnected(PeerGuid guid);
+	/// A session ended. Its grants are already gone (GrantChanged); the groups of the replicas it \a held, and those
+	/// pinned to it, are re-elected here, at once, without the veto. Everything else waits for its pass.
+	void Disconnected(PeerGuid guid, const std::vector<NetworkID> &held);
 	/// The replica is gone.
 	void Forget(NetworkID id);
 	void Reset();
@@ -69,6 +78,11 @@ private:
 	struct Entry
 	{
 		DelegationPolicy policy;
+		// Opted in with SetDelegation; otherwise managed only as a group member or leader.
+		bool delegated = false;
+		// The replica it follows, and those that follow it.
+		NetworkID leader = UNASSIGNED_NETWORK_ID;
+		std::vector<NetworkID> followers;
 		// Who carries this replica's weight: its actual grant holder.
 		PeerGuid charged = UNASSIGNED_PEER_GUID;
 		// The holder the callback last announced, so a change made outside a pass is reported relative to it.
@@ -108,23 +122,46 @@ private:
 	std::set<NetworkID> declineChanged;
 	TimeUS lastDeclinePass = 0;
 	bool declinePassRan = false;
-	// Bumped whenever an entry is erased, so an evaluation can tell that the veto it called broke the rules.
-	uint64_t erasures = 0;
+	// Bumped whenever an entry, a group link, a pin or a grant changes, so an evaluation can tell that the veto it
+	// called broke the rules.
+	uint64_t revision = 0;
 	std::deque<Notice> notices;
-	bool applying = false, delivering = false;
+	bool applying = false, delivering = false, disconnecting = false;
 	std::vector<DelegationCandidate> candidates;
+	// The group being evaluated, root first, and what its members declined.
+	std::vector<NetworkID> group;
+	std::vector<PeerGuid> groupDeclined;
+	struct Move
+	{
+		Replica3 *replica;
+		NetworkID id;
+		PeerGuid previous;
+	};
+	std::vector<Move> targets, moved;
 	std::vector<std::pair<PeerGuid, SpatialPoint>> nearby;
 
 	// The first time at or after `from` in this replica's phase of the interval.
 	TimeUS NextDue(NetworkID id, TimeUS from) const;
 	void Schedule(NetworkID id, Entry &entry, TimeUS due);
 	void Unschedule(NetworkID id, Entry &entry);
+	static uint32_t Weight(const Entry &entry) { return entry.delegated ? entry.policy.weight : DelegationPolicy{}.weight; }
 	void Charge(Entry &entry, PeerGuid holder);
 	bool Candidate(PeerGuid guid, NetworkID id) const;
+	// Candidate for every replica of `group`.
+	bool GroupCandidate(PeerGuid guid) const;
+	// The entry for a managed replica, created on first use with its current holder.
+	Entry &Track(NetworkID id);
+	NetworkID RootOf(NetworkID id) const;
+	// Has its own pass: a root that is delegated or leads a group.
+	static bool IsHead(const Entry &entry) { return entry.leader == UNASSIGNED_NETWORK_ID && (entry.delegated || !entry.followers.empty()); }
+	// Schedules, unschedules or erases the entry after a change to its policy or links.
+	void Refresh(NetworkID id);
+	void Erase(NetworkID id);
+	void Unlink(NetworkID member);
 	void Evaluate(NetworkID id, Entry &entry);
-	// Whether the release veto is asked before a handover away from this holder.
-	bool Vetoable(const Entry &entry, PeerGuid holder) const;
-	void DeclineChanged(NetworkID id, const Entry &entry);
+	// Whether the release veto is asked before a handover of `group` away from this holder.
+	bool Vetoable(PeerGuid holder) const;
+	void DeclineChanged(NetworkID id);
 	uint32_t CapacityOf(PeerGuid guid) const;
 	// Evaluates the urgent replicas; returns them.
 	std::vector<NetworkID> RunUrgent();

@@ -1061,10 +1061,12 @@ void ManagedReplication::Disconnected(PeerGuid guid)
 			clockServer = UNASSIGNED_PEER_GUID;
 	}
 	interest.RemoveObserver(guid);
+	std::vector<NetworkID> held;
 	for (auto grant = grants.begin(); grant != grants.end();)
 	{
 		if (grant->second.holder == guid && !IsDownload(grant->first))
 		{
+			held.push_back(grant->first);
 			delegation.GrantChanged(grant->first, UNASSIGNED_PEER_GUID);
 			grant = grants.erase(grant);
 		}
@@ -1093,7 +1095,7 @@ void ManagedReplication::Disconnected(PeerGuid guid)
 		delete connection;
 	}
 	if (owner.GetRole() == ReplicationRole::Server)
-		delegation.Disconnected(guid);
+		delegation.Disconnected(guid, held);
 	DispatchEvents();
 	if (active && connectionChanged)
 		connectionChanged(guid, false);

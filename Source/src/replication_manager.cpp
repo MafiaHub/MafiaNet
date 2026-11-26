@@ -388,6 +388,13 @@ void ReplicationManager::SetReleaseVeto(std::function<bool(NetworkID, PeerGuid)>
 	WorldGuard guard(*this);
 	managed->delegation.SetReleaseVeto(std::move(canRelease));
 }
+bool ReplicationManager::SetDelegationGroup(Replica3 &member, Replica3 *leader)
+{
+	if (role != ReplicationRole::Server)
+		return false;
+	WorldGuard guard(*this);
+	return managed->delegation.SetGroup(member, leader);
+}
 bool ReplicationManager::DeclineAuthority(Replica3 &replica, bool declined)
 {
 	if (role != ReplicationRole::Client)

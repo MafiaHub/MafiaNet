@@ -53,7 +53,7 @@ void DelegationService::Charge(Entry &entry, PeerGuid holder)
 		auto load = loads.find(entry.charged);
 		if (load != loads.end())
 		{
-			load->second -= (std::min)(load->second, entry.policy.weight);
+			load->second -= (std::min)(load->second, Weight(entry));
 			if (load->second == 0)
 			{
 				loads.erase(load);
@@ -63,8 +63,88 @@ void DelegationService::Charge(Entry &entry, PeerGuid holder)
 	entry.charged = holder;
 	if (holder != UNASSIGNED_PEER_GUID)
 	{
-		loads[holder] += entry.policy.weight;
+		loads[holder] += Weight(entry);
 	}
+}
+
+DelegationService::Entry &DelegationService::Track(NetworkID id)
+{
+	auto it = entries.find(id);
+	if (it == entries.end())
+	{
+		it = entries.emplace(id, Entry{}).first;
+		const PeerGuid holder = manager.HolderOf(id);
+		Charge(it->second, holder);
+		it->second.reported = holder;
+	}
+	return it->second;
+}
+
+NetworkID DelegationService::RootOf(NetworkID id) const
+{
+	for (auto it = entries.find(id); it != entries.end() && it->second.leader != UNASSIGNED_NETWORK_ID; it = entries.find(id))
+	{
+		id = it->second.leader;
+	}
+	return id;
+}
+
+void DelegationService::Refresh(NetworkID id)
+{
+	auto it = entries.find(id);
+	if (it == entries.end())
+	{
+		return;
+	}
+	Entry &entry = it->second;
+	if (!entry.delegated && entry.leader == UNASSIGNED_NETWORK_ID && entry.followers.empty())
+	{
+		// Nothing manages it any more: its holder stays, from now on the game's.
+		Erase(id);
+	}
+	else if (IsHead(entry))
+	{
+		if (!entry.scheduled)
+		{
+			Schedule(id, entry, NextDue(id, GetSteadyTimeUS()));
+		}
+	}
+	else
+	{
+		// A member: its group's root carries the schedule, the pin and the pending passes.
+		Unschedule(id, entry);
+		urgent.erase(id);
+		declineChanged.erase(id);
+		entry.pinned = false;
+		entry.pinnedTo = UNASSIGNED_PEER_GUID;
+		entry.refusing = false;
+	}
+}
+
+void DelegationService::Erase(NetworkID id)
+{
+	auto it = entries.find(id);
+	if (it == entries.end())
+	{
+		return;
+	}
+	Charge(it->second, UNASSIGNED_PEER_GUID);
+	Unschedule(id, it->second);
+	urgent.erase(id);
+	declineChanged.erase(id);
+	entries.erase(it);
+	++revision;
+}
+
+void DelegationService::Unlink(NetworkID member)
+{
+	Entry &entry = entries.at(member);
+	const NetworkID leader = entry.leader;
+	entry.leader = UNASSIGNED_NETWORK_ID;
+	auto &followers = entries.at(leader).followers;
+	followers.erase(std::remove(followers.begin(), followers.end(), member), followers.end());
+	++revision;
+	Refresh(leader);
 }
 
 uint32_t DelegationService::CapacityOf(PeerGuid guid) const
@@ -85,6 +165,18 @@ bool DelegationService::Candidate(PeerGuid guid, NetworkID id) const
 	return guid != UNASSIGNED_PEER_GUID && !suspended.count(guid) && manager.Status(guid) == ReplicationPeerStatus::Active && manager.interest.Eligible(guid, id);
 }
 
+bool DelegationService::GroupCandidate(PeerGuid guid) const
+{
+	for (NetworkID id : group)
+	{
+		if (!Candidate(guid, id))
+		{
+			return false;
+		}
+	}
+	return true;
+}
+
 bool DelegationService::Set(Replica3 &replica, const DelegationPolicy *policy)
 {
 	if (!manager.Delegable(replica))
@@ -93,34 +185,98 @@ bool DelegationService::Set(Replica3 &replica, const DelegationPolicy *policy)
 	}
 	const NetworkID id = replica.GetNetworkID();
 	auto it = entries.find(id);
-	if (!policy)
+	if (!policy && (it == entries.end() || !it->second.delegated))
 	{
-		// Opting out leaves the holder in place; from now on the game manages it by hand.
-		if (it != entries.end())
+		return true;
+	}
+	++revision;
+	Entry &entry = it == entries.end() ? Track(id) : it->second;
+	// Recharged with the new weight; the holder stays.
+	const PeerGuid holder = entry.charged;
+	Charge(entry, UNASSIGNED_PEER_GUID);
+	if (policy)
+	{
+		entry.policy = policy->Normalized();
+		if (!entry.delegated)
 		{
-			Charge(it->second, UNASSIGNED_PEER_GUID);
-			Unschedule(id, it->second);
-			urgent.erase(id);
-			declineChanged.erase(id);
-			entries.erase(it);
-			++erasures;
+			entry.delegated = true;
+			entry.reported = holder;
+		}
+	}
+	else
+	{
+		// Opting out leaves the holder in place; from now on the game manages it by hand (and a group it leads
+		// follows that).
+		entry.delegated = false;
+		entry.pinned = false;
+		entry.pinnedTo = UNASSIGNED_PEER_GUID;
+		entry.refusing = false;
+	}
+	Charge(entry, holder);
+	Refresh(id);
+	return true;
+}
+
+bool DelegationService::SetGroup(Replica3 &member, Replica3 *leader)
+{
+	if (!manager.Delegable(member) || (leader && !manager.Delegable(*leader)))
+	{
+		return false;
+	}
+	const NetworkID id = member.GetNetworkID();
+	if (!leader)
+	{
+		auto it = entries.find(id);
+		if (it == entries.end() || it->second.leader == UNASSIGNED_NETWORK_ID)
+		{
+			return true;
+		}
+		const NetworkID root = RootOf(id);
+		Unlink(id);
+		manager.interest.SetDependency(id, UNASSIGNED_NETWORK_ID);
+		// Its own policy, or the followers it leads, take over at the next pass; the old group is checked too.
+		Refresh(id);
+		if (entries.count(id))
+		{
+			urgent.insert(id);
+		}
+		if (entries.count(root))
+		{
+			urgent.insert(root);
 		}
 		return true;
 	}
-	if (it == entries.end())
+	const NetworkID to = leader->GetNetworkID();
+	// A cycle: the member already leads the leader, directly or not.
+	for (NetworkID up = to; up != UNASSIGNED_NETWORK_ID;)
 	{
-		it = entries.emplace(id, Entry{}).first;
-		it->second.policy = policy->Normalized();
-		const PeerGuid holder = manager.HolderOf(id);
-		Charge(it->second, holder);
-		it->second.reported = holder;
-		Schedule(id, it->second, NextDue(id, GetSteadyTimeUS()));
+		if (up == id)
+		{
+			return false;
+		}
+		auto it = entries.find(up);
+		up = it == entries.end() ? UNASSIGNED_NETWORK_ID : it->second.leader;
+	}
+	auto it = entries.find(id);
+	if (it != entries.end() && it->second.leader == to)
+	{
 		return true;
 	}
-	const PeerGuid holder = it->second.charged;
-	Charge(it->second, UNASSIGNED_PEER_GUID);
-	it->second.policy = policy->Normalized();
-	Charge(it->second, holder);
+	if (!manager.interest.SetDependency(id, to))
+	{
+		return false;
+	}
+	++revision;
+	Entry &entry = Track(id);
+	Track(to).followers.push_back(id);
+	if (entry.leader != UNASSIGNED_NETWORK_ID)
+	{
+		Unlink(id);
+	}
+	entry.leader = to;
+	Refresh(id);
+	Refresh(to);
+	urgent.insert(RootOf(to));
 	return true;
 }
 
@@ -130,7 +286,10 @@ void DelegationService::SetInterval(uint32_t milliseconds)
 	const TimeUS now = GetSteadyTimeUS();
 	for (auto &[id, entry] : entries)
 	{
-		Schedule(id, entry, NextDue(id, now));
+		if (IsHead(entry))
+		{
+			Schedule(id, entry, NextDue(id, now));
+		}
 	}
 }
 
@@ -150,7 +309,7 @@ void DelegationService::MarkHeldBy(PeerGuid guid)
 	{
 		if (entry.charged == guid || (entry.pinned && entry.pinnedTo == guid))
 		{
-			urgent.insert(id);
+			urgent.insert(RootOf(id));
 		}
 	}
 }
@@ -163,6 +322,7 @@ bool DelegationService::Suspend(PeerGuid guid)
 	}
 	if (suspended.insert(guid).second)
 	{
+		++revision;
 		MarkHeldBy(guid);
 	}
 	return true;
@@ -187,39 +347,50 @@ bool DelegationService::Resume(PeerGuid guid)
 
 bool DelegationService::Pin(Replica3 &replica, PeerGuid guid)
 {
-	if (!manager.Delegable(replica) || (guid != UNASSIGNED_PEER_GUID && !manager.sessions.count(guid)))
+	if (!manager.Delegable(replica) || (guid != UNASSIGNED_PEER_GUID && !manager.sessions.count(guid)) || !entries.count(replica.GetNetworkID()))
 	{
 		return false;
 	}
-	const NetworkID id = replica.GetNetworkID();
-	auto it = entries.find(id);
-	if (it == entries.end())
+	// A member pins its group, which only an elected root can be.
+	const NetworkID root = RootOf(replica.GetNetworkID());
+	Entry &entry = entries.at(root);
+	if (!entry.delegated)
 	{
 		return false;
 	}
-	it->second.pinned = true;
-	it->second.pinnedTo = guid;
-	urgent.insert(id);
+	++revision;
+	entry.pinned = true;
+	entry.pinnedTo = guid;
+	urgent.insert(root);
 	return true;
 }
 
 bool DelegationService::Unpin(Replica3 &replica)
 {
-	auto it = entries.find(replica.GetNetworkID());
-	if (!manager.Delegable(replica) || it == entries.end() || !it->second.pinned)
+	if (!manager.Delegable(replica) || !entries.count(replica.GetNetworkID()))
 	{
 		return false;
 	}
-	it->second.pinned = false;
-	it->second.pinnedTo = UNASSIGNED_PEER_GUID;
-	urgent.insert(it->first);
+	const NetworkID root = RootOf(replica.GetNetworkID());
+	Entry &entry = entries.at(root);
+	if (!entry.pinned)
+	{
+		return false;
+	}
+	++revision;
+	entry.pinned = false;
+	entry.pinnedTo = UNASSIGNED_PEER_GUID;
+	urgent.insert(root);
 	return true;
 }
 
 bool DelegationService::IsPinned(Replica3 &replica) const
 {
-	auto it = entries.find(replica.GetNetworkID());
-	return it != entries.end() && it->second.pinned;
+	if (!entries.count(replica.GetNetworkID()))
+	{
+		return false;
+	}
+	return entries.at(RootOf(replica.GetNetworkID())).pinned;
 }
 
 DelegationStatistics DelegationService::Statistics() const
@@ -237,10 +408,23 @@ DelegationStatistics DelegationService::Statistics() const
 	return out;
 }
 
-bool DelegationService::Vetoable(const Entry &entry, PeerGuid holder) const
+bool DelegationService::Vetoable(PeerGuid holder) const
 {
-	// Nobody to refuse for, a suspension (never vetoed), or a holder that gave the replica up itself.
-	return veto && holder != UNASSIGNED_PEER_GUID && !suspended.count(holder) && std::find(entry.declined.begin(), entry.declined.end(), holder) == entry.declined.end();
+	// Nobody to refuse for, a disconnect or a suspension (never vetoed), or a holder that gave up a replica of the
+	// group itself.
+	if (!veto || holder == UNASSIGNED_PEER_GUID || disconnecting || suspended.count(holder))
+	{
+		return false;
+	}
+	for (NetworkID id : group)
+	{
+		const auto &declined = entries.at(id).declined;
+		if (std::find(declined.begin(), declined.end(), holder) != declined.end())
+		{
+			return false;
+		}
+	}
+	return true;
 }
 
 void DelegationService::Declined(NetworkID id, PeerGuid guid, bool declined)
@@ -265,7 +449,7 @@ void DelegationService::Declined(NetworkID id, PeerGuid guid, bool declined)
 	{
 		list.erase(at);
 	}
-	DeclineChanged(id, it->second);
+	DeclineChanged(id);
 }
 
 void DelegationService::LeftScope(NetworkID id, PeerGuid guid)
@@ -280,16 +464,18 @@ void DelegationService::LeftScope(NetworkID id, PeerGuid guid)
 	if (at != list.end())
 	{
 		list.erase(at);
-		DeclineChanged(id, it->second);
+		DeclineChanged(id);
 	}
 }
 
-void DelegationService::DeclineChanged(NetworkID id, const Entry &entry)
+void DelegationService::DeclineChanged(NetworkID id)
 {
-	// Coalesced into a pass at most every kDeclinedPassGapUs. A pinned replica's holder does not depend on it.
-	if (!entry.pinned)
+	// Coalesced into a pass at most every kDeclinedPassGapUs, for the whole group. A pinned group's holder does not
+	// depend on it.
+	const NetworkID root = RootOf(id);
+	if (!entries.at(root).pinned)
 	{
-		declineChanged.insert(id);
+		declineChanged.insert(root);
 	}
 }
 
@@ -301,22 +487,52 @@ void DelegationService::Evaluate(NetworkID id, Entry &entry)
 	{
 		return;
 	}
+	group.assign(1, id);
+	for (size_t i = 0; i < group.size(); ++i)
+	{
+		// One by one: GCC 13 reports a false -Wstringop-overflow for a range insert here.
+		for (NetworkID follower : entries.at(group[i]).followers)
+		{
+			group.push_back(follower);
+		}
+	}
+	// Only a delegated root is the election's. The followers of any other root take its holder, whoever set it.
+	const bool elected = entry.delegated;
 	const PeerGuid current = entry.charged;
 	PeerGuid desired = UNASSIGNED_PEER_GUID;
 	SpatialScope scope;
 	if (entry.pinned)
 	{
 		// A pin overrides the ranges, not existence: a pin naming a client that cannot hold it now leaves it dormant.
-		desired = Candidate(entry.pinnedTo, id) ? entry.pinnedTo : UNASSIGNED_PEER_GUID;
+		desired = GroupCandidate(entry.pinnedTo) ? entry.pinnedTo : UNASSIGNED_PEER_GUID;
+	}
+	else if (!elected)
+	{
+		desired = GroupCandidate(current) ? current : UNASSIGNED_PEER_GUID;
 	}
 	else if (manager.interest.ScopeOf(id, scope))
 	{
+		DelegationPolicy policy = entry.policy;
+		const std::vector<PeerGuid> *declined = &entry.declined;
+		if (group.size() > 1)
+		{
+			// One election for the group: the root's policy and position, the group's weight and declines.
+			policy.weight = 0;
+			groupDeclined.clear();
+			for (NetworkID member : group)
+			{
+				const Entry &each = entries.at(member);
+				policy.weight += Weight(each);
+				groupDeclined.insert(groupDeclined.end(), each.declined.begin(), each.declined.end());
+			}
+			declined = &groupDeclined;
+		}
 		// Only the clients within the release range can win: nobody farther is kept or acquires.
-		manager.interest.RadiusObserversNear(scope.position, entry.policy.releaseRange, nearby);
+		manager.interest.RadiusObserversNear(scope.position, policy.releaseRange, nearby);
 		candidates.clear();
 		for (const auto &[guid, position] : nearby)
 		{
-			if (Candidate(guid, id))
+			if (GroupCandidate(guid))
 			{
 				DelegationCandidate candidate;
 				candidate.guid = guid;
@@ -326,21 +542,22 @@ void DelegationService::Evaluate(NetworkID id, Entry &entry)
 				candidates.push_back(candidate);
 			}
 		}
-		desired = ElectSimulator(entry.policy, scope.position, current, candidates, entry.declined);
+		desired = ElectSimulator(policy, scope.position, current, candidates, *declined);
 	}
 	bool forcing = false, postponed = false;
-	if (desired != current && Vetoable(entry, current))
+	if (elected && desired != current && Vetoable(current))
 	{
-		const uint64_t before = erasures;
+		// Asked once for the group, with the root's id: the group changes hands as one.
+		const uint64_t before = revision;
 		const std::shared_ptr<Veto> ask = veto;
 		const bool allowed = (*ask)(id, current);
-		// The veto must not change replication state. If it did anyway, this evaluation is void: the replica is
+		// The veto must not change replication state. If it did anyway, this evaluation is void: the group is
 		// elected again at the next pass, from whatever state the veto left.
-		if (erasures != before || manager.owner.FindReplica(id) != replica || entry.charged != current)
+		if (revision != before || manager.owner.FindReplica(id) != replica)
 		{
 			if (entries.count(id))
 			{
-				urgent.insert(id);
+				urgent.insert(RootOf(id));
 			}
 			return;
 		}
@@ -369,35 +586,84 @@ void DelegationService::Evaluate(NetworkID id, Entry &entry)
 	{
 		entry.refusing = false;
 	}
-	else if (!postponed)
+	// The replicas the delegation moves: the whole group, or only the followers of a root the game owns.
+	targets.clear();
+	for (size_t i = elected ? 0 : 1; i < group.size(); ++i)
 	{
-		// GrantChanged charges the new holder and ends the refusal. A refused grant leaves everything as it was, for
-		// the next pass.
-		applying = true;
-		const bool assigned = manager.Assign(*replica, desired);
-		applying = false;
-		if (assigned)
+		Replica3 *each = i == 0 ? replica : manager.owner.FindReplica(group[i]);
+		if (each)
 		{
-			++stats.handovers;
+			targets.push_back({each, group[i], entries.at(group[i]).charged});
+		}
+	}
+	if (!postponed)
+	{
+		// All or nothing. GrantChanged charges each new holder and ends its refusal. If a grant is refused, the ones
+		// this pass made are undone and the group stays as it was, for the next pass.
+		const bool refusing = entry.refusing;
+		const TimeUS refusingSince = entry.refusingSince;
+		moved.clear();
+		bool complete = true;
+		applying = true;
+		for (const Move &target : targets)
+		{
+			if (target.previous == desired)
+			{
+				continue;
+			}
+			if (!manager.Assign(*target.replica, desired))
+			{
+				complete = false;
+				break;
+			}
+			moved.push_back(target);
+		}
+		if (!complete)
+		{
+			for (auto undo = moved.rbegin(); undo != moved.rend(); ++undo)
+			{
+				// Back to the previous holder, or to the server if that client cannot have it any more: never split.
+				if (!manager.Assign(*undo->replica, undo->previous))
+				{
+					manager.Assign(*undo->replica, UNASSIGNED_PEER_GUID);
+				}
+			}
+			entry.refusing = refusing;
+			entry.refusingSince = refusingSince;
+		}
+		applying = false;
+		if (complete)
+		{
+			stats.handovers += moved.size();
 			if (forcing)
 			{
-				++stats.forced;
+				stats.forced += moved.size();
 			}
 		}
 	}
-	if (entry.charged != entry.reported)
+	if (!elected)
 	{
+		// The game changed the root's holder, not the delegation: nothing to report for it.
+		entry.reported = entry.charged;
+	}
+	for (const Move &target : targets)
+	{
+		Entry &each = entries.at(target.id);
+		if (each.charged == each.reported)
+		{
+			continue;
+		}
 		DelegationChange change = DelegationChange::Migrated;
-		if (entry.charged == UNASSIGNED_PEER_GUID)
+		if (each.charged == UNASSIGNED_PEER_GUID)
 		{
 			change = DelegationChange::Dormant;
 		}
-		else if (entry.reported == UNASSIGNED_PEER_GUID)
+		else if (each.reported == UNASSIGNED_PEER_GUID)
 		{
 			change = DelegationChange::Acquired;
 		}
-		notices.push_back({id, entry.reported, entry.charged, change});
-		entry.reported = entry.charged;
+		notices.push_back({target.id, each.reported, each.charged, change});
+		each.reported = each.charged;
 	}
 }
 
@@ -408,7 +674,7 @@ std::vector<NetworkID> DelegationService::RunUrgent()
 	for (NetworkID id : ran)
 	{
 		auto it = entries.find(id);
-		if (it != entries.end())
+		if (it != entries.end() && IsHead(it->second))
 		{
 			Evaluate(id, it->second);
 		}
@@ -452,19 +718,29 @@ void DelegationService::GrantChanged(NetworkID id, PeerGuid current)
 		return;
 	}
 	Charge(it->second, current);
+	++revision;
 	// A refusal is the holder's; a new holder starts with none.
 	it->second.refusing = false;
 	if (!applying)
 	{
-		// Revoked by MafiaNet (the holder became ineligible) or changed by the game: elect again at the next pass.
-		urgent.insert(id);
+		// Revoked by MafiaNet (the holder became ineligible) or changed by the game: the group is elected again (or
+		// follows its root's new holder) at the next pass.
+		urgent.insert(RootOf(id));
 	}
 }
 
-void DelegationService::Disconnected(PeerGuid guid)
+void DelegationService::Disconnected(PeerGuid guid, const std::vector<NetworkID> &held)
 {
 	suspended.erase(guid);
 	capacities.erase(guid);
+	std::set<NetworkID> heads;
+	for (NetworkID id : held)
+	{
+		if (entries.count(id))
+		{
+			heads.insert(RootOf(id));
+		}
+	}
 	for (auto &[id, entry] : entries)
 	{
 		entry.declined.erase(std::remove(entry.declined.begin(), entry.declined.end(), guid), entry.declined.end());
@@ -473,14 +749,27 @@ void DelegationService::Disconnected(PeerGuid guid)
 		{
 			entry.pinned = false;
 			entry.pinnedTo = UNASSIGNED_PEER_GUID;
-			urgent.insert(id);
+			heads.insert(id);
 		}
 	}
-	// Until re-elected, what it held has an owner that can never report again.
-	if (!delivering)
+	if (delivering)
 	{
-		RunUrgent();
+		urgent.insert(heads.begin(), heads.end());
+		return;
 	}
+	// Until re-elected, what it held has an owner that can never report again. Only that: the other pending passes
+	// (and the veto they may ask) wait for Tick.
+	disconnecting = true;
+	for (NetworkID id : heads)
+	{
+		urgent.erase(id);
+		auto it = entries.find(id);
+		if (it != entries.end() && IsHead(it->second))
+		{
+			Evaluate(id, it->second);
+		}
+	}
+	disconnecting = false;
 }
 
 void DelegationService::Forget(NetworkID id)
@@ -490,18 +779,34 @@ void DelegationService::Forget(NetworkID id)
 	{
 		return;
 	}
-	Charge(it->second, UNASSIGNED_PEER_GUID);
-	Unschedule(id, it->second);
-	urgent.erase(id);
-	declineChanged.erase(id);
-	entries.erase(it);
-	++erasures;
+	if (it->second.leader != UNASSIGNED_NETWORK_ID)
+	{
+		const NetworkID root = RootOf(id);
+		Unlink(id);
+		if (entries.count(root))
+		{
+			urgent.insert(root);
+		}
+	}
+	// Its followers lead themselves now (the grid drops their dependency with it), each keeping its holder.
+	const std::vector<NetworkID> followers = std::move(entries.at(id).followers);
+	entries.at(id).followers.clear();
+	for (NetworkID follower : followers)
+	{
+		entries.at(follower).leader = UNASSIGNED_NETWORK_ID;
+		Refresh(follower);
+		if (entries.count(follower))
+		{
+			urgent.insert(follower);
+		}
+	}
+	Erase(id);
 }
 
 void DelegationService::Reset()
 {
 	entries.clear();
-	++erasures;
+	++revision;
 	schedule.clear();
 	urgent.clear();
 	declineChanged.clear();
