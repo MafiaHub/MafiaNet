@@ -21,6 +21,8 @@ public:
 		int cell;
 		PeerGuid required = UNASSIGNED_PEER_GUID;
 		std::pair<int64_t, int64_t> rangedCell{0, 0};
+		// The rebuild that last considered this record, so a record reached by several paths is inspected once.
+		uint64_t considered = 0;
 	};
 	struct Observer
 	{
@@ -44,6 +46,8 @@ public:
 	float lookaheadSeconds = 0;
 	static constexpr double kMinLookaheadDist = 5;
 	std::set<NetworkID> alwaysVisible;
+	std::map<NetworkID, NetworkID> parents;
+	std::map<NetworkID, std::set<NetworkID>> children;
 	std::set<uint16_t> entityRangeCategories;
 	// Objects with range > 0 are also filed here, in cells sized to the longest range, so a radius observer finds them beyond its own cells.
 	std::map<std::pair<int64_t, int64_t>, std::set<Record *>> rangedCells;
@@ -52,6 +56,7 @@ public:
 	std::map<int, std::set<PeerGuid>> subscriptions;
 	std::function<bool(PeerGuid, NetworkID)> audience;
 	InterestStatistics stats;
+	uint64_t rebuildStamp = 0;
 	mutable bool queryingAudience = false;
 	void CheckWritable() const
 	{
@@ -107,7 +112,9 @@ public:
 			const double dy = static_cast<double>(observer.velocity.y) * lookaheadSeconds;
 			if (dx * dx + dy * dy > kMinLookaheadDist * kMinLookaheadDist)
 			{
-				foci.points[1] = {static_cast<float>(observer.position.x + dx), static_cast<float>(observer.position.y + dy)};
+				// Clamped so a huge velocity cannot overflow the float conversion.
+				constexpr double kLimit = std::numeric_limits<float>::max();
+				foci.points[1] = {static_cast<float>(std::clamp(observer.position.x + dx, -kLimit, kLimit)), static_cast<float>(std::clamp(observer.position.y + dy, -kLimit, kLimit))};
 				foci.count = 2;
 			}
 		}
@@ -222,6 +229,32 @@ public:
 		rangedLengths.erase(rangedLengths.find(record.scope.range));
 		// The cell size only grows lazily: it is recomputed the next time the longest range changes while filing.
 	}
+	void DirtyViewersOf(NetworkID id)
+	{
+		for (auto &entry : observers)
+		{
+			if (entry.second.visible.count(id))
+			{
+				entry.second.dirty = true;
+			}
+		}
+	}
+	void Unlink(NetworkID child)
+	{
+		auto found = parents.find(child);
+		if (found == parents.end())
+		{
+			return;
+		}
+		DirtyViewersOf(found->second);
+		auto siblings = children.find(found->second);
+		siblings->second.erase(child);
+		if (siblings->second.empty())
+		{
+			children.erase(siblings);
+		}
+		parents.erase(found);
+	}
 	void DirtyAll()
 	{
 		for (auto &entry : observers)
@@ -262,13 +295,16 @@ public:
 		// Entries are ranked uncounted first (required by an authority holder, always visible), then spatial candidates.
 		// Uncounted entries bypass the distance test, the category limits and the observer limit.
 		std::vector<std::tuple<bool, int64_t, double, NetworkID>> ranked;
-		std::set<NetworkID> considered;
+		const uint64_t stamp = ++rebuildStamp;
 		std::vector<void *> hits;
 		const Foci foci = FociOf(observer);
-		auto consider = [&](const Record &record, bool uncounted)
+		auto consider = [&](Record &record, bool uncounted)
 		{
-			if (!considered.insert(record.id).second)
+			if (record.considered == stamp)
+			{
 				return;
+			}
+			record.considered = stamp;
 			++stats.candidatesInspected;
 			if (!Eligible(guid, observer, record))
 				return;
@@ -322,10 +358,12 @@ public:
 				};
 				if (span > static_cast<double>(rangedCells.size()))
 				{
+					// A full scan covers every focus.
 					for (const auto &cell : rangedCells)
 					{
 						scanCell(cell.second);
 					}
+					break;
 				}
 				else
 				{
@@ -372,6 +410,28 @@ public:
 			}
 			observer.visible.insert(std::get<3>(item));
 			observer.ordered.push_back(std::get<3>(item));
+		}
+		// Dependency children of every visible object follow it, uncounted, while eligible.
+		if (!children.empty())
+		{
+			for (size_t i = 0; i < observer.ordered.size(); ++i)
+			{
+				auto found = children.find(observer.ordered[i]);
+				if (found == children.end())
+				{
+					continue;
+				}
+				for (auto child : found->second)
+				{
+					if (observer.visible.count(child) || !Eligible(guid, observer, objects.at(child)))
+					{
+						continue;
+					}
+					++stats.dependencyPulls;
+					observer.visible.insert(child);
+					observer.ordered.push_back(child);
+				}
+			}
 		}
 		observer.dirty = false;
 	}
@@ -423,6 +483,8 @@ bool InterestGrid::Configure(InterestGridConfig config)
 	for (const auto &[id, record] : impl->objects)
 		if (record.required != UNASSIGNED_PEER_GUID)
 			replacement.Require(id, record.required);
+	next.parents = impl->parents;
+	next.children = impl->children;
 	next.categoryLimits = impl->categoryLimits;
 	next.alwaysVisible = impl->alwaysVisible;
 	next.entityRangeCategories = impl->entityRangeCategories;
@@ -496,6 +558,15 @@ void InterestGrid::Remove(NetworkID id)
 		if (observer.visible.erase(id))
 			observer.dirty = true;
 	Require(id, UNASSIGNED_PEER_GUID);
+	impl->DirtyViewersOf(id);
+	impl->Unlink(id);
+	if (auto kids = impl->children.find(id); kids != impl->children.end())
+	{
+		for (auto child : std::set<NetworkID>(kids->second))
+		{
+			impl->Unlink(child);
+		}
+	}
 	if (impl->alwaysVisible.erase(id))
 		impl->DirtyAll();
 	impl->Dirty(it->second.cell);
@@ -628,6 +699,36 @@ bool InterestGrid::SetAlwaysVisible(NetworkID id, bool enabled)
 		impl->DirtyAll();
 	return true;
 }
+bool InterestGrid::SetDependency(NetworkID child, NetworkID parent)
+{
+	impl->CheckWritable();
+	if (!impl->objects.count(child) || (parent != UNASSIGNED_NETWORK_ID && (!impl->objects.count(parent) || child == parent)))
+	{
+		return false;
+	}
+	if (parent == UNASSIGNED_NETWORK_ID)
+	{
+		impl->Unlink(child);
+		return true;
+	}
+	for (auto up = impl->parents.find(parent); up != impl->parents.end(); up = impl->parents.find(up->second))
+	{
+		if (up->second == child)
+		{
+			return false;
+		}
+	}
+	impl->Unlink(child);
+	impl->parents[child] = parent;
+	impl->children[parent].insert(child);
+	impl->DirtyViewersOf(parent);
+	return true;
+}
+NetworkID InterestGrid::GetDependency(NetworkID child) const
+{
+	auto found = impl->parents.find(child);
+	return found == impl->parents.end() ? UNASSIGNED_NETWORK_ID : found->second;
+}
 void InterestGrid::SetAudience(std::function<bool(PeerGuid, NetworkID)> audience)
 {
 	impl->CheckWritable();
@@ -660,6 +761,8 @@ void InterestGrid::Clear()
 	impl->observers.clear();
 	impl->objects.clear();
 	impl->alwaysVisible.clear();
+	impl->parents.clear();
+	impl->children.clear();
 	impl->entityRangeCategories.clear();
 	impl->rangedCells.clear();
 	impl->rangedLengths.clear();

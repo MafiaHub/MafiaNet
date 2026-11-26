@@ -37,6 +37,8 @@ struct InterestStatistics
 	uint64_t observersRebuilt = 0, cellsVisited = 0, candidatesInspected = 0;
 	/// Always-visible objects considered by a rebuild, and candidates skipped by a category limit.
 	uint64_t alwaysVisiblePulls = 0, categoryCapped = 0;
+	/// Dependency children added to an observer's visible set because their parent was visible.
+	uint64_t dependencyPulls = 0;
 };
 /// A bounded two-dimensional grid. Coordinates include the outer maximum.
 class RAK_DLL_EXPORT InterestGrid
@@ -68,6 +70,10 @@ public:
 	bool SetCategoryUsesEntityRange(uint16_t category, bool enabled);
 	/// An always-visible object ignores distance and observer limits, but not world, dimension or audience. False when id is not tracked.
 	bool SetAlwaysVisible(NetworkID id, bool enabled);
+	/// While the parent is visible to an observer, so is the child, uncounted and wherever it is, if the observer is eligible for it. UNASSIGNED_NETWORK_ID as parent clears the link. False when either id is untracked, child == parent, or the link would make a cycle.
+	bool SetDependency(NetworkID child, NetworkID parent);
+	/// The parent of a child, or UNASSIGNED_NETWORK_ID.
+	NetworkID GetDependency(NetworkID child) const;
 	/// A read-only predicate. Mutating or reevaluating this grid inside it throws std::logic_error.
 	void SetAudience(std::function<bool(PeerGuid, NetworkID)> eligible);
 	void InvalidateObserver(PeerGuid guid);

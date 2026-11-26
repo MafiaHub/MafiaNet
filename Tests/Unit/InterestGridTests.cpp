@@ -441,22 +441,38 @@ TEST(InterestGrid, LookaheadAppliesToRangedObjectsAndDirtying)
 
 TEST(InterestGrid, ShortLookaheadIsIgnored)
 {
-	auto inspected = [](bool withVelocity)
+	// Cells are 50 wide. A 2-unit focus ahead of x = 47.5 would reach into the next cell and see the object at x = 50.2.
+	auto run = [](bool withVelocity)
 	{
 		InterestGrid grid;
 		const PeerGuid camera{1};
 		EXPECT_TRUE(grid.Configure({{-100, -100}, {300, 100}, 50}));
 		grid.SetLookaheadSeconds(2);
-		EXPECT_TRUE(grid.SetObserverRadius(camera, {0, 0}, 20, 20));
+		EXPECT_TRUE(grid.SetObserverRadius(camera, {47.5f, 0}, 1, 1));
 		if (withVelocity)
 		{
 			EXPECT_TRUE(grid.SetObserverVelocity(camera, {1, 0}));
 		}
-		EXPECT_TRUE(grid.Track(1, {{10, 0}}));
-		Visible(grid, camera);
-		return grid.GetStatistics().candidatesInspected;
+		EXPECT_TRUE(grid.Track(1, {{50.2f, 0}}));
+		const auto visible = Visible(grid, camera);
+		return std::make_pair(visible, grid.GetStatistics().cellsVisited);
 	};
-	EXPECT_EQ(inspected(true), inspected(false));
+	const auto with = run(true), without = run(false);
+	EXPECT_TRUE(with.first.empty());
+	EXPECT_EQ(with.first, without.first);
+	EXPECT_EQ(with.second, without.second);
+}
+
+TEST(InterestGrid, HugeVelocityDoesNotOverflowTheFocus)
+{
+	InterestGrid grid;
+	const PeerGuid camera{1};
+	ASSERT_TRUE(grid.Configure({{-100, -100}, {300, 100}, 50}));
+	grid.SetLookaheadSeconds(std::numeric_limits<float>::max());
+	ASSERT_TRUE(grid.SetObserverRadius(camera, {0, 0}, 20, 20));
+	ASSERT_TRUE(grid.SetObserverVelocity(camera, {std::numeric_limits<float>::max(), -std::numeric_limits<float>::max()}));
+	ASSERT_TRUE(grid.Track(1, {{10, 0}}));
+	EXPECT_EQ(Visible(grid, camera), std::vector<NetworkID>{1});
 }
 
 TEST(InterestGrid, ObserverVelocityValidationAndReconfigure)
@@ -481,4 +497,121 @@ TEST(InterestGrid, ObserverVelocityValidationAndReconfigure)
 	EXPECT_EQ(Visible(grid, camera), std::vector<NetworkID>{1});
 	ASSERT_TRUE(grid.SetObserverPosition(camera, {10, 0}));
 	EXPECT_EQ(Visible(grid, camera), std::vector<NetworkID>{1});
+}
+
+TEST(InterestGrid, DependencyFollowsItsParent)
+{
+	InterestGrid grid;
+	const PeerGuid camera{1};
+	ASSERT_TRUE(grid.Configure({{0, 0}, {1000, 1000}, 50}));
+	ASSERT_TRUE(grid.SetObserverRadius(camera, {0, 0}, 50, 50));
+	ASSERT_TRUE(grid.Track(1, {{10, 0}}));
+	ASSERT_TRUE(grid.Track(2, {{900, 0}}));
+	EXPECT_EQ(Visible(grid, camera), std::vector<NetworkID>{1});
+	EXPECT_EQ(grid.GetDependency(2), UNASSIGNED_NETWORK_ID);
+	ASSERT_TRUE(grid.SetDependency(2, 1));
+	EXPECT_EQ(grid.GetDependency(2), 1u);
+	auto visible = Visible(grid, camera);
+	EXPECT_EQ(std::set<NetworkID>(visible.begin(), visible.end()), (std::set<NetworkID>{1, 2}));
+	EXPECT_GE(grid.GetStatistics().dependencyPulls, 1u);
+	ASSERT_TRUE(grid.SetPosition(1, {500, 0}));
+	EXPECT_TRUE(Visible(grid, camera).empty());
+	ASSERT_TRUE(grid.SetPosition(1, {10, 0}));
+	EXPECT_EQ(Visible(grid, camera).size(), 2u);
+	ASSERT_TRUE(grid.SetDependency(2, UNASSIGNED_NETWORK_ID));
+	EXPECT_EQ(Visible(grid, camera), std::vector<NetworkID>{1});
+	EXPECT_FALSE(grid.SetDependency(2, 99));
+	EXPECT_FALSE(grid.SetDependency(99, 1));
+	EXPECT_FALSE(grid.SetDependency(1, 1));
+}
+
+TEST(InterestGrid, DependencyChainsAndCycles)
+{
+	InterestGrid grid;
+	const PeerGuid camera{1};
+	ASSERT_TRUE(grid.Configure({{0, 0}, {1000, 1000}, 50}));
+	ASSERT_TRUE(grid.SetObserverRadius(camera, {0, 0}, 50, 50));
+	ASSERT_TRUE(grid.Track(1, {{10, 0}}));
+	ASSERT_TRUE(grid.Track(2, {{800, 0}}));
+	ASSERT_TRUE(grid.Track(3, {{900, 0}}));
+	ASSERT_TRUE(grid.SetDependency(3, 2));
+	ASSERT_TRUE(grid.SetDependency(2, 1));
+	auto visible = Visible(grid, camera);
+	EXPECT_EQ(std::set<NetworkID>(visible.begin(), visible.end()), (std::set<NetworkID>{1, 2, 3}));
+	EXPECT_FALSE(grid.SetDependency(1, 3));
+	EXPECT_FALSE(grid.SetDependency(1, 2));
+	EXPECT_EQ(grid.GetDependency(1), UNASSIGNED_NETWORK_ID);
+	ASSERT_TRUE(grid.SetPosition(1, {500, 0}));
+	EXPECT_TRUE(Visible(grid, camera).empty());
+}
+
+TEST(InterestGrid, DependenciesBypassLimits)
+{
+	InterestGrid grid;
+	const PeerGuid camera{1};
+	ASSERT_TRUE(grid.Configure({{0, 0}, {1000, 1000}, 50}));
+	ASSERT_TRUE(grid.SetObserverRadius(camera, {0, 0}, 50, 50));
+	grid.SetObserverLimits(camera, 1, 0);
+	ASSERT_TRUE(grid.SetCategoryLimit(4, 1));
+	ASSERT_TRUE(grid.Track(1, {{10, 0}, 0, VIRTUAL_WORLD_DEFAULT, 0, 4}));
+	ASSERT_TRUE(grid.Track(2, {{800, 0}, 0, VIRTUAL_WORLD_DEFAULT, 0, 4}));
+	ASSERT_TRUE(grid.Track(3, {{20, 0}, 0, VIRTUAL_WORLD_DEFAULT, 0, 4}));
+	ASSERT_TRUE(grid.SetDependency(2, 1));
+	ASSERT_TRUE(grid.SetDependency(3, 1));
+	const auto visible = Visible(grid, camera);
+	EXPECT_EQ(std::set<NetworkID>(visible.begin(), visible.end()), (std::set<NetworkID>{1, 2, 3}));
+	ASSERT_EQ(visible.size(), 3u);
+	EXPECT_EQ(visible.front(), 1u);
+}
+
+TEST(InterestGrid, DependencyStillChecksEligibility)
+{
+	InterestGrid grid;
+	const PeerGuid camera{1};
+	ASSERT_TRUE(grid.Configure({{0, 0}, {1000, 1000}, 50}));
+	ASSERT_TRUE(grid.SetObserverRadius(camera, {0, 0}, 50, 50));
+	grid.SetObserverWorld(camera, 0, 1);
+	ASSERT_TRUE(grid.Track(1, {{10, 0}, 0, 1}));
+	ASSERT_TRUE(grid.Track(2, {{900, 0}, 0, 2}));
+	ASSERT_TRUE(grid.Track(3, {{905, 0}, 0, 1}));
+	ASSERT_TRUE(grid.SetDependency(2, 1));
+	ASSERT_TRUE(grid.SetDependency(3, 2));
+	EXPECT_EQ(Visible(grid, camera), std::vector<NetworkID>{1});
+}
+
+TEST(InterestGrid, RemovingAParentClearsItsChildren)
+{
+	InterestGrid grid;
+	const PeerGuid camera{1};
+	ASSERT_TRUE(grid.Configure({{0, 0}, {1000, 1000}, 50}));
+	ASSERT_TRUE(grid.SetObserverRadius(camera, {0, 0}, 50, 50));
+	ASSERT_TRUE(grid.Track(1, {{10, 0}}));
+	ASSERT_TRUE(grid.Track(2, {{900, 0}}));
+	ASSERT_TRUE(grid.Track(3, {{950, 0}}));
+	ASSERT_TRUE(grid.SetDependency(2, 1));
+	ASSERT_TRUE(grid.SetDependency(1, 3));
+	EXPECT_EQ(Visible(grid, camera).size(), 2u);
+	grid.Remove(1);
+	EXPECT_EQ(grid.GetDependency(2), UNASSIGNED_NETWORK_ID);
+	EXPECT_TRUE(grid.SetDependency(3, 2));
+	EXPECT_TRUE(Visible(grid, camera).empty());
+	ASSERT_TRUE(grid.Track(1, {{10, 0}}));
+	EXPECT_EQ(Visible(grid, camera), std::vector<NetworkID>{1});
+}
+
+TEST(InterestGrid, DependenciesSurviveReconfigure)
+{
+	InterestGrid grid;
+	const PeerGuid camera{1};
+	ASSERT_TRUE(grid.Configure({{0, 0}, {1000, 1000}, 50}));
+	ASSERT_TRUE(grid.SetObserverRadius(camera, {0, 0}, 50, 50));
+	ASSERT_TRUE(grid.Track(1, {{10, 0}}));
+	ASSERT_TRUE(grid.Track(2, {{900, 0}}));
+	ASSERT_TRUE(grid.SetDependency(2, 1));
+	ASSERT_TRUE(grid.Configure({{0, 0}, {1000, 1000}, 25}));
+	EXPECT_EQ(grid.GetDependency(2), 1u);
+	EXPECT_EQ(Visible(grid, camera).size(), 2u);
+	grid.Clear();
+	ASSERT_TRUE(grid.Track(2, {{900, 0}}));
+	EXPECT_EQ(grid.GetDependency(2), UNASSIGNED_NETWORK_ID);
 }
