@@ -621,24 +621,24 @@ TEST_F(Delegation, DeclineForAReplicaTheSenderDoesNotHaveIsDropped)
 {
 	using namespace ReplicationWire;
 	// Delegated and on the server, but nowhere near client 0: it was never constructed for it.
-	Seat far;
-	ASSERT_TRUE(Host().Reference(&far, SpatialScope{{900, 900}}));
-	Delegate(far);
+	Seat distant;
+	ASSERT_TRUE(Host().Reference(&distant, SpatialScope{{900, 900}}));
+	Delegate(distant);
 	DeclineFromAfar(0);
 	ASSERT_EQ(Host().GetDelegationStatistics().declines, 1u);
 	const Header session = static_cast<RecordingPeer *>(clients[0])->decline;
 	ASSERT_EQ(session.kind, Kind::Decline);
 	BitStream forged;
 	WriteHeader(forged, Kind::Decline, session.clientToken, session.serverToken);
-	ReplicationWire::Decline{far.GetNetworkID(), true}.Write(forged);
+	ReplicationWire::Decline{distant.GetNetworkID(), true}.Write(forged);
 	clients[0]->Send(&forged, Priority::High, Reliability::ReliableOrdered, 0, server->GetMyGUID(), false);
 	Run(500);
 	EXPECT_EQ(Host().GetDelegationStatistics().declines, 1u);
 	// Not recorded: client 0 acquires the far seat once it comes near.
 	Place(0, {880, 900});
 	ASSERT_TRUE(AwaitChange([&](const Change &c)
-	                        { return c.id == far.GetNetworkID() && c.current == guids[0]; }));
-	Host().Dereference(&far);
+	                        { return c.id == distant.GetNetworkID() && c.current == guids[0]; }));
+	Host().Dereference(&distant);
 }
 
 TEST_F(Delegation, DisconnectReelectsOnlyWhatTheClientHeld)
