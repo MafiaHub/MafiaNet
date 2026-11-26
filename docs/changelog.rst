@@ -9,6 +9,10 @@ Unreleased
 * Every incoming session requires an application decision. Answer ``ConnectionRequested``
   (or ``ID_SESSION_CONFIG_REQUEST`` on a raw peer), then call ``accept_player()``
   when the connected client can join the game. See :doc:`guide/player-server`.
+* ``ReplicationManager::SetOwnerUpdateRateLimit()`` caps the owner reports the server accepts per
+  replica of a type from its authority holder. Reports beyond the rate and burst are dropped before
+  the accept callback and counted in ``ReplicationStatistics::ownerUpdatesDropped``. Off by default.
+  See :doc:`guide/replication`.
 
 Version 0.27.0
 --------------
