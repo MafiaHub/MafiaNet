@@ -1234,6 +1234,9 @@ protected:
 	void ClearSocketQueryOutput(void);
 	void ClearRequestedConnectionList(void);
 	void AddPacketToProducer(MafiaNet::Packet *p);
+	// Frees a packet AllocPacket() made that never reached the application (DeallocatePacket's legacy single-block
+	// branch does not apply to those).
+	void FreeUndeliveredPacket(MafiaNet::Packet *p);
 	unsigned int GenerateSeedFromGuid(void);
 	MafiaNet::Time GetClockDifferentialInt(RemoteSystemStruct *remoteSystem) const;
 

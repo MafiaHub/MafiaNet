@@ -1731,6 +1731,14 @@ void RakPeer::DeallocatePacket(Packet *packet)
 	}
 }
 
+void RakPeer::FreeUndeliveredPacket(Packet *packet)
+{
+	RakAssert(packet->deleteData);
+	std::free(packet->data);
+	delete packet;
+	--packetsOutstanding;
+}
+
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 // Description:
 // Return the total number of connections we are allowed
@@ -1853,7 +1861,7 @@ void RakPeer::CancelConnectionAttempt(const SystemAddress target)
 	}
 	packetReturnMutex.Unlock();
 	for (Packet *packet : withdrawn)
-		DeallocatePacket(packet);
+		FreeUndeliveredPacket(packet);
 	quitAndDataEvents.SetEvent();
 }
 
@@ -4018,7 +4026,7 @@ void RakPeer::ProduceWithheldConnectionPacket(RemoteSystemStruct *remoteSystem)
 		packetReturnMutex.Unlock();
 		if (cancelled)
 		{
-			DeallocatePacket(packet);
+			FreeUndeliveredPacket(packet);
 			remoteSystem->connectionReportedToApplication = false;
 			AbandonConnectionAttempt(remoteSystem);
 			return;
@@ -5227,7 +5235,7 @@ inline void RakPeer::AddPacketToProducer(MafiaNet::Packet *p)
 	if (!withdrawnConnections.empty() && std::find(withdrawnConnections.begin(), withdrawnConnections.end(), p->guid) != withdrawnConnections.end())
 	{
 		packetReturnMutex.Unlock();
-		DeallocatePacket(p);
+		FreeUndeliveredPacket(p);
 		return;
 	}
 	packetReturnQueue.push_back(p);
