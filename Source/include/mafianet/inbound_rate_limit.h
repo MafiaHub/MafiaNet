@@ -106,10 +106,10 @@ public:
 		else if (now > lastRefill)
 		{
 			// Bound the elapsed time first so the product cannot overflow: anything past a full refill is moot.
-			const uint64_t elapsed = std::min<uint64_t>(now - lastRefill, capacity / limit.messages_per_second + 1);
-			tokens = std::min(capacity, tokens + elapsed * limit.messages_per_second);
+			const uint64_t elapsed = (std::min<uint64_t>) (now - lastRefill, capacity / limit.messages_per_second + 1);
+			tokens = (std::min)(capacity, tokens + elapsed * limit.messages_per_second);
 		}
-		tokens = std::min(tokens, capacity);
+		tokens = (std::min)(tokens, capacity);
 		lastRefill = now;
 		started = true;
 		if (tokens < kUnit)
