@@ -270,7 +270,7 @@ RNS2BindResult RNS2_Berkley::BindSharedIPV4And6(RNS2_BerkleyBindParameters *bind
 	}
 
 	bool dualStackUnavailable = false;
-	const RNS2BindResult result = BindAddressFamily(bindParameters, AF_INET6, true, &dualStackUnavailable);
+	const RNS2BindResult result = IsWildcardBindHost(bindParameters->hostAddress) ? BindDualStackWildcard(bindParameters, &dualStackUnavailable) : BindAddressFamily(bindParameters, AF_INET6, true, &dualStackUnavailable);
 	if (bindParameters->requireDualStack)
 	{
 		if (dualStackUnavailable)
@@ -291,7 +291,82 @@ RNS2BindResult RNS2_Berkley::BindSharedIPV4And6(RNS2_BerkleyBindParameters *bind
 	return BindAddressFamily(bindParameters, AF_INET, false, nullptr);
 }
 
-RNS2BindResult RNS2_Berkley::BindAddressFamily(RNS2_BerkleyBindParameters *bindParameters, int family, bool wantDualStack, bool *dualStackUnavailable)
+// An IPv4 UDP socket bound to the wildcard address and \a port (0: the OS
+// picks one), whose port is written to \a *boundPort. INVALID_SOCKET when there
+// is none; \a *bindFailed then tells a refused bind() (the port is taken for
+// IPv4) from a host without IPv4 sockets.
+static RNS2Socket ReserveIpv4Port(unsigned short port, unsigned short *boundPort, bool *bindFailed)
+{
+	*bindFailed = false;
+	RNS2Socket reservation = socket__(AF_INET, SOCK_DGRAM, 0);
+	if (reservation == (RNS2Socket) INVALID_SOCKET)
+		return reservation;
+	sockaddr_in address;
+	memset(&address, 0, sizeof(address));
+	address.sin_family = AF_INET;
+	address.sin_addr.s_addr = htonl(INADDR_ANY);
+	address.sin_port = htons(port);
+	sockaddr_in bound;
+	socklen_t boundLength = sizeof(bound);
+	if (bind__(reservation, (const sockaddr *) &address, sizeof(address)) != 0)
+	{
+		*bindFailed = true;
+		closesocket__(reservation);
+		return (RNS2Socket) INVALID_SOCKET;
+	}
+	if (getsockname__(reservation, (sockaddr *) &bound, &boundLength) != 0)
+	{
+		closesocket__(reservation);
+		return (RNS2Socket) INVALID_SOCKET;
+	}
+	*boundPort = ntohs(bound.sin_port);
+	return reservation;
+}
+
+RNS2BindResult RNS2_Berkley::BindDualStackWildcard(RNS2_BerkleyBindParameters *bindParameters, bool *dualStackUnavailable)
+{
+	// Only UDP has the two port spaces to keep in step (Startup may pass a
+	// raw-socket protocol).
+	const bool udp = bindParameters->type == SOCK_DGRAM && (bindParameters->protocol == 0 || bindParameters->protocol == IPPROTO_UDP);
+	const unsigned short requestedPort = bindParameters->port;
+	// An OS-assigned port held by another IPv6 socket is drawn again; after
+	// that many tries, bind as the OS sees fit rather than fail Startup.
+	const int attempts = !udp ? 0 : (requestedPort == 0 ? 16 : 1);
+	for (int attempt = 0; attempt < attempts; ++attempt)
+	{
+		unsigned short port = 0;
+		bool bindFailed = false;
+		const RNS2Socket reservation = ReserveIpv4Port(requestedPort, &port, &bindFailed);
+		if (reservation == (RNS2Socket) INVALID_SOCKET)
+		{
+			if (bindFailed && requestedPort != 0)
+				return BR_FAILED_TO_BIND_SOCKET; // taken for IPv4: Linux refuses this bind too
+			break;                               // no IPv4 here to collide with
+		}
+
+		RNS2_BerkleyBindParameters onPort = *bindParameters;
+		onPort.port = port;
+		// macOS: binds next to our own IPv4 socket, which no other socket
+		// could hold the port alongside, and claims it once that one closes.
+		// Linux refuses it (below), so the failure is not printed.
+		RNS2BindResult result = BindAddressFamily(&onPort, AF_INET6, true, dualStackUnavailable, false);
+		closesocket__(reservation);
+		if (result != BR_FAILED_TO_BIND_SOCKET || *dualStackUnavailable)
+			return result;
+		// Linux (one port space for both families): the reservation itself
+		// refused the bind. The port was free for IPv4, and a dual-stack bind
+		// there now claims it for both. A failure on an OS-assigned port is
+		// retried, so it is not printed.
+		result = BindAddressFamily(&onPort, AF_INET6, true, dualStackUnavailable, requestedPort != 0);
+		if (result != BR_FAILED_TO_BIND_SOCKET || *dualStackUnavailable || requestedPort != 0)
+			return result;
+		// Held by an IPv6 socket: try another port.
+	}
+	return BindAddressFamily(bindParameters, AF_INET6, true, dualStackUnavailable);
+}
+
+// reportBindFailure is unused in Windows release builds, which print nothing.
+RNS2BindResult RNS2_Berkley::BindAddressFamily(RNS2_BerkleyBindParameters *bindParameters, int family, bool wantDualStack, bool *dualStackUnavailable, [[maybe_unused]] bool reportBindFailure)
 {
 	struct addrinfo hints;
 	struct addrinfo *servinfo = nullptr, *aip; // will point to the results
@@ -409,11 +484,13 @@ RNS2BindResult RNS2_Berkley::BindAddressFamily(RNS2_BerkleyBindParameters *bindP
 #if defined(_WIN32)
 #if defined(_DEBUG)
 		const DWORD bindError = static_cast<DWORD>(WSAGetLastError());
-		RAKNET_DEBUG_PRINTF("bind__() failed for an %s socket on port %u: error %lu\n", aip->ai_family == AF_INET6 ? "IPv6" : "IPv4", (unsigned) bindParameters->port, bindError);
+		if (reportBindFailure)
+			RAKNET_DEBUG_PRINTF("bind__() failed for an %s socket on port %u: error %lu\n", aip->ai_family == AF_INET6 ? "IPv6" : "IPv4", (unsigned) bindParameters->port, bindError);
 #endif
 #else
 		const int bindError = errno;
-		RAKNET_DEBUG_PRINTF("bind__() failed for an %s socket on port %u: %s (errno %d)\n", aip->ai_family == AF_INET6 ? "IPv6" : "IPv4", (unsigned) bindParameters->port, strerror(bindError), bindError);
+		if (reportBindFailure)
+			RAKNET_DEBUG_PRINTF("bind__() failed for an %s socket on port %u: %s (errno %d)\n", aip->ai_family == AF_INET6 ? "IPv6" : "IPv4", (unsigned) bindParameters->port, strerror(bindError), bindError);
 #endif
 		closesocket__(rns2Socket);
 		rns2Socket = (RNS2Socket) INVALID_SOCKET;

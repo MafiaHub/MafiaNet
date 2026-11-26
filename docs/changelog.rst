@@ -9,6 +9,11 @@ Unreleased
 * Every incoming session requires an application decision. Answer ``ConnectionRequested``
   (or ``ID_SESSION_CONFIG_REQUEST`` on a raw peer), then call ``accept_player()``
   when the connected client can join the game. See :doc:`guide/player-server`.
+* A dual-stack socket (the default ``SocketDescriptor``) only binds a port that is
+  free for IPv4 too. On macOS, whose IPv4 and IPv6 port spaces are separate, an
+  OS-assigned port could equal one an ``AF_INET`` socket already held, and that
+  socket then received the client's IPv4 traffic. A fixed port held for IPv4 now fails ``Startup()`` with
+  ``SOCKET_PORT_ALREADY_IN_USE`` on every platform. See :doc:`advanced/ipv6-support`.
 
 Version 0.27.0
 --------------
