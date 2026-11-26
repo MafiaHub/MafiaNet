@@ -431,6 +431,15 @@ enum class PlayerId : uint32_t
 {
 };
 
+/// Why this peer closed a connection itself, on the local close notification it produces.
+enum class DisconnectCause : uint8_t
+{
+	/// The remote disconnected, the connection was lost, or the application closed it.
+	Unspecified,
+	/// The remote exceeded InboundRateLimit::flood_per_second with FloodAction::Disconnect.
+	InboundFlood
+};
+
 /// This represents a user message from another system.
 struct Packet
 {
@@ -463,6 +472,8 @@ struct Packet
 	PlayerId playerId{};
 	/// Local connection incarnation on server lifecycle events and received user messages.
 	uint64_t connectionGeneration = 0;
+	/// Why this peer closed the connection, on a local ID_DISCONNECTION_NOTIFICATION. Unspecified otherwise.
+	DisconnectCause disconnectCause = DisconnectCause::Unspecified;
 };
 
 ///  Index of an unassigned player

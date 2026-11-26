@@ -27,6 +27,7 @@
 #include "mafianet/types.h"
 #include "mafianet/session_crypto.h"
 #include "mafianet/session_admission.h"
+#include "mafianet/inbound_rate_limit.h"
 #include "mafianet/export.h"
 #include <optional>
 #include <utility>
@@ -391,6 +392,16 @@ public:
 	/// This is a security measure which is disabled by default, but can be set to true to prevent attackers from using up all connection slots
 	/// \param[in] b True to limit connections from the same ip to at most 1 per 100 milliseconds.
 	virtual void SetLimitIPConnectionFrequency(bool b) = 0;
+
+	/// Limit the application messages this peer accepts from each connection (see InboundRateLimit).
+	/// \details Messages over the limit are dropped on the network thread, before they are queued for Receive(),
+	/// and counted in RakNetStatistics::rateLimitedMessages. RakPeer's own messages and those of built-in services
+	/// and plugins are never limited. Applies to every connection, established ones included, from the next
+	/// update on; each connection keeps its own budget, which starts full. A default InboundRateLimit, the
+	/// default, disables it.
+	/// \return false, changing nothing, when \a limit is not InboundRateLimit::valid().
+	virtual bool SetInboundRateLimit(const InboundRateLimit &limit) = 0;
+	virtual InboundRateLimit GetInboundRateLimit() const = 0;
 
 	// --------------------------------------------------------------------------------------------Pinging Functions - Functions dealing with the automatic ping mechanism--------------------------------------------------------------------------------------------
 	/// Send a ping to the specified connected system.

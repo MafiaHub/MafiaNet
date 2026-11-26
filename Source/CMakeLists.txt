@@ -156,6 +156,7 @@ set(MAFIANET_HEADERS
     include/mafianet/handshake_challenge.h
     include/mafianet/http_connection.h
     include/mafianet/http_connection2.h
+    include/mafianet/inbound_rate_limit.h
     include/mafianet/incremental_read_interface.h
     include/mafianet/internal_packet.h
     include/mafianet/itoa.h

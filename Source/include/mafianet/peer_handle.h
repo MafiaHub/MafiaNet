@@ -343,6 +343,14 @@ public:
 		return *this;
 	}
 
+	/// Limit the messages each client may send, applied with SetInboundRateLimit() before Startup().
+	/// A limit that is not InboundRateLimit::valid() makes start() fail with STARTUP_OTHER_FAILURE.
+	ServerBuilder &inbound_rate_limit(InboundRateLimit limit)
+	{
+		inbound_ = std::move(limit);
+		return *this;
+	}
+
 	/// Optional low-level password incoming connections must match.
 	ServerBuilder &incoming_password(const char *pw)
 	{
@@ -392,7 +400,7 @@ public:
 		}
 		Peer peer;
 		SocketDescriptor sd(port_, host_.empty() ? nullptr : host_.c_str());
-		if (!peer->SetEncryptionMode(encryption_) || (hasIdentityKey_ && !peer->SetIdentityKey(identityKey_)))
+		if (!peer->SetEncryptionMode(encryption_) || (hasIdentityKey_ && !peer->SetIdentityKey(identityKey_)) || !peer->SetInboundRateLimit(inbound_))
 		{
 			PeerError e;
 			e.stage = PeerStage::Startup;
@@ -417,6 +425,7 @@ public:
 private:
 	unsigned short port_ = 0;
 	ServerCapacity capacity_;
+	InboundRateLimit inbound_;
 	std::string host_;
 	std::string password_;
 	EncryptionMode encryption_ = EncryptionMode::Required;

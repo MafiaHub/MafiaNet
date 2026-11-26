@@ -196,9 +196,9 @@ uint32_t ClientConnection::send_encoded(ServerState &state, const BitStream &bit
 	return state.send(key_, reinterpret_cast<const char *>(bits.GetData()), bits.GetNumberOfBitsUsed(), reliability, priority, channel, false);
 }
 
-Result<Server> Server::listen(unsigned short port, ServerCapacity capacity)
+Result<Server> Server::listen(unsigned short port, ServerCapacity capacity, InboundRateLimit inbound)
 {
-	auto started = Peer::server().port(port).capacity(capacity).start();
+	auto started = Peer::server().port(port).capacity(capacity).inbound_rate_limit(std::move(inbound)).start();
 	if (!started)
 		return Result<Server>::err(started.error());
 	return Result<Server>::ok(Server(std::move(*started)));
@@ -298,7 +298,9 @@ void Server::poll()
 				auto it = state->clients.find(key.guid);
 				if (it == state->clients.end() || it->second.generation != key.generation)
 					continue;
-				auto reason = packet->data[0] == ID_CONNECTION_LOST ? LeaveReason::ConnectionLost : LeaveReason::Disconnected;
+				auto reason = packet->data[0] == ID_CONNECTION_LOST                      ? LeaveReason::ConnectionLost
+				              : packet->disconnectCause == DisconnectCause::InboundFlood ? LeaveReason::InboundFlood
+				                                                                         : LeaveReason::Disconnected;
 				auto sent = detail::DecodeReason(packet->data + 1, packet->length - 1);
 				if (it->second.closing)
 				{

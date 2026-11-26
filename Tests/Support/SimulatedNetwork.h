@@ -68,6 +68,7 @@ public:
 		SystemAddress systemAddress;
 		RakNetGUID guid;
 		PlayerId playerId;
+		DisconnectCause disconnectCause;
 	};
 
 	explicit SimulatedNetwork(uint32_t seed = 1);

@@ -217,6 +217,16 @@ static bool MayReachApplicationFromRemote(const unsigned char *data, unsigned in
 	}
 }
 
+// Whether a message is the application's own, which SetInboundRateLimit() counts: at ID_USER_PACKET_ENUM or
+// above, also behind an ID_TIMESTAMP prefix. Call after MayReachApplicationFromRemote().
+static bool IsApplicationMessage(const unsigned char *data, unsigned int byteSize)
+{
+	if (data[0] >= (MessageID) ID_USER_PACKET_ENUM)
+		return true;
+	const unsigned int innerIdOffset = sizeof(MessageID) + sizeof(MafiaNet::Time);
+	return data[0] == ID_TIMESTAMP && byteSize > innerIdOffset && data[innerIdOffset] >= (MessageID) ID_USER_PACKET_ENUM;
+}
+
 /*
 struct RakPeerAndIndex
 {
@@ -2244,6 +2254,25 @@ void RakPeer::SetLimitIPConnectionFrequency(bool b)
 {
 	limitConnectionFrequencyFromTheSameIP = b;
 }
+// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+bool RakPeer::SetInboundRateLimit(const InboundRateLimit &limit)
+{
+	if (!limit.valid())
+		return false;
+	inboundRateLimitMutex.Lock();
+	inboundRateLimit = limit;
+	inboundRateLimitVersion.fetch_add(1, std::memory_order_release);
+	inboundRateLimitMutex.Unlock();
+	return true;
+}
+// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+InboundRateLimit RakPeer::GetInboundRateLimit() const
+{
+	inboundRateLimitMutex.Lock();
+	InboundRateLimit limit = inboundRateLimit;
+	inboundRateLimitMutex.Unlock();
+	return limit;
+}
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 // Description:
@@ -3425,7 +3454,7 @@ RakNetStatistics *RakPeer::GetStatistics(const SystemAddress systemAddress, RakN
 			if (remoteSystemList[i].isActive)
 			{
 				RakNetStatistics rnsTemp;
-				remoteSystemList[i].reliabilityLayer.GetStatistics(&rnsTemp);
+				FillStatistics(remoteSystemList[i], &rnsTemp);
 
 				if (firstWrite == false)
 				{
@@ -3444,7 +3473,7 @@ RakNetStatistics *RakPeer::GetStatistics(const SystemAddress systemAddress, RakN
 		rss = GetRemoteSystemFromSystemAddress(systemAddress, false, false);
 		if (rss && endThreads == false)
 		{
-			rss->reliabilityLayer.GetStatistics(systemStats);
+			FillStatistics(*rss, systemStats);
 			return systemStats;
 		}
 	}
@@ -3470,17 +3499,24 @@ void RakPeer::GetStatisticsList(std::vector<SystemAddress> &addresses, std::vect
 			addresses.push_back((activeSystemList[i])->systemAddress);
 			guids.push_back((activeSystemList[i])->guid);
 			RakNetStatistics rns;
-			(activeSystemList[i])->reliabilityLayer.GetStatistics(&rns);
+			FillStatistics(*activeSystemList[i], &rns);
 			statistics.push_back(rns);
 		}
 	}
+}
+// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+void RakPeer::FillStatistics(RemoteSystemStruct &remoteSystem, RakNetStatistics *rns)
+{
+	remoteSystem.reliabilityLayer.GetStatistics(rns);
+	rns->rateLimitedMessages = remoteSystem.inboundRateLimiter.Dropped();
+	rns->inboundFloods = remoteSystem.inboundRateLimiter.Floods();
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 bool RakPeer::GetStatistics(const unsigned int index, RakNetStatistics *rns)
 {
 	if (index < maximumNumberOfPeers && remoteSystemList[index].isActive)
 	{
-		remoteSystemList[index].reliabilityLayer.GetStatistics(rns);
+		FillStatistics(remoteSystemList[index], rns);
 		return true;
 	}
 	return false;
@@ -4163,6 +4199,47 @@ void RakPeer::DeliverApplicationMessage(RemoteSystemStruct *remoteSystem, unsign
 		AddPacketToProducer(packet);
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+bool RakPeer::AdmitInboundMessage(RemoteSystemStruct *remoteSystem, const unsigned char *data, unsigned int byteSize, MafiaNet::TimeUS now)
+{
+	if (remoteSystem->closingForInboundFlood)
+		return false;
+	if (!inboundRateLimitInUse.enabled() || !IsApplicationMessage(data, byteSize))
+		return true;
+	switch (remoteSystem->inboundRateLimiter.OnMessage(inboundRateLimitInUse, now))
+	{
+	case InboundRateLimiter::Verdict::Accept:
+		return true;
+	case InboundRateLimiter::Verdict::Drop:
+		return false;
+	case InboundRateLimiter::Verdict::Flood:
+		break;
+	}
+	if (inboundRateLimitInUse.flood_action != FloodAction::Disconnect)
+		return false;
+
+	// Kept for the local close notification. The remote's own ID_DISCONNECTION_NOTIFICATION, if it races ours,
+	// must not replace it: the application is told why this peer closed the connection.
+	remoteSystem->closingForInboundFlood = true;
+	ClearDisconnectReason(remoteSystem);
+	const std::string &reason = inboundRateLimitInUse.flood_reason;
+	MafiaNet::BitStream reasonData;
+	if (!reason.empty())
+	{
+		reasonData.Write(reason.data(), (unsigned int) reason.size());
+		remoteSystem->disconnectReasonData = (unsigned char *) std::malloc(reason.size());
+		if (remoteSystem->disconnectReasonData != 0)
+		{
+			memcpy(remoteSystem->disconnectReasonData, reason.data(), reason.size());
+			remoteSystem->disconnectReasonLength = (unsigned int) reason.size();
+		}
+	}
+	// Sent now; the slot closes once the remote has acknowledged everything or the connection times out, and
+	// either way reports ID_DISCONNECTION_NOTIFICATION locally.
+	NotifyAndFlagForShutdown(remoteSystem->systemAddress, true, 0, MafiaNet::Priority::Immediate, &reasonData);
+	quitAndDataEvents.SetEvent();
+	return false;
+}
+// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void RakPeer::ProduceSessionAbandoned(RemoteSystemStruct *remoteSystem)
 {
 	if (remoteSystem == 0 || remoteSystem->weInitiatedTheConnection || remoteSystem->sessionConfigAwaitingLocalDecision == false)
@@ -4340,6 +4417,8 @@ RakPeer::RemoteSystemStruct *RakPeer::AssignSystemAddressToRemoteSystemList(cons
 			remoteSystem->MTUSize = mtuSize;
 			remoteSystem->guid = guid;
 			remoteSystem->departingPlayerId = {};
+			remoteSystem->inboundRateLimiter.Reset();
+			remoteSystem->closingForInboundFlood = false;
 			if (++lastConnectionGeneration == 0)
 				++lastConnectionGeneration;
 			remoteSystem->generation = lastConnectionGeneration;
@@ -6418,7 +6497,12 @@ void RakPeer::EndConnection(RemoteSystemStruct *remoteSystem, MafiaNet::TimeUS t
 		// A graceful remote disconnect (DISCONNECT_ON_NO_ACK) may carry a reason payload stashed when the
 		// notification arrived. Only ID_DISCONNECTION_NOTIFICATION carries it; ID_CONNECTION_LOST and
 		// ID_CONNECTION_ATTEMPT_FAILED are locally synthesized and stay payload-less.
-		const bool attachReason = !absorbedAttemptUnanswered && remoteSystem->connectMode == RemoteSystemStruct::DISCONNECT_ON_NO_ACK && remoteSystem->disconnectReasonData != 0;
+		// So may a close this peer made for a flood (DISCONNECT_ASAP, or DISCONNECT_ON_NO_ACK when the remote's
+		// notification crossed ours): the stash then holds the flood reason this peer sent.
+		const bool attachReason = !absorbedAttemptUnanswered &&
+		                          (remoteSystem->connectMode == RemoteSystemStruct::DISCONNECT_ON_NO_ACK ||
+		                           (remoteSystem->connectMode == RemoteSystemStruct::DISCONNECT_ASAP && remoteSystem->closingForInboundFlood)) &&
+		                          remoteSystem->disconnectReasonData != 0;
 		const unsigned int reasonLength = attachReason ? remoteSystem->disconnectReasonLength : 0;
 		Packet *packet = AllocPacket(sizeof(char) + reasonLength);
 		if (absorbedAttemptUnanswered || remoteSystem->connectMode == RemoteSystemStruct::REQUESTED_CONNECTION)
@@ -6436,6 +6520,8 @@ void RakPeer::EndConnection(RemoteSystemStruct *remoteSystem, MafiaNet::TimeUS t
 
 		packet->playerId = RetirePlayer(*remoteSystem);
 		packet->connectionGeneration = remoteSystem->generation;
+		if (remoteSystem->closingForInboundFlood && packet->data[0] == ID_DISCONNECTION_NOTIFICATION)
+			packet->disconnectCause = DisconnectCause::InboundFlood;
 		if (attachReason)
 			memcpy(packet->data + sizeof(unsigned char), remoteSystem->disconnectReasonData, reasonLength);
 
@@ -6815,6 +6901,16 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 		requestedConnectionQueueMutex.Unlock();
 	}
 
+	// The receive path below reads the inbound rate limit without a lock: take the application's latest one now.
+	const uint32_t rateLimitVersion = inboundRateLimitVersion.load(std::memory_order_acquire);
+	if (rateLimitVersion != inboundRateLimitInUseVersion)
+	{
+		inboundRateLimitMutex.Lock();
+		inboundRateLimitInUse = inboundRateLimit;
+		inboundRateLimitInUseVersion = inboundRateLimitVersion.load(std::memory_order_relaxed);
+		inboundRateLimitMutex.Unlock();
+	}
+
 	// remoteSystemList in network thread
 	for (activeSystemListIndex = 0; activeSystemListIndex < activeSystemListSize; ++activeSystemListIndex)
 	//for ( remoteSystemIndex = 0; remoteSystemIndex < remoteSystemListSize; ++remoteSystemIndex )
@@ -7115,8 +7211,10 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 					// Stash any reason payload (everything after the 1-byte ID) so it can ride along with the
 					// user-facing notification packet synthesized once outstanding ACKs are flushed. This raw
 					// reliability-layer buffer is freed with `message`, so the bytes have to be copied out now.
-					ClearDisconnectReason(remoteSystem);
-					if (byteSize > sizeof(unsigned char))
+					// A connection this peer is closing for a flood keeps its own reason instead.
+					if (!remoteSystem->closingForInboundFlood)
+						ClearDisconnectReason(remoteSystem);
+					if (byteSize > sizeof(unsigned char) && !remoteSystem->closingForInboundFlood)
 					{
 						const unsigned int reasonLength = byteSize - (unsigned int) sizeof(unsigned char);
 						remoteSystem->disconnectReasonData = (unsigned char *) std::malloc(reasonLength);
@@ -7404,7 +7502,9 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 					}
 					else if (remoteSystem->connectionReportedToApplication)
 					{
-						DeliverApplicationMessage(remoteSystem, message.release(), bitSize);
+						if (AdmitInboundMessage(remoteSystem, data, byteSize, timeNS))
+							DeliverApplicationMessage(remoteSystem, message.release(), bitSize);
+						// Otherwise dropped by the inbound rate limit: `message` frees it.
 					}
 				}
 			}

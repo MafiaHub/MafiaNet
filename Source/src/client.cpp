@@ -110,6 +110,9 @@ public:
 			auto sent = DecodeReason(packet.data + 1, packet.length - 1);
 			event.detail = std::move(sent.detail);
 			event.code = sent.code;
+			// This peer closed the connection because the server flooded it (InboundRateLimit, FloodAction::Disconnect).
+			if (packet.disconnectCause == DisconnectCause::InboundFlood)
+				event.reason = LeaveReason::InboundFlood;
 		}
 		phase = Phase::Ended;
 		emit<ServerDisconnected>(event);

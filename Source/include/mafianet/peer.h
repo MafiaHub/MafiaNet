@@ -398,6 +398,11 @@ public:
 	/// \param[in] b True to limit connections from the same ip to at most 1 per 100 milliseconds.
 	void SetLimitIPConnectionFrequency(bool b);
 
+	/// \brief Limit the application messages accepted from each connection.
+	/// \details See RakPeerInterface::SetInboundRateLimit.
+	bool SetInboundRateLimit(const InboundRateLimit &limit);
+	InboundRateLimit GetInboundRateLimit() const;
+
 	// --------------------------------------------------------------------------------------------Pinging Functions - Functions dealing with the automatic ping mechanism--------------------------------------------------------------------------------------------
 	/// Send a ping to the specified connected system.
 	/// \pre The sender and recipient must already be started via a successful call to Startup()
@@ -895,6 +900,12 @@ public:
 		// Network thread only. Captured when a connection leaves CONNECTED.
 		PlayerId departingPlayerId{};
 		uint64_t generation = 0;
+		// Network thread only, except its counters, which GetStatistics() reads. Reset when the slot is assigned.
+		InboundRateLimiter inboundRateLimiter;
+		// This peer is closing the connection because the remote flooded it (FloodAction::Disconnect): its
+		// application messages are dropped, and the local close notification carries the flood reason and
+		// DisconnectCause::InboundFlood. Network thread only; cleared when the slot is assigned.
+		bool closingForInboundFlood = false;
 		// Network thread only. GetTimeMS() when the slot started closing (IsClosing()), so ReclaimClosingSlot()
 		// can take the connection that has been closing longest.
 		MafiaNet::TimeMS closingSince = 0;
@@ -1301,6 +1312,13 @@ protected:
 
 	SignaledEvent quitAndDataEvents;
 	bool limitConnectionFrequencyFromTheSameIP;
+	// SetInboundRateLimit() writes inboundRateLimit under its mutex and bumps the version; the network thread
+	// copies it into inboundRateLimitInUse when the version changed, so the receive path takes no lock.
+	mutable SimpleMutex inboundRateLimitMutex;
+	InboundRateLimit inboundRateLimit;
+	std::atomic<uint32_t> inboundRateLimitVersion{0};
+	InboundRateLimit inboundRateLimitInUse;    // Network thread only
+	uint32_t inboundRateLimitInUseVersion = 0; // Network thread only
 	// Key exchanges run in the ID_OPEN_CONNECTION_REQUEST_2 handler (network thread). See GetServerKeyExchangeCountForTesting.
 	uint64_t serverKeyExchangeCount = 0;
 
@@ -1403,6 +1421,11 @@ private:
 	/// Hand an application message a connected remote sent to the network-thread plugins, then to the
 	/// application queue. Takes ownership of \a data.
 	void DeliverApplicationMessage(RemoteSystemStruct *remoteSystem, unsigned char *data, BitSize_t bitSize);
+	/// Network thread: whether an application message a connected remote sent passes SetInboundRateLimit().
+	/// Acts on a flood, closing the connection under FloodAction::Disconnect.
+	bool AdmitInboundMessage(RemoteSystemStruct *remoteSystem, const unsigned char *data, unsigned int byteSize, MafiaNet::TimeUS now);
+	/// The connection's statistics: the reliability layer's and this peer's own counters.
+	void FillStatistics(RemoteSystemStruct &remoteSystem, RakNetStatistics *rns);
 };
 
 } // namespace MafiaNet

@@ -114,6 +114,14 @@ struct RAK_DLL_EXPORT RakNetStatistics
 	/// RakPeerInterface::GetMTUSize() for the size now in use.
 	unsigned int mtuStepDowns;
 
+	/// How many application messages from this connection were dropped by
+	/// RakPeerInterface::SetInboundRateLimit() before reaching Receive():
+	/// beyond the sustained rate, or sent during a flood.
+	uint64_t rateLimitedMessages;
+
+	/// How many times this connection crossed InboundRateLimit::flood_per_second.
+	uint64_t inboundFloods;
+
 	RakNetStatistics &operator+=(const RakNetStatistics &other)
 	{
 		unsigned i;
@@ -131,6 +139,8 @@ struct RAK_DLL_EXPORT RakNetStatistics
 
 		droppedUnauthenticatedDatagrams += other.droppedUnauthenticatedDatagrams;
 		mtuStepDowns += other.mtuStepDowns;
+		rateLimitedMessages += other.rateLimitedMessages;
+		inboundFloods += other.inboundFloods;
 
 		return *this;
 	}
