@@ -336,6 +336,13 @@ public:
 
 	/// Cancel a pending connection attempt
 	/// If we are already connected, the connection stays open
+	/// \details An attempt counts as pending until the application reads its ID_CONNECTION_REQUEST_ACCEPTED,
+	/// including while the server holds the session request for a decision. A cancelled attempt reports nothing:
+	/// neither ID_CONNECTION_REQUEST_ACCEPTED (one already queued but not read is taken back, with every packet the
+	/// connection queued behind it) nor ID_CONNECTION_ATTEMPT_FAILED. When the attempt already reached the server,
+	/// the server is told: it reports ID_SESSION_CONFIG_ABANDONED for a held request, or ID_DISCONNECTION_NOTIFICATION
+	/// if it accepted meanwhile. Until that closing connection is gone, Connect() to the same system returns
+	/// ALREADY_CONNECTED_TO_ENDPOINT.
 	/// \note On a threaded peer the network thread may already be sending a request for this attempt; that one request
 	/// may still go out after the call.
 	/// \param[in] target Which system to cancel

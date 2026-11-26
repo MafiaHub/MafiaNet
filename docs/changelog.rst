@@ -9,6 +9,12 @@ Unreleased
 * Every incoming session requires an application decision. Answer ``ConnectionRequested``
   (or ``ID_SESSION_CONFIG_REQUEST`` on a raw peer), then call ``accept_player()``
   when the connected client can join the game. See :doc:`guide/player-server`.
+* ``CancelConnectionAttempt()`` also cancels an attempt that already reached the
+  server, for example while the server holds its session request. The attempt
+  used to complete with ``ID_CONNECTION_REQUEST_ACCEPTED`` when the server
+  accepted it. Now the client reports nothing, and the server reports
+  ``ID_SESSION_CONFIG_ABANDONED``, or ``ID_DISCONNECTION_NOTIFICATION`` if it had
+  already accepted. An acceptance that is queued but not yet read is taken back.
 
 Version 0.27.0
 --------------

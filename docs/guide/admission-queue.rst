@@ -52,7 +52,10 @@ Two callbacks competing for one free slot can therefore act on the result immedi
 the client left, or the server closed. ``InvalidPayload`` and ``OutOfMemory``
 leave the decision open. Both acceptance and rejection remove a decided request
 from ``pending_requests()``. Losing a pending client also removes it and
-produces ``ConnectionAbandoned`` with the original connection key.
+produces ``ConnectionAbandoned`` with the original connection key. A waiting
+client that gives up calls ``CancelConnectionAttempt()``. The server sees
+``ConnectionAbandoned`` at once, or ``ClientDisconnected`` if it accepted the
+request meanwhile, and the client never reports the connection.
 
 Serving the queue
 -----------------

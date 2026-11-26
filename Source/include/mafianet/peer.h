@@ -1294,6 +1294,15 @@ protected:
 
 	SimpleMutex packetReturnMutex;
 	std::deque<Packet *> packetReturnQueue;
+	// CancelConnectionAttempt() for attempts that already hold a connection slot, guarded by packetReturnMutex.
+	// cancelledAttempts: targets the network thread has yet to abandon (ApplyCancelledAttempts()).
+	// withdrawnConnections: connections whose queued ID_CONNECTION_REQUEST_ACCEPTED the cancel took back before the
+	// application read it. AddPacketToProducer() drops their packets until the slot is freed.
+	// reportedRaceAttempts: GUID and first address of each Happy Eyeballs attempt whose acceptance was queued, so a
+	// cancel by the race's first address finds it.
+	std::vector<SystemAddress> cancelledAttempts;
+	std::vector<RakNetGUID> withdrawnConnections;
+	std::vector<std::pair<RakNetGUID, SystemAddress>> reportedRaceAttempts;
 	// Wakes WaitForPackets. Notified under packetReturnMutex at every push and by Shutdown().
 	std::condition_variable_any packetReturnCondition;
 	Packet *AllocPacket(unsigned dataSize);
@@ -1367,6 +1376,13 @@ private:
 	/// Connecting side: end a session handshake the remote broke (held-message limit exceeded). Reports
 	/// ID_CONNECTION_ATTEMPT_FAILED, tells the remote it is disconnected and closes the slot.
 	void FailSessionHandshakeAsConnectingSide(RemoteSystemStruct *remoteSystem);
+	/// Connecting side: drop a connection attempt the application cancelled. Reports nothing, tells the remote it
+	/// is disconnected (a server holding the request reports ID_SESSION_CONFIG_ABANDONED) and closes the slot.
+	void AbandonConnectionAttempt(RemoteSystemStruct *remoteSystem);
+	/// Network thread: abandon the attempts CancelConnectionAttempt() named that hold a slot.
+	void ApplyCancelledAttempts(void);
+	/// True when CancelConnectionAttempt() named this slot's attempt. Call with packetReturnMutex held.
+	bool IsAttemptCancelled_NoLock(const RemoteSystemStruct &remoteSystem) const;
 	/// Hand an application message a connected remote sent to the network-thread plugins, then to the
 	/// application queue. Takes ownership of \a data.
 	void DeliverApplicationMessage(RemoteSystemStruct *remoteSystem, unsigned char *data, BitSize_t bitSize);
