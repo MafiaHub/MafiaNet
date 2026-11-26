@@ -113,11 +113,11 @@ public:
 	std::pair<int64_t, int64_t> RangedCell(SpatialPoint p) const
 	{
 		// Clamped so a focus far outside the grid (a huge look-ahead) cannot overflow the integer conversion.
-		auto index = [this](double value, double origin)
+		auto cellOf = [this](double value, double origin)
 		{
 			return static_cast<int64_t>(std::clamp(std::floor((value - origin) / rangedCellSize), -1e15, 1e15));
 		};
-		return {index(p.x, config.minimum.x), index(p.y, config.minimum.y)};
+		return {cellOf(p.x, config.minimum.x), cellOf(p.y, config.minimum.y)};
 	}
 	float LongestRange() const
 	{
