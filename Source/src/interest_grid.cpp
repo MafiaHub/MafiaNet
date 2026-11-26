@@ -90,7 +90,12 @@ public:
 	}
 	std::pair<int64_t, int64_t> RangedCell(SpatialPoint p) const
 	{
-		return {static_cast<int64_t>(std::floor((static_cast<double>(p.x) - config.minimum.x) / rangedCellSize)), static_cast<int64_t>(std::floor((static_cast<double>(p.y) - config.minimum.y) / rangedCellSize))};
+		// Clamped so a focus far outside the grid (a huge look-ahead) cannot overflow the integer conversion.
+		auto index = [this](double value, double origin)
+		{
+			return static_cast<int64_t>(std::clamp(std::floor((value - origin) / rangedCellSize), -1e15, 1e15));
+		};
+		return {index(p.x, config.minimum.x), index(p.y, config.minimum.y)};
 	}
 	float LongestRange() const
 	{
@@ -535,6 +540,11 @@ bool InterestGrid::SetScope(NetworkID id, SpatialScope scope)
 	impl->Dirty(r.cell);
 	if (impl->alwaysVisible.count(id))
 		impl->DirtyAll();
+	if (auto parent = impl->parents.find(id); parent != impl->parents.end())
+	{
+		// Whoever sees this child through its link sees the parent, and the child's eligibility may have changed.
+		impl->DirtyViewersOf(parent->second);
+	}
 	if (r.required != UNASSIGNED_PEER_GUID)
 		InvalidateObserver(r.required);
 	return true;
@@ -558,7 +568,6 @@ void InterestGrid::Remove(NetworkID id)
 		if (observer.visible.erase(id))
 			observer.dirty = true;
 	Require(id, UNASSIGNED_PEER_GUID);
-	impl->DirtyViewersOf(id);
 	impl->Unlink(id);
 	if (auto kids = impl->children.find(id); kids != impl->children.end())
 	{

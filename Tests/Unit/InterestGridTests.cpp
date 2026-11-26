@@ -596,6 +596,36 @@ TEST(InterestGrid, RemovingAParentClearsItsChildren)
 	EXPECT_TRUE(grid.SetDependency(3, 2));
 	EXPECT_TRUE(Visible(grid, camera).empty());
 	ASSERT_TRUE(grid.Track(1, {{10, 0}}));
+	EXPECT_EQ(grid.GetDependency(1), UNASSIGNED_NETWORK_ID);
+	EXPECT_EQ(Visible(grid, camera), std::vector<NetworkID>{1});
+}
+
+TEST(InterestGrid, ChildEligibilityChangesReachTheParentsViewers)
+{
+	InterestGrid grid;
+	const PeerGuid camera{1};
+	ASSERT_TRUE(grid.Configure({{0, 0}, {1000, 1000}, 50}));
+	ASSERT_TRUE(grid.SetObserverRadius(camera, {0, 0}, 50, 50));
+	grid.SetObserverWorld(camera, 0, 1);
+	ASSERT_TRUE(grid.Track(1, {{10, 0}, 0, 1}));
+	ASSERT_TRUE(grid.Track(2, {{900, 0}, 0, 1}));
+	ASSERT_TRUE(grid.SetDependency(2, 1));
+	EXPECT_EQ(Visible(grid, camera).size(), 2u);
+	ASSERT_TRUE(grid.SetScope(2, {{900, 0}, 0, 2}));
+	EXPECT_EQ(Visible(grid, camera), std::vector<NetworkID>{1});
+	ASSERT_TRUE(grid.SetScope(2, {{900, 0}, 0, 1}));
+	EXPECT_EQ(Visible(grid, camera).size(), 2u);
+}
+
+TEST(InterestGrid, HugeVelocityWithRangedObjects)
+{
+	InterestGrid grid;
+	const PeerGuid camera{1};
+	ASSERT_TRUE(grid.Configure({{-100, -100}, {300, 100}, 50}));
+	grid.SetLookaheadSeconds(std::numeric_limits<float>::max());
+	ASSERT_TRUE(grid.SetObserverRadius(camera, {0, 0}, 20, 20));
+	ASSERT_TRUE(grid.SetObserverVelocity(camera, {std::numeric_limits<float>::max(), -std::numeric_limits<float>::max()}));
+	ASSERT_TRUE(grid.Track(1, {{10, 0}, 0, VIRTUAL_WORLD_DEFAULT, 0, 0, 30}));
 	EXPECT_EQ(Visible(grid, camera), std::vector<NetworkID>{1});
 }
 

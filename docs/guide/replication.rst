@@ -114,7 +114,7 @@ Dependencies and always-visible objects
 
 ``SetDependency(child, parent)`` makes the child visible whenever the parent
 is, wherever the child is. Chains are followed. A link that would make a cycle,
-or name an untracked object, returns false. Pass ``UNASSIGNED_NETWORK_ID`` as
+names an untracked object or links an object to itself returns false. Pass ``UNASSIGNED_NETWORK_ID`` as
 parent to clear the link. Removing an object drops its links.
 ``SetAlwaysVisible(id, true)`` shows an object to every observer that may see
 it, whatever its position.
