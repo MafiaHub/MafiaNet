@@ -331,20 +331,20 @@ TEST(InterestGrid, RangedObjectsDoNotWidenOtherObserversQueries)
 TEST(InterestGrid, RangedObjectOutsideSubscribedCellsIsFoundAndDirtiesOnlyNearbyObservers)
 {
 	InterestGrid grid;
-	const PeerGuid near{1}, far{2};
+	const PeerGuid nearby{1}, distant{2};
 	ASSERT_TRUE(grid.Configure({{0, 0}, {5000, 5000}, 100}));
-	ASSERT_TRUE(grid.SetObserverRadius(near, {0, 0}, 50, 50));
-	ASSERT_TRUE(grid.SetObserverRadius(far, {4000, 4000}, 50, 50));
+	ASSERT_TRUE(grid.SetObserverRadius(nearby, {0, 0}, 50, 50));
+	ASSERT_TRUE(grid.SetObserverRadius(distant, {4000, 4000}, 50, 50));
 	ASSERT_TRUE(grid.Track(1, {{900, 0}, 0, VIRTUAL_WORLD_DEFAULT, 0, 0, 1000}));
-	EXPECT_EQ(Visible(grid, near), std::vector<NetworkID>{1});
-	EXPECT_TRUE(Visible(grid, far).empty());
+	EXPECT_EQ(Visible(grid, nearby), std::vector<NetworkID>{1});
+	EXPECT_TRUE(Visible(grid, distant).empty());
 	const auto rebuilt = grid.GetStatistics().observersRebuilt;
 	ASSERT_TRUE(grid.SetPosition(1, {950, 0}));
-	EXPECT_EQ(Visible(grid, near), std::vector<NetworkID>{1});
-	EXPECT_EQ(Visible(grid, far).size(), 0u);
+	EXPECT_EQ(Visible(grid, nearby), std::vector<NetworkID>{1});
+	EXPECT_EQ(Visible(grid, distant).size(), 0u);
 	EXPECT_EQ(grid.GetStatistics().observersRebuilt, rebuilt + 1);
 	grid.Remove(1);
-	EXPECT_TRUE(Visible(grid, near).empty());
+	EXPECT_TRUE(Visible(grid, nearby).empty());
 }
 
 TEST(InterestGrid, ExplicitCellObserversSeeRangedObjectsInTheirOwnCellOnly)
@@ -375,18 +375,18 @@ TEST(InterestGrid, ReconfigurationKeepsEntityRange)
 TEST(InterestGrid, MovingAnUnrangedObjectRebuildsOnlyCellSubscribers)
 {
 	InterestGrid grid;
-	const PeerGuid near{1}, far{2};
+	const PeerGuid nearby{1}, distant{2};
 	ASSERT_TRUE(grid.Configure({{0, 0}, {5000, 5000}, 100}));
-	ASSERT_TRUE(grid.SetObserverRadius(near, {0, 0}, 50, 50));
-	ASSERT_TRUE(grid.SetObserverRadius(far, {4000, 4000}, 50, 50));
+	ASSERT_TRUE(grid.SetObserverRadius(nearby, {0, 0}, 50, 50));
+	ASSERT_TRUE(grid.SetObserverRadius(distant, {4000, 4000}, 50, 50));
 	ASSERT_TRUE(grid.Track(1, {{10, 0}}));
 	ASSERT_TRUE(grid.Track(2, {{4500, 4500}, 0, VIRTUAL_WORLD_DEFAULT, 0, 0, 100}));
-	Visible(grid, near);
-	Visible(grid, far);
+	Visible(grid, nearby);
+	Visible(grid, distant);
 	const auto rebuilt = grid.GetStatistics().observersRebuilt;
 	ASSERT_TRUE(grid.SetPosition(1, {20, 0}));
-	Visible(grid, near);
-	Visible(grid, far);
+	Visible(grid, nearby);
+	Visible(grid, distant);
 	EXPECT_EQ(grid.GetStatistics().observersRebuilt, rebuilt + 1);
 }
 
