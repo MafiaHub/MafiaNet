@@ -23,7 +23,8 @@ struct Crowd
 	std::map<int *, Age> ages;
 	std::map<int *, unsigned> intervals;
 	uint64_t pass = 100;
-	Crowd(unsigned count, unsigned distinct) : storage(count)
+	Crowd(unsigned count, unsigned distinct)
+	    : storage(count)
 	{
 		std::mt19937 random(1);
 		for (auto &value : storage)
