@@ -1,6 +1,7 @@
 // Copyright (c) 2026, MafiaHub. MIT license.
 #include "managed_replication.h"
 #include "steady_time.h"
+#include "serialization_order.h"
 #include "replication_receive_scope.h"
 #include "mafianet/message_identifiers.h"
 #include "mafianet/network_id_manager.h"
@@ -94,19 +95,13 @@ public:
 		stats.deferredState = 0;
 		for (auto *object : out)
 			serviceAge.try_emplace(object->GetNetworkID(), ServiceAge{pass, false});
-		auto rank = [&](Replica3 *object)
-		{
+		OrderByDescendingRank(out, rankScratch, [&](Replica3 *object) -> uint64_t
+		                      {
 			const auto id = object->GetNetworkID();
 			const auto &age = serviceAge.at(id);
 			const auto interval = intervals.find(id);
 			const auto period = interval == intervals.end() ? 1u : interval->second;
-			return (pass - age.since) / period + (age.served ? 0u : 1u);
-		};
-		out.erase(std::remove_if(out.begin(), out.end(), [&](Replica3 *object)
-		                         { return !rank(object); }),
-		          out.end());
-		std::stable_sort(out.begin(), out.end(), [&](Replica3 *a, Replica3 *b)
-		                 { return rank(a) > rank(b); });
+			return (pass - age.since) / period + (age.served ? 0u : 1u); });
 		return true;
 	}
 	SendSerializeIfChangedResult SendSerializeIfChanged(LastSerializationResult *record, SerializeParameters *params, RakPeerInterface *peer, unsigned char world, ReplicaManager3 *manager, Time now) override
@@ -581,6 +576,7 @@ private:
 		bool served;
 	};
 	std::map<NetworkID, ServiceAge> serviceAge;
+	std::vector<std::pair<uint64_t, Replica3 *>> rankScratch;
 	uint64_t incomingSnapshotContext = 0;
 	uint64_t pass = 0, debt = 0;
 	BitStream first, batch;

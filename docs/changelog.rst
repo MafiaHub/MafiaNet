@@ -6,6 +6,9 @@ All notable changes to MafiaNet are documented here.
 Unreleased
 ----------
 
+* ``ReplicaManager3`` finds a connection by GUID in constant time. Each world keeps a hash index beside its connection
+  list, so ``GetConnectionByGUID()`` and the lookup made for every received replication message no longer scan all
+  connections. The list and its order are unchanged.
 * ``SpatialScope::category`` and ``InterestGrid::SetCategoryLimit()`` cap how many objects of one category
   each observer sees at once, highest priority first, then nearest. Category 0 is never limited. Candidates skipped by a cap are
   counted in ``InterestStatistics::categoryCapped``. See :doc:`guide/replication`.

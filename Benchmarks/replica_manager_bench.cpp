@@ -95,6 +95,8 @@ public:
 	using ReplicaManager3::ReplicaManager3;
 	Connection_RM3 *AllocConnection(const SystemAddress &, RakNetGUID guid) const override { return new Connection(guid); }
 	void DeallocConnection(Connection_RM3 *connection) const override { delete connection; }
+	// What the receive path does for each replication packet: finds the sender's connection and takes its lock.
+	bool Deliver(RakNetGUID sender, WorldId worldId = 0) { return StateDelivery(*this, sender, worldId).GetConnection() != nullptr; }
 };
 
 TimeUS tickUS;
@@ -369,5 +371,23 @@ BENCHMARK_TEMPLATE(MeasureLargeWorld, false)->Name("ReplicaManager3_LargeWorld")
 BENCHMARK_TEMPLATE(MeasureLargeWorld, true)->Name("ReplicaManager3_LargeWorldDirtyList")->ArgsProduct({{1, 20}, {0, 500, 50000}})->ArgNames({"clients", "changed_of_50000"})->Iterations(20);
 BENCHMARK_TEMPLATE(MeasureLargeWorld, true, false, true)->Name("ReplicaManager3_ScatteredDirtyList")->Args({1, 500})->Args({20, 500})->Args({1, 50000})->ArgNames({"clients", "changed_of_50000"})->Iterations(20);
 BENCHMARK_TEMPLATE(MeasureLargeWorld, true, true)->Name("ReplicaManager3_LargeWorldBulkFallback")->ArgsProduct({{1, 20}, {50000}})->ArgNames({"clients", "changed_of_50000"})->Iterations(20);
+
+// Per-packet connection lookup: one StateDelivery per received replication packet, cycling over the senders.
+void ReplicaManager3_PacketLookup(benchmark::State &state)
+{
+	const int clients = static_cast<int>(state.range(0));
+	World<StateReplica> world(clients, 1);
+	uint64_t next = 0;
+	uint64_t missed = 0;
+	for (auto _ : state)
+	{
+		missed += !world.manager.Deliver(RakNetGUID(100 + next));
+		next = next + 1 == static_cast<uint64_t>(clients) ? 0 : next + 1;
+	}
+	benchmark::DoNotOptimize(missed);
+	if (missed)
+		state.SkipWithError("a sender was not found");
+}
+BENCHMARK(ReplicaManager3_PacketLookup)->ArgName("clients")->Arg(64)->Arg(800);
 
 }
