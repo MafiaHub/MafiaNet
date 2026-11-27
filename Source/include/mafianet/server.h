@@ -3,6 +3,7 @@
 
 #include "mafianet/dispatcher.h"
 #include "mafianet/session_admission.h"
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <string_view>
@@ -138,6 +139,28 @@ struct PlayerLeft
 	uint32_t code = 0;
 };
 
+/// Bounds the work one Server::poll() call does, so a tick ends even while packets keep arriving.
+/// Zero means unbounded for either field; a default-constructed budget behaves like the unbudgeted poll().
+/// Packets over the budget are not dropped: they wait, in arrival order per connection, for a later poll.
+struct PollBudget
+{
+	/// Most application packets (typed messages and unknown ids) handled by one call. Connection
+	/// lifecycle events do not count against it.
+	uint32_t maxPackets = 0;
+	/// Most application packets handled for one connection by one call, so a flooding connection leaves
+	/// room for the others. Packets over it are parked behind that connection's earlier ones.
+	uint32_t maxPacketsPerConnection = 0;
+};
+
+/// What the last completed poll() did.
+struct PollStats
+{
+	/// Application packets handled (lifecycle events excluded).
+	uint32_t handled = 0;
+	/// Packets still waiting after the call: parked by the budget plus those not yet taken from the transport.
+	std::size_t backlog = 0;
+};
+
 /// Owns a listening Peer. Configure handlers before polling. Poll and use handles on the game thread.
 /// Worker threads should post their results back to that thread with the original handle.
 class RAK_DLL_EXPORT Server
@@ -159,6 +182,17 @@ public:
 	}
 	/// Drain lifecycle events and typed messages on the calling thread.
 	void poll();
+	/// Like poll(), but handles at most \a budget packets. Call it again to continue; packets stay in order per
+	/// connection. Lifecycle events of a connection are never reordered with its own packets, and events of a
+	/// connection with no parked packets are handled in the call that reaches them: parked packets of other
+	/// connections never delay them, and the call stops taking packets from the transport only once
+	/// maxPackets were handled or as many were parked, so an event waits behind at most about 9 * maxPackets packets of other connections.
+	void poll(PollBudget budget);
+	/// Counters of the last completed poll.
+	PollStats last_poll() const;
+	/// Packets waiting now: parked by a budget plus queued in the transport (datagrams the network thread has not
+	/// yet decoded are not counted).
+	std::size_t backlog() const;
 	Dispatcher &messages();
 	RakPeerInterface &transport();
 	/// Recover the exact connection that sent a dispatched message, including a pre-join login.

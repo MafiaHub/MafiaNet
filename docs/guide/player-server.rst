@@ -41,6 +41,16 @@ handles on the same thread. For background login or asset loading, capture the
 connection, do the work on the worker, then post the result and the original
 handle back to the game thread. Only ``poll()`` should drain the server's packets.
 
+Bounding a poll
+---------------
+
+``poll()`` runs until the transport has nothing left, so under a flood one tick can last as long as packets keep
+arriving. ``poll(PollBudget{maxPackets, maxPacketsPerConnection})`` handles at most that many application packets
+(zero means unbounded) and returns. The rest wait, in arrival order per connection, for the next call; the per-connection
+share keeps one flooding connection from using the whole budget. ``Server::last_poll().backlog`` and ``Server::backlog()``
+tell the game how much is waiting. Connection events do not count against the budget and are never reordered with their
+own connection's packets.
+
 Admission and game join
 -----------------------
 

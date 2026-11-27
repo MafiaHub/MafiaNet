@@ -111,6 +111,12 @@ public:
 		std::string detail;
 	};
 	Peer peer;
+	// Packets taken from the transport but over a poll budget, per connection in arrival order. Declared after
+	// `peer` so they are freed before it. A connection stays in parkedOrder while it has any.
+	std::unordered_map<PeerGuid, std::deque<PacketPtr>> parked;
+	std::deque<PeerGuid> parkedOrder;
+	std::size_t parkedCount = 0;
+	PollStats lastPoll;
 	Dispatcher messages;
 	std::unordered_map<PeerGuid, Client> clients;
 	std::deque<Player> joins;
@@ -246,7 +252,46 @@ std::optional<ClientConnection> Server::connection(const Sender &sender) const
 	return ClientConnection(state_, key);
 }
 
+namespace
+{
+// How many packets a budgeted poll may park, as a multiple of maxPackets.
+constexpr uint64_t kParkFactor = 8;
+
+// The packets Server::poll turns into lifecycle events instead of dispatching to message handlers.
+bool IsLifecycle(const Packet &packet)
+{
+	if (!packet.connectionGeneration || !packet.length)
+		return false;
+	switch (packet.data[0])
+	{
+	case ID_SESSION_CONFIG_REQUEST:
+	case ID_SESSION_CONFIG_ABANDONED:
+	case ID_NEW_INCOMING_CONNECTION:
+	case ID_CONNECTION_LOST:
+	case ID_DISCONNECTION_NOTIFICATION:
+		return true;
+	default:
+		return false;
+	}
+}
+}
+
 void Server::poll()
+{
+	poll(PollBudget{});
+}
+
+std::size_t Server::backlog() const
+{
+	return state_->parkedCount + state_->transport().GetReceiveBufferSize();
+}
+
+PollStats Server::last_poll() const
+{
+	return state_->lastPoll;
+}
+
+void Server::poll(PollBudget budget)
 {
 	const auto state = state_;
 	if (state->polling)
@@ -257,7 +302,28 @@ void Server::poll()
 		bool &flag;
 		~Reset() { flag = false; }
 	} reset{state->polling};
-	for (;;)
+
+	constexpr uint64_t kUnbounded = ~uint64_t{0};
+	const uint64_t limit = budget.maxPackets ? budget.maxPackets : kUnbounded;
+	const uint64_t perConnection = budget.maxPacketsPerConnection ? budget.maxPacketsPerConnection : kUnbounded;
+	uint64_t handled = 0;
+	std::unordered_map<PeerGuid, uint64_t> handledPerConnection;
+	// Takes one application packet from the budget if both the call and the connection have room.
+	auto take = [&](PeerGuid guid)
+	{
+		if (handled >= limit)
+			return false;
+		if (perConnection != kUnbounded)
+		{
+			auto &own = handledPerConnection[guid];
+			if (own >= perConnection)
+				return false;
+			++own;
+		}
+		++handled;
+		return true;
+	};
+	auto flush_joins = [&]
 	{
 		while (!state->joins.empty())
 		{
@@ -265,11 +331,11 @@ void Server::poll()
 			state->joins.pop_front();
 			state->emit<PlayerJoined>(joined);
 		}
-		auto packet = state->peer.receive();
-		if (!packet)
-			break;
+	};
+	auto process = [&](const PacketPtr &packet)
+	{
 		const ConnectionKey key{ToPeerGuid(packet->guid), packet->connectionGeneration};
-		if (key.generation && packet->length)
+		if (IsLifecycle(*packet))
 		{
 			switch (packet->data[0])
 			{
@@ -278,11 +344,11 @@ void Server::poll()
 				auto request = std::make_shared<detail::PendingSession>(detail::PendingSession{key.guid, key.generation, packet->systemAddress, std::string(reinterpret_cast<const char *>(packet->data + 1), packet->length - 1)});
 				state->publish(request);
 				state->emit<ConnectionRequested>(ConnectionRequest(state, std::move(request)));
-				continue;
+				return;
 			}
 			case ID_SESSION_CONFIG_ABANDONED:
 				state->emit<ConnectionAbandoned>({key});
-				continue;
+				return;
 			case ID_NEW_INCOMING_CONNECTION:
 			{
 				ServerState::Client client;
@@ -290,14 +356,13 @@ void Server::poll()
 				state->clients.insert_or_assign(key.guid, std::move(client));
 				ClientConnection connection(state, key);
 				state->emit<ClientConnected>(connection);
-				continue;
+				return;
 			}
-			case ID_CONNECTION_LOST:
-			case ID_DISCONNECTION_NOTIFICATION:
+			default: // ID_CONNECTION_LOST, ID_DISCONNECTION_NOTIFICATION
 			{
 				auto it = state->clients.find(key.guid);
 				if (it == state->clients.end() || it->second.generation != key.generation)
-					continue;
+					return;
 				auto reason = packet->data[0] == ID_CONNECTION_LOST                      ? LeaveReason::ConnectionLost
 				              : packet->disconnectCause == DisconnectCause::InboundFlood ? LeaveReason::InboundFlood
 				                                                                         : LeaveReason::Disconnected;
@@ -311,11 +376,73 @@ void Server::poll()
 				if (packet->playerId != PlayerId{})
 					state->emit<PlayerLeft>({key, packet->playerId, reason, sent.detail, sent.code});
 				state->emit<ClientDisconnected>({key, reason, std::move(sent.detail), sent.code});
-				continue;
+				return;
 			}
 			}
 		}
 		state->messages.dispatch(packet);
+	};
+	auto park = [&](PeerGuid guid, PacketPtr packet)
+	{
+		auto [it, added] = state->parked.try_emplace(guid);
+		if (added)
+			state->parkedOrder.push_back(guid);
+		it->second.push_back(std::move(packet));
+		++state->parkedCount;
+	};
+
+	// Parked packets are older than anything still in the transport: serve them first, one connection after
+	// another, each up to its own share. A connection that still has some goes to the back of the line, so a
+	// large backlog rotates among connections instead of the first one always winning.
+	for (std::size_t turns = state->parkedOrder.size(); turns > 0; --turns)
+	{
+		const PeerGuid guid = state->parkedOrder.front();
+		state->parkedOrder.pop_front();
+		auto &queue = state->parked.at(guid);
+		while (!queue.empty())
+		{
+			flush_joins();
+			// A lifecycle event costs nothing but stays behind this connection's earlier packets.
+			if (!IsLifecycle(*queue.front()) && !take(guid))
+				break;
+			process(queue.front());
+			queue.pop_front();
+			--state->parkedCount;
+		}
+		if (queue.empty())
+			state->parked.erase(guid);
+		else
+			state->parkedOrder.push_back(guid);
 	}
+
+	// Then new packets, until the budget is spent. Over-share packets are parked rather than left in the
+	// transport's single queue, which cannot skip one connection. Parking is cheap (a move) but still capped, at
+	// kParkFactor times the budget, so the call stays bounded when one connection floods; a flooder ahead of
+	// others in the queue is looked past up to that many packets.
+	uint64_t parkedNow = 0;
+	const uint64_t parkLimit = limit == kUnbounded ? kUnbounded : limit * kParkFactor;
+	while (handled < limit && parkedNow < parkLimit)
+	{
+		flush_joins();
+		auto packet = state->peer.receive();
+		if (!packet)
+			break;
+		const PeerGuid guid = ToPeerGuid(packet->guid);
+		if (state->parked.count(guid))
+		{
+			// Behind this connection's parked packets, to keep its order.
+			park(guid, std::move(packet));
+			++parkedNow;
+		}
+		else if (IsLifecycle(*packet) || take(guid))
+			process(packet);
+		else
+		{
+			park(guid, std::move(packet));
+			++parkedNow;
+		}
+	}
+	flush_joins();
+	state->lastPoll = {static_cast<uint32_t>(handled), state->parkedCount + state->transport().GetReceiveBufferSize()};
 }
 }

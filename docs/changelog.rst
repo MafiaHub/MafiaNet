@@ -6,6 +6,10 @@ All notable changes to MafiaNet are documented here.
 Unreleased
 ----------
 
+* ``Server::poll(PollBudget)`` bounds one poll to ``maxPackets`` application packets and
+  ``maxPacketsPerConnection`` per connection, so a tick ends while packets keep arriving. Packets over the budget are
+  parked, in order per connection, for later polls; nothing is dropped. ``poll()`` without a budget is unchanged.
+  ``Server::last_poll()`` and ``Server::backlog()`` report what is still waiting. See :doc:`guide/player-server`.
 * ``SpatialScope::category`` and ``InterestGrid::SetCategoryLimit()`` cap how many objects of one category
   each observer sees at once, highest priority first, then nearest. Category 0 is never limited. Candidates skipped by a cap are
   counted in ``InterestStatistics::categoryCapped``. See :doc:`guide/replication`.
