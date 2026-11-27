@@ -407,6 +407,7 @@ bool ReplicaManager3::PushConnection(MafiaNet::Connection_RM3 *newConnection, Wo
 		{
 			ListLock listLock(m_WorldListMutex);
 			world->connectionList.push_back(newConnection);
+			world->connectionsByGuid[newConnection->GetRakNetGUID().g] = newConnection;
 		}
 
 		newConnection->isValidated = true;
@@ -497,6 +498,7 @@ MafiaNet::Connection_RM3 *ReplicaManager3::PopConnection(unsigned int index, Wor
 	{
 		ListLock listLock(m_WorldListMutex);
 		world->connectionList.erase(world->connectionList.begin() + index);
+		world->connectionsByGuid.erase(connection->GetRakNetGUID().g);
 	}
 	--connectionLock.lock->worlds;
 	return connection;
@@ -748,15 +750,8 @@ Connection_RM3 *ReplicaManager3::GetConnectionByGUID(RakNetGUID guid, WorldId wo
 	ListLock listLock(m_WorldListMutex);
 	RM3World *world = worldsArray[worldId];
 
-	unsigned int index;
-	for (index = 0; index < world->connectionList.size(); index++)
-	{
-		if (world->connectionList[index]->GetRakNetGUID() == guid)
-		{
-			return world->connectionList[index];
-		}
-	}
-	return 0;
+	const auto found = world->connectionsByGuid.find(guid.g);
+	return found == world->connectionsByGuid.end() ? 0 : found->second;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -863,6 +858,16 @@ bool ReplicaManager3::HoldsConnection(const Connection_RM3 *connection, WorldId 
 	return false;
 }
 
+bool ReplicaManager3::HoldsConnectionByGuid(const Connection_RM3 *connection, RakNetGUID guid, WorldId worldId) const
+{
+	ListLock listLock(m_WorldListMutex);
+	const RM3World *world = worldsArray[worldId];
+	if (world == 0)
+		return false;
+	const auto found = world->connectionsByGuid.find(guid.g);
+	return found != world->connectionsByGuid.end() && found->second == connection;
+}
+
 bool Connection_RM3::HoldsRecord(const LastSerializationResult *lsr) const
 {
 	for (unsigned int i = 0; i < constructedReplicaList.size(); i++)
@@ -935,6 +940,7 @@ void ReplicaManager3::RM3World::Clear(ReplicaManager3 *replicaManager3)
 	{
 		ListLock listLock(replicaManager3->m_WorldListMutex);
 		connectionList.clear();
+		connectionsByGuid.clear();
 	}
 	for (Connection_RM3 *connection : connections)
 	{
@@ -1312,14 +1318,14 @@ Connection_RM3 *ReplicaManager3::LockConnectionByGUID(RakNetGUID guid, WorldId w
 		// Its lock is taken hold of under the list lock: the connection cannot be freed before it has left the list.
 		ListLock listLock(m_WorldListMutex);
 		const RM3World *world = worldsArray[worldId];
-		for (unsigned int index = 0; world != 0 && index < world->connectionList.size(); index++)
+		if (world != 0)
 		{
-			if (world->connectionList[index]->GetRakNetGUID() == guid)
+			const auto found = world->connectionsByGuid.find(guid.g);
+			if (found != world->connectionsByGuid.end())
 			{
-				connection = world->connectionList[index];
+				connection = found->second;
 				lock = connection->lock;
 				++lock->references;
-				break;
 			}
 		}
 	}
@@ -1328,7 +1334,7 @@ Connection_RM3 *ReplicaManager3::LockConnectionByGUID(RakNetGUID guid, WorldId w
 
 	lock->mutex.lock();
 	// The count says whether it may have been freed, and comes first: only pointers are compared after it.
-	if (lock->worlds == 0 || !HoldsConnection(connection, worldId))
+	if (lock->worlds == 0 || !HoldsConnectionByGuid(connection, guid, worldId))
 	{
 		// Popped from this world while this thread waited, and maybe freed since.
 		lock->mutex.unlock();

@@ -38,6 +38,7 @@
 #include <mutex>
 #include <map>
 #include <shared_mutex>
+#include <unordered_map>
 #include <vector>
 
 /// \defgroup REPLICA_MANAGER_GROUP3 ReplicaManager3
@@ -403,6 +404,8 @@ public:
 		void Clear(ReplicaManager3 *replicaManager3);
 
 		std::vector<Connection_RM3 *> connectionList;
+		/// Every entry of connectionList by GUID, edited with it under the list lock. The list keeps the order; this makes a lookup by GUID constant time.
+		std::unordered_map<uint64_t, Connection_RM3 *> connectionsByGuid;
 		std::vector<Replica3 *> userReplicaList;
 		WorldId worldId;
 		NetworkIDManager *networkIDManager;
@@ -478,6 +481,8 @@ private:
 	RM3ConnectionLock *LockConnection(Connection_RM3 *connection) const;
 	// The connection a packet came from, with its lock taken into \a lock, or 0 and no lock if it is not in the world.
 	Connection_RM3 *LockConnectionByGUID(RakNetGUID guid, WorldId worldId, RM3ConnectionLock *&lock) const;
+	// Whether \a connection is the one the world holds under \a guid. Constant time, and compares pointers only.
+	bool HoldsConnectionByGuid(const Connection_RM3 *connection, RakNetGUID guid, WorldId worldId) const;
 
 	// The serialize pass of one world, connection by connection on this thread.
 	void SerializeConnections(RM3World *world, WorldId worldId, MafiaNet::Time time);

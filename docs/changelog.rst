@@ -6,6 +6,9 @@ All notable changes to MafiaNet are documented here.
 Unreleased
 ----------
 
+* ``ReplicaManager3`` finds a connection by GUID in constant time. Each world keeps a hash index beside its connection
+  list, so ``GetConnectionByGUID()`` and the lookup made for every received replication message no longer scan all
+  connections. The list and its order are unchanged.
 * ``Server::poll(PollBudget)`` bounds one poll to ``maxPackets`` application packets and
   ``maxPacketsPerConnection`` per connection, so a tick ends while packets keep arriving. Packets over the budget are
   parked, in order per connection, for later polls; nothing is dropped. ``poll()`` without a budget is unchanged.
