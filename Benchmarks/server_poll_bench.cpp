@@ -84,11 +84,20 @@ void PollBacklog(benchmark::State &state, PollBudget budget)
 }
 }
 
-static void BM_ServerPoll_Unbudgeted(benchmark::State &state) { PollBacklog(state, PollBudget{}); }
+static void BM_ServerPoll_Unbudgeted(benchmark::State &state)
+{
+	PollBacklog(state, PollBudget{});
+}
 BENCHMARK(BM_ServerPoll_Unbudgeted)->Unit(benchmark::kMicrosecond)->Iterations(5);
 
-static void BM_ServerPoll_Budget1000(benchmark::State &state) { PollBacklog(state, PollBudget{1000, 30}); }
+static void BM_ServerPoll_Budget1000(benchmark::State &state)
+{
+	PollBacklog(state, PollBudget{1000, 30});
+}
 BENCHMARK(BM_ServerPoll_Budget1000)->Unit(benchmark::kMicrosecond)->Iterations(5);
 
-static void BM_ServerPoll_Budget100(benchmark::State &state) { PollBacklog(state, PollBudget{100, 3}); }
+static void BM_ServerPoll_Budget100(benchmark::State &state)
+{
+	PollBacklog(state, PollBudget{100, 3});
+}
 BENCHMARK(BM_ServerPoll_Budget100)->Unit(benchmark::kMicrosecond)->Iterations(5);

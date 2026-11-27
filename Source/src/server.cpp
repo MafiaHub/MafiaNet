@@ -391,29 +391,35 @@ void Server::poll(PollBudget budget)
 		++state->parkedCount;
 	};
 
-	// Parked packets are older than anything still in the transport: serve them first, one connection after
-	// another, each up to its own share. A connection that still has some goes to the back of the line, so a
-	// large backlog rotates among connections instead of the first one always winning.
-	for (std::size_t turns = state->parkedOrder.size(); turns > 0; --turns)
+	// One round over the connections with parked packets: each is served up to its own share, and one that
+	// still has some goes to the back of the line, so a large backlog rotates among connections instead of the
+	// first one always winning.
+	auto serve_parked = [&]
 	{
-		const PeerGuid guid = state->parkedOrder.front();
-		state->parkedOrder.pop_front();
-		auto &queue = state->parked.at(guid);
-		while (!queue.empty())
+		for (std::size_t turns = state->parkedOrder.size(); turns > 0; --turns)
 		{
-			flush_joins();
-			// A lifecycle event costs nothing but stays behind this connection's earlier packets.
-			if (!IsLifecycle(*queue.front()) && !take(guid))
-				break;
-			process(queue.front());
-			queue.pop_front();
-			--state->parkedCount;
+			const PeerGuid guid = state->parkedOrder.front();
+			state->parkedOrder.pop_front();
+			auto &queue = state->parked.at(guid);
+			while (!queue.empty())
+			{
+				flush_joins();
+				// A lifecycle event costs nothing but stays behind this connection's earlier packets.
+				if (!IsLifecycle(*queue.front()) && !take(guid))
+					break;
+				process(queue.front());
+				queue.pop_front();
+				--state->parkedCount;
+			}
+			if (queue.empty())
+				state->parked.erase(guid);
+			else
+				state->parkedOrder.push_back(guid);
 		}
-		if (queue.empty())
-			state->parked.erase(guid);
-		else
-			state->parkedOrder.push_back(guid);
-	}
+	};
+
+	// Parked packets are older than anything still in the transport: serve them first.
+	serve_parked();
 
 	// Then new packets, until the budget is spent. Over-share packets are parked rather than left in the
 	// transport's single queue, which cannot skip one connection. Parking is cheap (a move) but still capped, at
@@ -441,6 +447,17 @@ void Server::poll(PollBudget budget)
 			park(guid, std::move(packet));
 			++parkedNow;
 		}
+	}
+	// The share is a fairness rule, not a cap on throughput: when the transport window is spent or empty and
+	// budget remains, keep serving parked packets in further rounds of one share each until the budget is used
+	// or nothing is parked. The transport is not read again, so the call stays bounded.
+	while (handled < limit && state->parkedCount)
+	{
+		const std::size_t before = state->parkedCount;
+		handledPerConnection.clear();
+		serve_parked();
+		if (state->parkedCount == before)
+			break;
 	}
 	flush_joins();
 	state->lastPoll = {static_cast<uint32_t>(handled), state->parkedCount + state->transport().GetReceiveBufferSize()};

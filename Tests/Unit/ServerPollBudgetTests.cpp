@@ -133,8 +133,10 @@ TEST(ServerPollBudget, FloodingConnectionDoesNotStarveAnother)
 	std::size_t fromOther = 0;
 	for (uint32_t value : rig.arrival)
 		(value >= 2000 ? fromOther : fromFlooder)++;
-	EXPECT_EQ(fromFlooder, 3u);
-	EXPECT_EQ(fromOther, 3u);
+	// Everyone got their share of 3; the rest of the budget then went on to whoever still had packets.
+	EXPECT_GE(fromFlooder, 3u);
+	EXPECT_GE(fromOther, 3u);
+	EXPECT_EQ(fromFlooder + fromOther, 10u);
 	for (unsigned i = 0; i < 40 && rig.server.backlog(); ++i)
 		rig.server.poll(PollBudget{10, 3});
 	EXPECT_EQ(rig.server.backlog(), 0u);
@@ -188,4 +190,29 @@ TEST(ServerPollBudget, ADisconnectStaysBehindItsOwnConnectionsParkedPackets)
 	}
 	ASSERT_EQ(rig.disconnected.size(), 1u);
 	EXPECT_EQ(rig.arrival.size(), 12u);
+}
+
+TEST(ServerPollBudget, UnusedBudgetGoesToParkedPacketsBeyondTheShare)
+{
+	Rig rig(3);
+	rig.send(0, 1000, 60);
+	rig.send(1, 2000, 2);
+	rig.send(2, 3000, 2);
+	ASSERT_TRUE(rig.settle(64));
+	rig.server.poll(PollBudget{20, 3});
+	EXPECT_EQ(rig.arrival.size(), 20u);
+	EXPECT_EQ(rig.server.last_poll().handled, 20u);
+	EXPECT_EQ(rig.server.last_poll().backlog, 44u);
+	// The small connections are served in full, and the flooder's own order holds.
+	EXPECT_EQ(rig.received.size(), 3u);
+	std::size_t small = 0;
+	for (uint32_t value : rig.arrival)
+		small += value >= 2000;
+	EXPECT_EQ(small, 4u);
+	for (auto &[guid, values] : rig.received)
+		for (std::size_t i = 1; i < values.size(); ++i)
+			EXPECT_EQ(values[i], values[i - 1] + 1);
+	while (rig.server.backlog())
+		rig.server.poll(PollBudget{20, 3});
+	EXPECT_EQ(rig.arrival.size(), 64u);
 }
