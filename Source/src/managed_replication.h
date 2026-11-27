@@ -17,7 +17,11 @@ class ManagedReplication final : public ReplicaManager3
 {
 public:
 	ManagedReplication(ReplicationManager &owner, RakPeerInterface &peer)
-	    : ReplicaManager3(peer), owner(owner) {}
+	    : ReplicaManager3(peer), owner(owner)
+	{
+		interest.SetTrackingListener([this](NetworkID id, bool tracked)
+		                             { Tracked(id, tracked); });
+	}
 	bool Register(ReplicaTypeId id, uint16_t version, std::type_index type, bool snapshot, bool timed, std::function<Replica3 *()> create, std::function<void(Replica3 *)> release);
 	bool Policy(ReplicaTypeId id, ChangeDetection detection, SnapshotDelivery delivery);
 	bool Mark(Replica3 &object);
@@ -35,7 +39,14 @@ public:
 	void Receive(Packet &packet);
 	void Destroy(Replica3 &replica);
 	InterestGrid interest;
+	/// Replicas referenced without a scope (and static bindings): every eligible connection sees them unless the grid tracks them.
 	std::map<NetworkID, Replica3 *> ordinary;
+	/// The ordinary replicas the grid does not track, which QueryReplicaList() adds to each connection's visible set.
+	/// Kept in step with ordinary and the grid (Track/Remove/Clear), so a connection never walks the tracked ones.
+	std::map<NetworkID, Replica3 *> untracked;
+	void AddOrdinary(NetworkID id, Replica3 *replica);
+	void EraseOrdinary(NetworkID id);
+	void Tracked(NetworkID id, bool tracked);
 	void OnFinalDereference(Replica3 &replica) override;
 	std::map<NetworkID, Replica3 *> staticObjects;
 	bool automaticAdmission = true;

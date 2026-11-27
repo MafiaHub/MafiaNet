@@ -20,6 +20,12 @@ Unreleased
   Pulled children are counted in ``InterestStatistics::dependencyPulls``.
 * ``InterestGrid::SetAlwaysVisible()`` shows an object to every eligible observer whatever its position
   (``InterestStatistics::alwaysVisiblePulls``).
+* ``InterestGrid`` moves cost the observers near them, not every observer. Moving an object without changing its
+  other scope fields rebuilds only the observers whose visible set or order can change: radius observers that hold it
+  or now have it within their enter radius, and explicit-cell observers when it changes cell. Moving a dependency child
+  no longer scans every observer for its parent's viewers, and relinking a child to its current parent is a no-op.
+  The server's per-connection visible set walks only the replicas referenced without a scope that the grid does not
+  track, instead of every such replica. Visible sets are unchanged.
 * Delegated simulation: ``ReplicationManager::SetDelegation()`` hands each opted-in replica to the nearest
   eligible client to simulate, through ``SetAuthority()``. ``DelegationPolicy`` sets the acquire and release
   ranges, a weight and the veto's grace. The incumbent keeps the replica unless a challenger's squared distance

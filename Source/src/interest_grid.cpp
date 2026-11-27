@@ -63,6 +63,8 @@ public:
 	std::multiset<float> rangedLengths;
 	float rangedCellSize = 0;
 	std::map<int, std::set<PeerGuid>> subscriptions;
+	// ManagedReplication's notice that an object entered (true) or left (false) the grid.
+	std::function<void(NetworkID, bool)> tracking;
 	// Radius observers and their positions by the row-major cell of their position, so delegation finds the clients
 	// near a replica by walking ordered key ranges, one per row, without a scan.
 	std::map<int, std::map<PeerGuid, SpatialPoint>> observersAt;
@@ -287,6 +289,47 @@ public:
 			{
 				entry.second.dirty = true;
 			}
+		}
+	}
+	// A move of an unranged object whose other scope fields are unchanged. Only the subscribers of the old and new cells
+	// are visited, and of those only the ones whose result can change are dirtied: radius observers holding the object
+	// (its distance, so their order, changed; a radius observer holds a spatial object only within its leave radius, so
+	// it subscribes to the old cell), radius observers within the enter radius of the new position (it may now enter or
+	// outrank an incumbent), and, when the cell changes, explicit-cell observers of either cell (they rank every object
+	// of their cells at distance 0, so a move within a cell changes nothing for them). A radius observer that neither
+	// held the object nor can see it now is unaffected: dropping or moving a candidate that was not selected leaves the
+	// selection unchanged. Other holders do not depend on the position: a dependency child is pulled in wherever it is,
+	// an always-visible object dirties everyone and SetScope() invalidates the holder of a required object.
+	void DirtyMove(NetworkID id, int from, int to, SpatialPoint position)
+	{
+		auto visit = [&](int cell, bool reaching)
+		{
+			auto it = subscriptions.find(cell);
+			if (it == subscriptions.end())
+			{
+				return;
+			}
+			for (auto guid : it->second)
+			{
+				auto &observer = observers.at(guid);
+				if (observer.dirty)
+				{
+					continue;
+				}
+				if (!observer.radius)
+				{
+					observer.dirty = from != to;
+				}
+				else if (observer.visible.count(id) || (reaching && NearestDistSq(FociOf(observer), position) <= static_cast<double>(observer.enter) * observer.enter))
+				{
+					observer.dirty = true;
+				}
+			}
+		};
+		visit(to, true);
+		if (from != to)
+		{
+			visit(from, false);
 		}
 	}
 	void Unlink(NetworkID child)
@@ -595,6 +638,7 @@ bool InterestGrid::Configure(InterestGridConfig config)
 	next.entityRangeCategories = impl->entityRangeCategories;
 	next.stats = impl->stats;
 	next.audience = std::move(impl->audience);
+	next.tracking = std::move(impl->tracking);
 	impl.swap(replacement.impl);
 	return true;
 }
@@ -614,6 +658,10 @@ bool InterestGrid::Track(NetworkID id, SpatialScope scope)
 	{
 		impl->DirtyRanged(scope);
 	}
+	if (impl->tracking)
+	{
+		impl->tracking(id, true);
+	}
 	return true;
 }
 bool InterestGrid::SetScope(NetworkID id, SpatialScope scope)
@@ -623,26 +671,43 @@ bool InterestGrid::SetScope(NetworkID id, SpatialScope scope)
 	if (it == impl->objects.end() || !impl->Valid(scope.position) || !(scope.range >= 0 && std::isfinite(scope.range)))
 		return false;
 	auto &r = it->second;
-	impl->Dirty(r.cell);
-	if (r.scope.range > 0)
+	const int cell = impl->Cell(scope.position);
+	const auto &old = r.scope;
+	// Only world and dimension decide whether a linked child is eligible; the audience predicate is the caller's to invalidate.
+	const bool eligibilityChanged = old.world != scope.world || old.dimension != scope.dimension;
+	const bool moveOnly = !eligibilityChanged && old.priority == scope.priority && old.category == scope.category && old.range == 0 && scope.range == 0;
+	if (moveOnly)
 	{
-		impl->DirtyRanged(r.scope);
+		impl->DirtyMove(id, r.cell, cell, scope.position);
+		r.scope = scope;
 	}
-	impl->UnfileRanged(r);
-	r.scope = scope;
-	impl->FileRanged(r);
-	if (r.scope.range > 0)
+	else
 	{
-		impl->DirtyRanged(r.scope);
+		impl->Dirty(r.cell);
+		if (r.scope.range > 0)
+		{
+			impl->DirtyRanged(r.scope);
+		}
+		impl->UnfileRanged(r);
+		r.scope = scope;
+		impl->FileRanged(r);
+		if (r.scope.range > 0)
+		{
+			impl->DirtyRanged(r.scope);
+		}
+		impl->Dirty(cell);
 	}
-	r.cell = impl->Cell(scope.position);
-	impl->index.MoveEntry(&r, static_cast<float>(r.cell % impl->width), static_cast<float>(r.cell / impl->width));
-	impl->Dirty(r.cell);
+	if (cell != r.cell)
+	{
+		r.cell = cell;
+		impl->index.MoveEntry(&r, static_cast<float>(r.cell % impl->width), static_cast<float>(r.cell / impl->width));
+	}
 	if (impl->alwaysVisible.count(id))
 		impl->DirtyAll();
-	if (auto parent = impl->parents.find(id); parent != impl->parents.end())
+	if (auto parent = impl->parents.find(id); parent != impl->parents.end() && eligibilityChanged)
 	{
 		// Whoever sees this child through its link sees the parent, and the child's eligibility may have changed.
+		// Its position alone does not matter to them: a linked child is pulled in wherever it is.
 		impl->DirtyViewersOf(parent->second);
 	}
 	if (r.required != UNASSIGNED_PEER_GUID)
@@ -686,6 +751,10 @@ void InterestGrid::Remove(NetworkID id)
 	impl->UnfileRanged(it->second);
 	impl->index.RemoveEntry(&it->second);
 	impl->objects.erase(it);
+	if (impl->tracking)
+	{
+		impl->tracking(id, false);
+	}
 }
 bool InterestGrid::Contains(NetworkID id) const
 {
@@ -822,6 +891,11 @@ bool InterestGrid::SetDependency(NetworkID child, NetworkID parent)
 		impl->Unlink(child);
 		return true;
 	}
+	if (auto current = impl->parents.find(child); current != impl->parents.end() && current->second == parent)
+	{
+		// Relinking to the same parent changes nothing.
+		return true;
+	}
 	for (auto up = impl->parents.find(parent); up != impl->parents.end(); up = impl->parents.find(up->second))
 	{
 		if (up->second == child)
@@ -868,6 +942,13 @@ void InterestGrid::RemoveObserver(PeerGuid guid)
 void InterestGrid::Clear()
 {
 	impl->CheckWritable();
+	if (impl->tracking)
+	{
+		for (const auto &entry : impl->objects)
+		{
+			impl->tracking(entry.first, false);
+		}
+	}
 	impl->index.Clear();
 	impl->subscriptions.clear();
 	impl->observersAt.clear();
@@ -941,6 +1022,10 @@ bool InterestGrid::ScopeOf(NetworkID id, SpatialScope &out) const
 	}
 	out = it->second.scope;
 	return true;
+}
+void InterestGrid::SetTrackingListener(std::function<void(NetworkID, bool)> listener)
+{
+	impl->tracking = std::move(listener);
 }
 void InterestGrid::RadiusObserversNear(SpatialPoint center, float range, std::vector<std::pair<PeerGuid, SpatialPoint>> &out) const
 {

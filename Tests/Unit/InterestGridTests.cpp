@@ -169,6 +169,7 @@ namespace MafiaNet
 struct InterestGridTestAccess
 {
 	static void Require(InterestGrid &grid, NetworkID id, PeerGuid guid) { grid.Require(id, guid); }
+	static void Listen(InterestGrid &grid, std::function<void(NetworkID, bool)> listener) { grid.SetTrackingListener(std::move(listener)); }
 	static std::set<PeerGuid> Near(const InterestGrid &grid, SpatialPoint center, float range)
 	{
 		std::vector<std::pair<PeerGuid, SpatialPoint>> out;
@@ -887,4 +888,262 @@ TEST(InterestGrid, RadiusObserversNearWalksOnlyTheCellsInRange)
 	// Configure rebuilds the index for the new cells.
 	ASSERT_TRUE(grid.Configure({{0, 0}, {1000, 1000}, 10}));
 	EXPECT_EQ(InterestGridTestAccess::Near(grid, {25, 25}, 10), (std::set<PeerGuid>{PeerGuid{3}}));
+}
+
+// The same seeded sequence of object moves, scope changes, dependency links, observer changes and required objects
+// drives two grids. The reference invalidates every observer before each read, so it always rebuilds from scratch;
+// the incremental grid must return the same visible sets while rebuilding only the observers it dirtied. Sets, not
+// orders: a rebuild with unchanged inputs can reorder (a newcomer gains the incumbent's 5% distance bonus once held),
+// so an observer that is rightly left clean keeps its previous order, as it always has.
+TEST(InterestGrid, IncrementalDirtyingMatchesFullRebuilds)
+{
+	for (uint32_t seed : {1u, 7u, 42u, 1234u})
+	{
+		InterestGrid grid, reference;
+		uint32_t state = seed;
+		auto next = [&]
+		{
+			state = 1664525u * state + 1013904223u;
+			return state >> 8;
+		};
+		auto point = [&]
+		{ return SpatialPoint{static_cast<float>(next() % 4001) / 10.0f, static_cast<float>(next() % 4001) / 10.0f}; };
+		auto nudge = [&](SpatialPoint p)
+		{
+			p.x = std::clamp(p.x + static_cast<float>(int(next() % 81) - 40) / 10.0f, 0.0f, 400.0f);
+			p.y = std::clamp(p.y + static_cast<float>(int(next() % 81) - 40) / 10.0f, 0.0f, 400.0f);
+			return p;
+		};
+		auto both = [&](auto &&action)
+		{
+			const bool a = action(grid), b = action(reference);
+			EXPECT_EQ(a, b);
+			return a;
+		};
+		both([](InterestGrid &g)
+		     { return g.Configure({{0, 0}, {400, 400}, 25}); });
+		constexpr unsigned kObservers = 12, kObjects = 60;
+		std::map<NetworkID, SpatialScope> objects;
+		std::map<PeerGuid, SpatialPoint> radius;
+		for (unsigned i = 0; i < kObservers; ++i)
+		{
+			const PeerGuid guid{i + 1};
+			const auto p = point();
+			if (i % 4 == 3)
+			{
+				const std::vector<GridCell> cells{{static_cast<int>(next() % 16), static_cast<int>(next() % 16)}, {static_cast<int>(next() % 16), static_cast<int>(next() % 16)}};
+				both([&](InterestGrid &g)
+				     { return g.SetObserverCells(guid, cells); });
+			}
+			else
+			{
+				radius[guid] = p;
+				both([&](InterestGrid &g)
+				     { return g.SetObserverRadius(guid, p, 40, 50); });
+				if (i % 2 == 0)
+				{
+					// A look-ahead focus 10-20 units ahead.
+					const SpatialPoint velocity{static_cast<float>(int(next() % 41) - 20), static_cast<float>(int(next() % 41) - 20)};
+					both([&](InterestGrid &g)
+					     { return g.SetObserverVelocity(guid, velocity); });
+				}
+			}
+			if (i % 3 == 0)
+			{
+				both([&](InterestGrid &g)
+				     { g.SetObserverLimits(guid, 6, 0); return true; });
+			}
+		}
+		both([](InterestGrid &g)
+		     { return g.SetCategoryLimit(2, 3); });
+		both([](InterestGrid &g)
+		     { g.SetLookaheadSeconds(0.5f); return true; });
+		for (NetworkID id = 1; id <= kObjects; ++id)
+		{
+			SpatialScope scope{point()};
+			scope.category = static_cast<uint16_t>(id % 3);
+			scope.priority = static_cast<int>(id % 2);
+			objects[id] = scope;
+			both([&](InterestGrid &g)
+			     { return g.Track(id, scope); });
+		}
+		both([](InterestGrid &g)
+		     { return g.SetAlwaysVisible(kObjects, true); });
+		std::vector<NetworkID> a, b;
+		for (unsigned step = 0; step < 1500; ++step)
+		{
+			const NetworkID id = 1 + next() % kObjects;
+			const PeerGuid guid{1 + next() % kObservers};
+			const unsigned roll = next() % 100;
+			if (roll < 55 && objects.count(id))
+			{
+				// Mostly small moves (often within a cell), sometimes a jump.
+				auto &scope = objects[id];
+				scope.position = next() % 8 ? nudge(scope.position) : point();
+				both([&](InterestGrid &g)
+				     { return g.SetPosition(id, scope.position); });
+			}
+			else if (roll < 62 && objects.count(id))
+			{
+				auto &scope = objects[id];
+				switch (next() % 5)
+				{
+				case 0:
+					scope.world = static_cast<uint8_t>(next() % 2);
+					break;
+				case 1:
+					scope.priority = static_cast<int>(next() % 3);
+					break;
+				case 2:
+					scope.category = static_cast<uint16_t>(next() % 3);
+					break;
+				case 3:
+					scope.range = next() % 2 ? 90.0f : 0.0f;
+					break;
+				default:
+					scope.position = point();
+					break;
+				}
+				both([&](InterestGrid &g)
+				     { return g.SetScope(id, scope); });
+			}
+			else if (roll < 72)
+			{
+				const NetworkID parent = next() % 4 ? 1 + next() % kObjects : UNASSIGNED_NETWORK_ID;
+				both([&](InterestGrid &g)
+				     { return g.SetDependency(id, parent); });
+			}
+			else if (roll < 84 && radius.count(guid))
+			{
+				radius[guid] = next() % 4 ? nudge(radius[guid]) : point();
+				both([&](InterestGrid &g)
+				     { return g.SetObserverPosition(guid, radius[guid]); });
+			}
+			else if (roll < 87)
+			{
+				const uint8_t world = static_cast<uint8_t>(next() % 2);
+				both([&](InterestGrid &g)
+				     { g.SetObserverWorld(guid, world, VIRTUAL_WORLD_DEFAULT); return true; });
+			}
+			else if (roll < 90)
+			{
+				const PeerGuid holder = next() % 2 ? guid : UNASSIGNED_PEER_GUID;
+				both([&](InterestGrid &g)
+				     { InterestGridTestAccess::Require(g, id, holder); return true; });
+			}
+			else if (roll < 95)
+			{
+				if (objects.erase(id))
+				{
+					both([&](InterestGrid &g)
+					     { g.Remove(id); return true; });
+				}
+				else
+				{
+					SpatialScope scope{point()};
+					objects[id] = scope;
+					both([&](InterestGrid &g)
+					     { return g.Track(id, scope); });
+				}
+			}
+			// Reads at varying times, so stale (undirtied) sets would surface later too.
+			if (step % 3 == 0)
+			{
+				for (unsigned i = 0; i < kObservers; ++i)
+				{
+					const PeerGuid observer{i + 1};
+					reference.InvalidateObserver(observer);
+					grid.GetVisible(observer, a);
+					reference.GetVisible(observer, b);
+					ASSERT_EQ(a.size(), std::set<NetworkID>(a.begin(), a.end()).size());
+					ASSERT_EQ(std::set<NetworkID>(a.begin(), a.end()), std::set<NetworkID>(b.begin(), b.end())) << "seed " << seed << " step " << step << " observer " << i;
+				}
+			}
+		}
+		EXPECT_LT(grid.GetStatistics().observersRebuilt, reference.GetStatistics().observersRebuilt);
+	}
+}
+
+TEST(InterestGrid, MovingADependencyChildRebuildsNoObserverThatOnlyFollowsTheLink)
+{
+	InterestGrid grid;
+	const PeerGuid follower{1}, bystander{2};
+	ASSERT_TRUE(grid.Configure({{0, 0}, {1000, 1000}, 50}));
+	ASSERT_TRUE(grid.SetObserverRadius(follower, {0, 0}, 50, 50));
+	ASSERT_TRUE(grid.SetObserverRadius(bystander, {500, 500}, 50, 50));
+	ASSERT_TRUE(grid.Track(1, {{10, 0}}));
+	ASSERT_TRUE(grid.Track(2, {{900, 900}}));
+	ASSERT_TRUE(grid.SetDependency(2, 1));
+	auto visible = Visible(grid, follower);
+	EXPECT_EQ(std::set<NetworkID>(visible.begin(), visible.end()), (std::set<NetworkID>{1, 2}));
+	EXPECT_TRUE(Visible(grid, bystander).empty());
+	const auto rebuilt = grid.GetStatistics().observersRebuilt;
+	// The child moves far from both observers: neither result changes (the follower pulls it in wherever it is), so
+	// neither rebuilds.
+	ASSERT_TRUE(grid.SetPosition(2, {950, 950}));
+	EXPECT_TRUE(Visible(grid, bystander).empty());
+	visible = Visible(grid, follower);
+	EXPECT_EQ(std::set<NetworkID>(visible.begin(), visible.end()), (std::set<NetworkID>{1, 2}));
+	EXPECT_EQ(grid.GetStatistics().observersRebuilt, rebuilt);
+	// Relinking to the same parent changes nothing and dirties nobody.
+	const auto relinked = grid.GetStatistics().observersRebuilt;
+	ASSERT_TRUE(grid.SetDependency(2, 1));
+	Visible(grid, follower);
+	Visible(grid, bystander);
+	EXPECT_EQ(grid.GetStatistics().observersRebuilt, relinked);
+	// A world change of the child does reach the parent's viewers.
+	ASSERT_TRUE(grid.SetScope(2, {{950, 950}, 1}));
+	EXPECT_EQ(Visible(grid, follower), std::vector<NetworkID>{1});
+}
+
+TEST(InterestGrid, MovingWithinACellRebuildsOnlyObserversItCanReach)
+{
+	InterestGrid grid;
+	const PeerGuid nearby{1}, edge{2}, room{3};
+	ASSERT_TRUE(grid.Configure({{0, 0}, {1000, 1000}, 100}));
+	ASSERT_TRUE(grid.SetObserverRadius(nearby, {150, 150}, 20, 30));
+	// Subscribed to the object's cell, but too far from it.
+	ASSERT_TRUE(grid.SetObserverRadius(edge, {95, 95}, 20, 30));
+	ASSERT_TRUE(grid.SetObserverCells(room, {{1, 1}}));
+	ASSERT_TRUE(grid.Track(1, {{190, 190}}));
+	EXPECT_TRUE(Visible(grid, nearby).empty());
+	EXPECT_TRUE(Visible(grid, edge).empty());
+	EXPECT_EQ(Visible(grid, room), std::vector<NetworkID>{1});
+	auto rebuilt = grid.GetStatistics().observersRebuilt;
+	ASSERT_TRUE(grid.SetPosition(1, {180, 190}));
+	Visible(grid, nearby);
+	Visible(grid, edge);
+	Visible(grid, room);
+	EXPECT_EQ(grid.GetStatistics().observersRebuilt, rebuilt);
+	// Into the nearby observer's enter radius: only it rebuilds.
+	ASSERT_TRUE(grid.SetPosition(1, {160, 150}));
+	EXPECT_EQ(Visible(grid, nearby), std::vector<NetworkID>{1});
+	Visible(grid, edge);
+	Visible(grid, room);
+	EXPECT_EQ(grid.GetStatistics().observersRebuilt, rebuilt + 1);
+	// Into another cell: the room loses it.
+	rebuilt = grid.GetStatistics().observersRebuilt;
+	ASSERT_TRUE(grid.SetPosition(1, {120, 90}));
+	EXPECT_TRUE(Visible(grid, room).empty());
+	EXPECT_TRUE(Visible(grid, nearby).empty());
+	EXPECT_TRUE(Visible(grid, edge).empty());
+	EXPECT_EQ(grid.GetStatistics().observersRebuilt, rebuilt + 2);
+}
+
+TEST(InterestGrid, TrackingListenerFollowsTrackRemoveClearAndReconfigure)
+{
+	InterestGrid grid;
+	ASSERT_TRUE(grid.Configure({{0, 0}, {100, 100}, 10}));
+	std::vector<std::pair<NetworkID, bool>> events;
+	InterestGridTestAccess::Listen(grid, [&](NetworkID id, bool tracked)
+	                               { events.emplace_back(id, tracked); });
+	ASSERT_TRUE(grid.Track(1, {{1, 1}}));
+	EXPECT_FALSE(grid.Track(1, {{1, 1}}));
+	EXPECT_FALSE(grid.Track(2, {{101, 1}}));
+	ASSERT_TRUE(grid.Track(2, {{2, 2}}));
+	ASSERT_TRUE(grid.Configure({{0, 0}, {200, 200}, 20}));
+	grid.Remove(1);
+	grid.Remove(1);
+	grid.Clear();
+	EXPECT_EQ(events, (std::vector<std::pair<NetworkID, bool>>{{1, true}, {2, true}, {1, false}, {2, false}}));
 }

@@ -84,6 +84,15 @@ Older queued entries go first among ordinary construction requests. Read
 scope events and payload bytes. ``grid.GetStatistics()`` counts actual
 candidate inspections and observer rebuilds.
 
+Work follows the change, not the population. Moving an object rebuilds only
+the observers it can affect: radius observers that hold it or now have it
+within their enter radius, and explicit-cell observers when it changes cell.
+An observer that is not rebuilt keeps its previous visible list, order
+included. An object referenced without a scope and later passed to
+``grid.Track()`` becomes spatial, and ``grid.Remove()`` makes it ordinary
+again. Each connection's update visits only the ordinary objects the grid does
+not track, plus its own visible set.
+
 Categories and ranges
 ~~~~~~~~~~~~~~~~~~~~~
 

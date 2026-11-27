@@ -46,7 +46,7 @@ bool ReplicationManager::Reference(Replica3 *replica)
 		return false;
 	replica->staticBinding = false;
 	managed->Reference(replica);
-	managed->ordinary.emplace(replica->GetNetworkID(), replica);
+	managed->AddOrdinary(replica->GetNetworkID(), replica);
 	return true;
 }
 
@@ -66,7 +66,7 @@ bool ReplicationManager::Reference(Replica3 *replica, SpatialScope scope)
 		managed->Dereference(replica);
 		return false;
 	}
-	managed->ordinary.erase(id);
+	managed->EraseOrdinary(id);
 	return true;
 }
 
@@ -79,7 +79,7 @@ bool ReplicationManager::ReferenceStatic(Replica3 *replica, NetworkID id)
 	replica->SetNetworkID(id);
 	managed->Reference(replica);
 	managed->staticObjects[id] = replica;
-	managed->ordinary.emplace(id, replica);
+	managed->AddOrdinary(id, replica);
 	return true;
 }
 ManagedReplication &ReplicationManager::Managed()

@@ -132,8 +132,8 @@ public:
 		const auto observer = ToPeerGuid(guid);
 		std::vector<NetworkID> desired;
 		runtime.interest.GetVisible(observer, desired);
-		for (const auto &[id, object] : runtime.ordinary)
-			if (!runtime.interest.Contains(id) && runtime.interest.Eligible(observer, id))
+		for (const auto &[id, object] : runtime.untracked)
+			if (runtime.interest.Eligible(observer, id))
 				desired.push_back(id);
 
 		stats.desired = desired.size();
@@ -1118,11 +1118,34 @@ void ManagedReplication::OnFinalDereference(Replica3 &replica)
 		}
 	}
 	downloads.erase(id);
-	ordinary.erase(id);
+	EraseOrdinary(id);
 	delegation.Forget(id);
 	grants.erase(id);
 	staticObjects.erase(id);
 	interest.Remove(id);
+}
+void ManagedReplication::AddOrdinary(NetworkID id, Replica3 *replica)
+{
+	if (ordinary.emplace(id, replica).second && !interest.Contains(id))
+	{
+		untracked.emplace(id, replica);
+	}
+}
+void ManagedReplication::EraseOrdinary(NetworkID id)
+{
+	ordinary.erase(id);
+	untracked.erase(id);
+}
+void ManagedReplication::Tracked(NetworkID id, bool tracked)
+{
+	if (tracked)
+	{
+		untracked.erase(id);
+	}
+	else if (auto it = ordinary.find(id); it != ordinary.end())
+	{
+		untracked.emplace(id, it->second);
+	}
 }
 void ManagedReplication::Reset()
 {
@@ -1139,6 +1162,7 @@ void ManagedReplication::Reset()
 	grants.clear();
 	staticObjects.clear();
 	ordinary.clear();
+	untracked.clear();
 	interest.Clear();
 	simulationTick = 0;
 	nextClockSample = 0;

@@ -93,6 +93,8 @@ private:
 	bool ScopeOf(NetworkID id, SpatialScope &out) const;
 	/// Radius observers whose position is within range of center, found from the cells around it.
 	void RadiusObserversNear(SpatialPoint center, float range, std::vector<std::pair<PeerGuid, SpatialPoint>> &out) const;
+	/// Called with true when Track() adds an object and with false when Remove() or Clear() drops one; Configure() keeps it.
+	void SetTrackingListener(std::function<void(NetworkID, bool)> listener);
 	class Impl;
 	std::unique_ptr<Impl> impl;
 };

@@ -2251,3 +2251,53 @@ TEST(BuiltinReplication, ClosingTheClientInAStateCallbackEndsBatchDelivery)
 	EXPECT_EQ(acknowledgments, 0u);
 	EXPECT_EQ(view.GetReplicaCount(), 0u);
 }
+
+// A replica referenced without a scope streams to every connection until the grid tracks it, and again once the
+// grid drops it (Remove, Clear), across a Configure.
+TEST(BuiltinReplication, UnscopedReplicasStreamUntilTheGridTracksThem)
+{
+	SimulatedNetwork net(43);
+	auto *server = net.AddPeer(1, 1);
+	auto *camera = net.AddPeer(1);
+	for (auto *peer : {server, camera})
+	{
+		auto &service = peer->GetReplication();
+		ASSERT_TRUE(service.SetRole(peer == server ? ReplicationRole::Server : ReplicationRole::Client));
+		ASSERT_TRUE(service.RegisterReplica<Door>(doorType, 1));
+	}
+	auto &host = server->GetReplication();
+	auto &grid = host.GetInterestGrid();
+	ASSERT_TRUE(grid.Configure({{0, 0}, {160, 64}, 64}));
+	const auto cameraGuid = ToPeerGuid(camera->GetMyGUID());
+	ASSERT_TRUE(grid.SetObserverRadius(cameraGuid, {10, 10}, 10, 15));
+	Door door;
+	ASSERT_TRUE(host.Reference(&door));
+	const auto id = door.GetNetworkID();
+	auto copy = [&]
+	{ return camera->GetReplication().FindReplica(id); };
+	ASSERT_TRUE(net.Connect(camera, server));
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return copy() != nullptr; }, 5000));
+	ASSERT_TRUE(grid.Track(id, {{150, 50}}));
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return copy() == nullptr; }, 5000));
+	grid.Remove(id);
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return copy() != nullptr; }, 5000));
+	ASSERT_TRUE(grid.Track(id, {{150, 50}}));
+	ASSERT_TRUE(grid.Configure({{0, 0}, {320, 64}, 32}));
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return copy() == nullptr; }, 5000));
+	grid.Remove(id);
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return copy() != nullptr; }, 5000));
+	ASSERT_TRUE(grid.Track(id, {{150, 50}}));
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return copy() == nullptr; }, 5000));
+	grid.Clear();
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return copy() != nullptr; }, 5000));
+	ASSERT_TRUE(host.Destroy(&door));
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return copy() == nullptr; }, 5000));
+}
