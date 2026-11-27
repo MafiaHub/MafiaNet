@@ -967,7 +967,7 @@ TEST(InterestGrid, IncrementalDirtyingMatchesFullRebuilds)
 			both([&](InterestGrid &g)
 			     { return g.Track(id, scope); });
 		}
-		both([](InterestGrid &g)
+		both([&](InterestGrid &g)
 		     { return g.SetAlwaysVisible(kObjects, true); });
 		std::vector<NetworkID> a, b;
 		for (unsigned step = 0; step < 1500; ++step)
