@@ -186,7 +186,9 @@ TEST(ServerPollBudget, ADisconnectStaysBehindItsOwnConnectionsParkedPackets)
 	{
 		rig.server.poll(PollBudget{3, 0});
 		if (rig.disconnected.empty())
+		{
 			EXPECT_LE(rig.arrival.size(), 12u);
+		}
 	}
 	ASSERT_EQ(rig.disconnected.size(), 1u);
 	EXPECT_EQ(rig.arrival.size(), 12u);
@@ -205,10 +207,12 @@ TEST(ServerPollBudget, UnusedBudgetGoesToParkedPacketsBeyondTheShare)
 	EXPECT_EQ(rig.server.last_poll().backlog, 44u);
 	// The small connections are served in full, and the flooder's own order holds.
 	EXPECT_EQ(rig.received.size(), 3u);
-	std::size_t small = 0;
+	std::size_t fromSmall = 0; // not `small`: a macro in windows.h
 	for (uint32_t value : rig.arrival)
-		small += value >= 2000;
-	EXPECT_EQ(small, 4u);
+	{
+		fromSmall += value >= 2000;
+	}
+	EXPECT_EQ(fromSmall, 4u);
 	for (auto &[guid, values] : rig.received)
 		for (std::size_t i = 1; i < values.size(); ++i)
 			EXPECT_EQ(values[i], values[i - 1] + 1);
