@@ -289,6 +289,10 @@ struct CrowdTickOptions
 	bool changing = false;
 	// InterestGrid::SetObserverRefresh(4, 0.5).
 	bool refresh = false;
+	// InterestGrid::SetDistanceIntervals({{0.5, 2}, {0.8, 3}}).
+	bool bands = false;
+	// SetObserverStateBudget(observer, budget) on every observer when above 0, which turns the scheduler on.
+	uint32_t budget = 0;
 };
 
 // The crowd behind a server Tick on the simulated network, one Active client per player, each observing at its
@@ -337,6 +341,11 @@ void RunCrowdServerTick(benchmark::State &state, const CrowdTickOptions &options
 	grid.Configure({{0, 0}, {crowd.world, crowd.world}, 50});
 	if (options.refresh)
 		grid.SetObserverRefresh(4, 0.5f);
+	if (options.bands && !grid.SetDistanceIntervals({{0.5f, 2}, {0.8f, 3}}))
+	{
+		state.SkipWithError("bands rejected");
+		return;
+	}
 	for (unsigned i = 0; i < players; ++i)
 		grid.SetObserverRadius(guids[i], crowd.positions[i], 200, 250);
 	std::vector<std::unique_ptr<CrowdReplica>> replicas;
@@ -354,11 +363,23 @@ void RunCrowdServerTick(benchmark::State &state, const CrowdTickOptions &options
 	}
 	for (unsigned i = 0; i < crowd.vehicles; ++i)
 		grid.SetDependency(ids[i], ids[players + i]);
+	if (options.budget)
+	{
+		for (auto guid : guids)
+		{
+			if (!host.SetObserverStateBudget(guid, options.budget))
+			{
+				state.SkipWithError("budget rejected");
+				return;
+			}
+		}
+	}
 	net.Step(3000);
 	host.SetTickMode(ReplicationTickMode::Manual);
 	const auto gridBefore = grid.GetStatistics();
 	const auto hostBefore = host.GetStatistics();
 	const auto receivedBefore = crowdStatesReceived;
+	uint64_t notDue = 0, budgetDeferred = 0;
 	for (auto _ : state)
 	{
 		crowd.Step();
@@ -373,6 +394,9 @@ void RunCrowdServerTick(benchmark::State &state, const CrowdTickOptions &options
 		}
 		host.Tick();
 		state.PauseTiming();
+		const auto pass = host.GetStatistics();
+		notDue += pass.notDueState;
+		budgetDeferred += pass.deferredState;
 		net.Step(33);
 		state.ResumeTiming();
 	}
@@ -383,6 +407,8 @@ void RunCrowdServerTick(benchmark::State &state, const CrowdTickOptions &options
 	state.counters["deferred/tick"] = static_cast<double>(gridAfter.observersDeferred - gridBefore.observersDeferred) / ticks;
 	state.counters["states/tick"] = static_cast<double>(crowdStatesReceived - receivedBefore) / ticks;
 	state.counters["stateKB/tick"] = static_cast<double>(hostAfter.stateBytes - hostBefore.stateBytes) / 1024.0 / ticks;
+	state.counters["notDue/tick"] = static_cast<double>(notDue) / ticks;
+	state.counters["deferredState/tick"] = static_cast<double>(budgetDeferred) / ticks;
 	for (auto &replica : replicas)
 		host.Dereference(replica.get());
 }
@@ -399,15 +425,20 @@ void InterestGridCrowdServerTick(benchmark::State &state)
 BENCHMARK(InterestGridCrowdServerTick)->ArgName("track")->DenseRange(0, 1)->Unit(benchmark::kMicrosecond)->Iterations(200);
 
 // Every replica's state changes every tick. players 800 or 1,500 on the 4,000 x 4,000 world (dense 0), or 300 on a
-// 400 x 400 square where most players see most of the others (dense 1). mode 0: defaults; 1: SetObserverRefresh(4, 0.5).
-void InterestGridCrowdServerTickRefresh(benchmark::State &state)
+// 400 x 400 square where most players see most of the others (dense 1). mode 0: defaults, no scheduling; 1: a state
+// budget of 1,100 bytes per observer and pass (a game server's usual setting, which keeps the scheduler on); 2: budget and
+// SetObserverRefresh(4, 0.5); 3: budget and SetDistanceIntervals({{0.5, 2}, {0.8, 3}}); 4: budget, refresh and bands.
+void InterestGridCrowdServerTickChanging(benchmark::State &state)
 {
 	CrowdTickOptions options;
 	options.players = static_cast<unsigned>(state.range(0));
 	options.world = state.range(1) ? 400.0f : kCrowdWorld;
 	options.changing = true;
-	options.refresh = (state.range(2) & 1) != 0;
+	const auto mode = state.range(2);
+	options.budget = mode ? 1100 : 0;
+	options.refresh = mode == 2 || mode == 4;
+	options.bands = mode == 3 || mode == 4;
 	RunCrowdServerTick(state, options);
 }
-BENCHMARK(InterestGridCrowdServerTickRefresh)->ArgNames({"players", "dense", "mode"})->ArgsProduct({{800, 1500}, {0}, {0, 1}})->ArgsProduct({{300}, {1}, {0, 1}})->Unit(benchmark::kMicrosecond)->Iterations(200);
+BENCHMARK(InterestGridCrowdServerTickChanging)->ArgNames({"players", "dense", "mode"})->ArgsProduct({{800, 1500}, {0}, {0, 1, 2, 3, 4}})->ArgsProduct({{300}, {1}, {0, 1, 2, 3, 4}})->Unit(benchmark::kMicrosecond)->Iterations(200);
 }

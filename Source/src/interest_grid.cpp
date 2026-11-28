@@ -61,6 +61,8 @@ public:
 		// The foci of the last rebuild, which the move fraction is measured from.
 		SpatialPoint evaluated[2];
 		int evaluatedCount = 0;
+		// The distance-band intervals above 1 of the visible set, from the same rebuild.
+		std::unordered_map<NetworkID, unsigned> intervals;
 		// The last rebuild reached the visible limit or a category limit, so its selection depended on distance order.
 		bool capped = false;
 	};
@@ -78,6 +80,7 @@ public:
 	std::map<uint16_t, CategoryLimit> categoryLimits;
 	float lookaheadSeconds = 0;
 	ObserverRefresh refresh;
+	std::vector<DistanceInterval> bands;
 	static constexpr double kMinLookaheadDist = 5;
 	std::set<NetworkID> alwaysVisible;
 	std::map<NetworkID, NetworkID> parents;
@@ -114,6 +117,7 @@ public:
 	// The membership a rebuild is building, published into the observer only once it is complete.
 	std::set<NetworkID> stagedVisible;
 	std::vector<NetworkID> stagedOrdered;
+	std::unordered_map<NetworkID, unsigned> stagedIntervals;
 	mutable bool queryingAudience = false;
 	void CheckWritable() const
 	{
@@ -482,6 +486,21 @@ public:
 		z = (z ^ (z >> 27)) * 0x94d049bb133111ebull;
 		return (z ^ (z >> 31)) % refresh.maxStaleEvaluations;
 	}
+	// The ticks of the last band within reach of a squared distance from a radius observer with this enter radius.
+	unsigned IntervalAt(double distSq, float enter) const
+	{
+		unsigned ticks = 1;
+		for (const auto &band : bands)
+		{
+			const double reach = static_cast<double>(band.fraction) * enter;
+			if (reach * reach > distSq)
+			{
+				break;
+			}
+			ticks = band.ticks;
+		}
+		return ticks;
+	}
 	// GetVisible's rebuild decision: a dirty observer is rebuilt; a stale one only on its slot, once every
 	// maxStaleEvaluations calls, so it is never more than maxStaleEvaluations - 1 calls behind its own moves. The slot
 	// follows the call count, not the last rebuild, so observers rebuilt together by some change keep their spread.
@@ -653,6 +672,8 @@ public:
 		std::sort(ranked.begin(), ranked.end());
 		stagedVisible.clear();
 		stagedOrdered.clear();
+		stagedIntervals.clear();
+		const bool banded = observer.radius && !bands.empty();
 		for (auto &entry : categoryLimits)
 		{
 			entry.second.used = 0;
@@ -678,6 +699,13 @@ public:
 					}
 				}
 				++counted;
+				if (banded)
+				{
+					if (const unsigned ticks = IntervalAt(NearestDistSq(foci, item.record->scope.position), observer.enter); ticks > 1)
+					{
+						stagedIntervals.emplace(item.id, ticks);
+					}
+				}
 			}
 			stagedVisible.insert(item.id);
 			stagedOrdered.push_back(item.id);
@@ -697,6 +725,9 @@ public:
 				{
 					continue;
 				}
+				// Children follow their parent's interval (a child is itself expanded later, from its own entry).
+				const auto parentInterval = stagedIntervals.find(stagedOrdered[i]);
+				const unsigned ticks = parentInterval == stagedIntervals.end() ? 1 : parentInterval->second;
 				for (auto child : found->second)
 				{
 					if (stagedVisible.count(child) || !Eligible(guid, observer, objects.at(child)))
@@ -706,12 +737,17 @@ public:
 					++stats.dependencyPulls;
 					stagedVisible.insert(child);
 					stagedOrdered.push_back(child);
+					if (ticks > 1)
+					{
+						stagedIntervals.emplace(child, ticks);
+					}
 				}
 			}
 		}
 		// Publish only now: an audience predicate that threw above leaves the previous membership (and dirty) intact.
 		observer.visible.swap(stagedVisible);
 		observer.ordered.swap(stagedOrdered);
+		observer.intervals.swap(stagedIntervals);
 		observer.capped = capped;
 		observer.dirty = false;
 		observer.stale = false;
@@ -737,6 +773,7 @@ bool InterestGrid::Configure(InterestGridConfig config)
 	next.height = static_cast<int>(h);
 	next.lookaheadSeconds = impl->lookaheadSeconds;
 	next.refresh = impl->refresh;
+	next.bands = impl->bands;
 	if (!next.index.Init(1, 1, 0, 0, static_cast<float>(w), static_cast<float>(h)))
 		return false;
 	for (const auto &[id, record] : impl->objects)
@@ -763,6 +800,7 @@ bool InterestGrid::Configure(InterestGridConfig config)
 		copy.limit = observer.limit;
 		copy.budget = observer.budget;
 		copy.visible = observer.visible;
+		copy.intervals = observer.intervals;
 	}
 	for (const auto &[id, record] : impl->objects)
 		if (record.required != UNASSIGNED_PEER_GUID)
@@ -866,8 +904,13 @@ void InterestGrid::Remove(NetworkID id)
 	if (it == impl->objects.end())
 		return;
 	for (auto &[guid, observer] : impl->observers)
+	{
 		if (observer.visible.erase(id))
+		{
 			observer.dirty = true;
+			observer.intervals.erase(id);
+		}
+	}
 	Require(id, UNASSIGNED_PEER_GUID);
 	impl->Unlink(id);
 	if (auto kids = impl->children.find(id); kids != impl->children.end())
@@ -1009,6 +1052,45 @@ void InterestGrid::SetObserverRefresh(unsigned maxStaleEvaluations, float moveFr
 ObserverRefresh InterestGrid::GetObserverRefresh() const
 {
 	return impl->refresh;
+}
+bool InterestGrid::SetDistanceIntervals(std::vector<DistanceInterval> bands)
+{
+	impl->CheckWritable();
+	for (size_t i = 0; i < bands.size(); ++i)
+	{
+		const auto &band = bands[i];
+		if (!(std::isfinite(band.fraction) && band.fraction > 0 && band.ticks >= 1) || (i && !(bands[i - 1].fraction < band.fraction)))
+		{
+			return false;
+		}
+	}
+	const bool same = std::equal(bands.begin(), bands.end(), impl->bands.begin(), impl->bands.end(), [](const DistanceInterval &a, const DistanceInterval &b)
+	                             { return a.fraction == b.fraction && a.ticks == b.ticks; });
+	if (!same)
+	{
+		impl->bands = std::move(bands);
+		impl->DirtyAll();
+	}
+	return true;
+}
+const std::vector<DistanceInterval> &InterestGrid::GetDistanceIntervals() const
+{
+	return impl->bands;
+}
+unsigned InterestGrid::GetUpdateInterval(PeerGuid observer, NetworkID id) const
+{
+	const auto *intervals = UpdateIntervalsOf(observer);
+	if (!intervals)
+	{
+		return 1;
+	}
+	const auto found = intervals->find(id);
+	return found == intervals->end() ? 1 : found->second;
+}
+const std::unordered_map<NetworkID, unsigned> *InterestGrid::UpdateIntervalsOf(PeerGuid guid) const
+{
+	const auto it = impl->observers.find(guid);
+	return it == impl->observers.end() ? nullptr : &it->second.intervals;
 }
 bool InterestGrid::SetCategoryLimit(uint16_t category, unsigned maxCount)
 {

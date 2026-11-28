@@ -6,6 +6,14 @@ All notable changes to MafiaNet are documented here.
 Unreleased
 ----------
 
+* ``InterestGrid::SetDistanceIntervals()`` scales how often visible objects are considered for state with their
+  distance, in bands of the observer's enter radius (``{{0.5f, 2}, {0.8f, 3}}``: from half the radius every 2nd pass,
+  from 0.8 every 3rd). Required and always-visible objects stay at 1 and dependency children follow their parent.
+  ``GetUpdateInterval()`` reads an observer's interval for an object. While the grid has bands, the server's
+  connections use the ``SetUpdateInterval()`` scheduler, an explicit interval wins over the band, and a newly visible
+  replica still gets its first pass at once; construction, removal, grants, owner corrections and repairs are not
+  delayed. ``ReplicationStatistics::notDueState`` counts the replicas not yet due on the last pass. Receivers that
+  interpolate need a delay of at least the largest band's ticks. Empty bands, the default, keep today's behaviour.
 * ``InterestGrid::SetObserverRefresh(maxStaleEvaluations, moveFraction)`` lets a radius observer's own small moves
   wait for a later rebuild. A move that keeps its cells and moves every focus less than ``moveFraction`` of the leave
   margin from its last rebuild marks it stale; ``GetVisible`` rebuilds a stale observer once every

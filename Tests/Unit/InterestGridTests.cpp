@@ -1551,6 +1551,114 @@ TEST(InterestGrid, ObserverRefreshSlotsSpreadObserversOverCalls)
 	}
 }
 
+TEST(InterestGrid, DistanceIntervalsRejectInvalidBands)
+{
+	InterestGrid grid;
+	EXPECT_TRUE(grid.GetDistanceIntervals().empty());
+	const float nan = std::numeric_limits<float>::quiet_NaN(), inf = std::numeric_limits<float>::infinity();
+	for (const auto &bands : std::vector<std::vector<DistanceInterval>>{{{0, 2}}, {{-0.5f, 2}}, {{nan, 2}}, {{inf, 2}}, {{0.5f, 0}}, {{0.8f, 3}, {0.5f, 2}}, {{0.5f, 2}, {0.5f, 3}}})
+	{
+		EXPECT_FALSE(grid.SetDistanceIntervals(bands));
+		EXPECT_TRUE(grid.GetDistanceIntervals().empty());
+	}
+	ASSERT_TRUE(grid.SetDistanceIntervals({{0.5f, 2}, {0.8f, 3}}));
+	ASSERT_EQ(grid.GetDistanceIntervals().size(), 2u);
+	EXPECT_EQ(grid.GetDistanceIntervals()[1].fraction, 0.8f);
+	EXPECT_EQ(grid.GetDistanceIntervals()[1].ticks, 3u);
+	// A rejected list keeps the current one; a fraction above 1 is accepted (it reaches the leave margin).
+	EXPECT_FALSE(grid.SetDistanceIntervals({{0.5f, 0}}));
+	EXPECT_EQ(grid.GetDistanceIntervals().size(), 2u);
+	EXPECT_TRUE(grid.SetDistanceIntervals({{1.1f, 4}}));
+	EXPECT_TRUE(grid.SetDistanceIntervals({}));
+	EXPECT_TRUE(grid.GetDistanceIntervals().empty());
+}
+
+TEST(InterestGrid, DistanceIntervalsFollowDistanceAsAFractionOfTheEnterRadius)
+{
+	InterestGrid grid;
+	const PeerGuid camera{1}, holder{2}, room{3};
+	ASSERT_TRUE(grid.Configure({{0, 0}, {1000, 1000}, 50}));
+	ASSERT_TRUE(grid.SetObserverRadius(camera, {500, 500}, 100, 120));
+	ASSERT_TRUE(grid.SetObserverRadius(holder, {500, 500}, 100, 120));
+	ASSERT_TRUE(grid.SetObserverCells(room, {{10, 10}, {11, 10}}));
+	// 30, 50 (the first band's edge), 60 and 90 from the observers.
+	ASSERT_TRUE(grid.Track(1, {{530, 500}}));
+	ASSERT_TRUE(grid.Track(2, {{550, 500}}));
+	ASSERT_TRUE(grid.Track(3, {{560, 500}}));
+	ASSERT_TRUE(grid.Track(4, {{590, 500}}));
+	// Required by holder, and always visible: both uncounted, so 1 whatever the distance.
+	ASSERT_TRUE(grid.Track(5, {{595, 500}}));
+	ASSERT_TRUE(grid.Track(6, {{596, 500}}));
+	InterestGridTestAccess::Require(grid, 5, holder);
+	ASSERT_TRUE(grid.SetAlwaysVisible(6, true));
+	// Dependency children far out of range follow their parent: 7 under 4, 8 under 1, 9 under 7.
+	ASSERT_TRUE(grid.Track(7, {{50, 50}}));
+	ASSERT_TRUE(grid.Track(8, {{60, 50}}));
+	ASSERT_TRUE(grid.Track(9, {{70, 50}}));
+	ASSERT_TRUE(grid.SetDependency(7, 4));
+	ASSERT_TRUE(grid.SetDependency(8, 1));
+	ASSERT_TRUE(grid.SetDependency(9, 7));
+	EXPECT_EQ(VisibleSet(grid, camera), (std::set<NetworkID>{1, 2, 3, 4, 5, 6, 7, 8, 9}));
+	VisibleSet(grid, holder);
+	VisibleSet(grid, room);
+	// No bands: 1 for everything.
+	for (NetworkID id = 1; id <= 9; ++id)
+	{
+		EXPECT_EQ(grid.GetUpdateInterval(camera, id), 1u) << id;
+	}
+	ASSERT_TRUE(grid.SetDistanceIntervals({{0.5f, 2}, {0.8f, 3}}));
+	EXPECT_EQ(VisibleSet(grid, camera), (std::set<NetworkID>{1, 2, 3, 4, 5, 6, 7, 8, 9}));
+	VisibleSet(grid, holder);
+	VisibleSet(grid, room);
+	const std::map<NetworkID, unsigned> expected{{1, 1}, {2, 2}, {3, 2}, {4, 3}, {5, 3}, {6, 1}, {7, 3}, {8, 1}, {9, 3}};
+	for (const auto &[id, ticks] : expected)
+	{
+		EXPECT_EQ(grid.GetUpdateInterval(camera, id), ticks) << id;
+	}
+	EXPECT_EQ(grid.GetUpdateInterval(holder, 5), 1u);
+	EXPECT_EQ(grid.GetUpdateInterval(holder, 4), 3u);
+	// Explicit-cell observers, unknown observers and objects not seen: 1.
+	EXPECT_EQ(grid.GetUpdateInterval(room, 4), 1u);
+	EXPECT_EQ(grid.GetUpdateInterval(PeerGuid{99}, 4), 1u);
+	EXPECT_EQ(grid.GetUpdateInterval(camera, 99), 1u);
+	// Moving nearer takes the nearer band at the next rebuild; a removed object is forgotten.
+	ASSERT_TRUE(grid.SetPosition(4, {520, 500}));
+	Visible(grid, camera);
+	EXPECT_EQ(grid.GetUpdateInterval(camera, 4), 1u);
+	EXPECT_EQ(grid.GetUpdateInterval(camera, 7), 1u);
+	grid.Remove(3);
+	EXPECT_EQ(grid.GetUpdateInterval(camera, 3), 1u);
+	// Reconfiguring keeps the bands and the intervals.
+	ASSERT_TRUE(grid.Configure({{0, 0}, {1000, 1000}, 25}));
+	EXPECT_EQ(grid.GetDistanceIntervals().size(), 2u);
+	EXPECT_EQ(grid.GetUpdateInterval(camera, 2), 2u);
+	Visible(grid, camera);
+	EXPECT_EQ(grid.GetUpdateInterval(camera, 2), 2u);
+	// Clearing the bands rebuilds every observer.
+	const auto rebuilt = grid.GetStatistics().observersRebuilt;
+	ASSERT_TRUE(grid.SetDistanceIntervals({}));
+	Visible(grid, camera);
+	EXPECT_EQ(grid.GetStatistics().observersRebuilt, rebuilt + 1);
+	EXPECT_EQ(grid.GetUpdateInterval(camera, 2), 1u);
+}
+
+TEST(InterestGrid, DistanceIntervalsUseTheNearerLookaheadFocus)
+{
+	InterestGrid grid;
+	const PeerGuid camera{1};
+	ASSERT_TRUE(grid.Configure({{0, 0}, {1000, 1000}, 50}));
+	ASSERT_TRUE(grid.SetDistanceIntervals({{0.5f, 2}, {0.8f, 3}}));
+	ASSERT_TRUE(grid.SetObserverRadius(camera, {500, 500}, 100, 120));
+	// 90 from the observer, 10 from its look-ahead focus at (580, 500).
+	ASSERT_TRUE(grid.Track(1, {{590, 500}}));
+	Visible(grid, camera);
+	EXPECT_EQ(grid.GetUpdateInterval(camera, 1), 3u);
+	ASSERT_TRUE(grid.SetObserverVelocity(camera, {80, 0}));
+	grid.SetLookaheadSeconds(1);
+	Visible(grid, camera);
+	EXPECT_EQ(grid.GetUpdateInterval(camera, 1), 1u);
+}
+
 namespace
 {
 // A radius observer at (500, 500), enter 100 and leave 120, holding two objects: A at 30 and B at 60 along x.

@@ -434,6 +434,32 @@ counts eligible candidates held back by the budget on the last serialization
 pass. The streaming benchmark reports delivered state age in server ticks
 for the frequent and infrequent groups.
 
+Distance bands set the interval from the interest grid instead of by hand:
+
+.. code-block:: cpp
+
+   // Within half the enter radius: every pass. From 0.5: every 2nd. From 0.8: every 3rd.
+   grid.SetDistanceIntervals({{0.5f, 2}, {0.8f, 3}});
+
+Each rebuild gives a counted spatial object visible to a radius observer the
+ticks of the last band whose ``fraction * enter`` radius is within its
+distance from the nearer focus, and 1 when none is. Required and
+always-visible objects get 1, and a dependency child gets its parent's
+interval. Bands are fractions of the observer's enter radius in strictly
+ascending order, finite and above 0, with ticks of at least 1; an invalid list
+returns false and keeps the current bands. Empty, the default, leaves every
+interval at 1. ``grid.GetUpdateInterval(observer, id)`` reads the interval.
+While the grid has bands, every server connection uses the scheduler above,
+and an explicit ``SetUpdateInterval`` wins over the band (setting it back to 1
+returns the replica to its band). A newly visible replica is still served on
+its first pass, and construction, removal, grants, owner corrections and
+repair traffic are not delayed. Intervals are as fresh as the observer's last
+rebuild, which ``SetObserverRefresh`` can make a few passes old.
+``GetStatistics(observer).notDueState`` counts the visible replicas not yet due
+on the last pass, whether held back by a band or by ``SetUpdateInterval``.
+Receivers that interpolate these objects need an interpolation delay of at
+least the largest band's ticks (see ``GetRenderTick`` below).
+
 Interpolation and driver prediction
 -----------------------------------
 

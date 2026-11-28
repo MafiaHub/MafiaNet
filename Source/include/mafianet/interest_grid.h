@@ -4,6 +4,7 @@
 #include "mafianet/virtual_world.h"
 #include <functional>
 #include <memory>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -49,6 +50,12 @@ struct ObserverRefresh
 	unsigned maxStaleEvaluations = 1;
 	float moveFraction = 0;
 };
+/// A distance band for InterestGrid::SetDistanceIntervals: a visible object at fraction times the observer's enter radius or farther is considered for state once every ticks serialization passes.
+struct DistanceInterval
+{
+	float fraction = 0;
+	unsigned ticks = 1;
+};
 /// A bounded two-dimensional grid. Coordinates include the outer maximum.
 class RAK_DLL_EXPORT InterestGrid
 {
@@ -83,6 +90,16 @@ public:
 	/// into range of by its own small moves can appear up to maxStaleEvaluations - 1 calls later (and one it leaves can stay as long). The default (1, 0) never defers. maxStaleEvaluations 0 is 1; a NaN or negative moveFraction is 0 and one above 1 is 1. A call rebuilds every stale observer at its next GetVisible.
 	void SetObserverRefresh(unsigned maxStaleEvaluations, float moveFraction);
 	ObserverRefresh GetObserverRefresh() const;
+	/// Scales how often visible objects are considered for state with their distance. During a rebuild, a counted spatial object visible to a radius observer gets the ticks of
+	/// the last band whose fraction * enter radius is within its distance (1 when none); required and always-visible objects get 1, and a dependency child gets its parent's
+	/// interval. ManagedReplication then considers it once every that many serialization passes for that observer, unless SetUpdateInterval set one. Bands must be in strictly
+	/// ascending fraction order, with finite fractions above 0 and ticks of at least 1; an invalid list returns false and keeps the current bands. Empty (the default) is 1 for
+	/// everything. Changing the bands rebuilds every observer at its next GetVisible.
+	bool SetDistanceIntervals(std::vector<DistanceInterval> bands);
+	const std::vector<DistanceInterval> &GetDistanceIntervals() const;
+	/// The interval the observer's last rebuild gave the object (see SetDistanceIntervals): 1 for an unknown observer or an object it does not see. As fresh as that rebuild,
+	/// which SetObserverRefresh can make a few calls old.
+	unsigned GetUpdateInterval(PeerGuid observer, NetworkID id) const;
 	/// Caps how many objects of a category any observer sees at once; highest priority first, then nearest. 0 removes the limit. False for category 0.
 	bool SetCategoryLimit(uint16_t category, unsigned maxCount);
 	/// Objects of this category are seen within their own SpatialScope::range instead of the observer radius. False for category 0.
@@ -113,6 +130,8 @@ private:
 	void RadiusObserversNear(SpatialPoint center, float range, std::vector<std::pair<PeerGuid, SpatialPoint>> &out) const;
 	/// Called with true when Track() adds an object and with false when Remove() or Clear() drops one; Configure() keeps it.
 	void SetTrackingListener(std::function<void(NetworkID, bool)> listener);
+	/// The observer's intervals above 1 from its last rebuild, or null for an unknown observer; valid until the grid next changes.
+	const std::unordered_map<NetworkID, unsigned> *UpdateIntervalsOf(PeerGuid guid) const;
 	class Impl;
 	std::unique_ptr<Impl> impl;
 };
