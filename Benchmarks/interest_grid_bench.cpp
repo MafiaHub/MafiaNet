@@ -118,34 +118,38 @@ constexpr float kCrowdWorld = 4000;
 
 struct Crowd
 {
+	unsigned players = kCrowdObservers, vehicles = kCrowdVehicles;
+	float world = kCrowdWorld;
 	std::vector<SpatialPoint> positions, steps;
-	// Spreads index i of count over the world on a jittered lattice, deterministic.
-	static SpatialPoint Spread(unsigned i, unsigned count, uint32_t salt)
+	// Spreads index i of count over a square world on a jittered lattice, deterministic.
+	static SpatialPoint Spread(unsigned i, unsigned count, uint32_t salt, float sideLength = kCrowdWorld)
 	{
 		unsigned side = 1;
 		while (side * side < count)
 			++side;
-		const float cell = kCrowdWorld / static_cast<float>(side);
+		const float cell = sideLength / static_cast<float>(side);
 		uint32_t hash = (i + 1) * 2654435761u ^ salt;
 		hash ^= hash >> 15;
 		const float jx = static_cast<float>(hash & 0xff) / 255.0f, jy = static_cast<float>((hash >> 8) & 0xff) / 255.0f;
 		return {(static_cast<float>(i % side) + jx) * cell, (static_cast<float>(i / side) + jy) * cell};
 	}
-	// Replica ids: avatars 1..800, vehicles 801..1000; avatar i (i <= 200) drives vehicle 800 + i.
-	Crowd()
+	// Replica ids: avatars 1..800, vehicles 801..1000; avatar i (i <= 200) drives vehicle 800 + i. Other player counts
+	// keep a vehicle for every fourth player, on a world of the given side.
+	explicit Crowd(unsigned playerCount = kCrowdObservers, float worldSide = kCrowdWorld)
+	    : players(playerCount), vehicles(playerCount / 4), world(worldSide)
 	{
-		for (unsigned i = 0; i < kCrowdObservers + kCrowdVehicles; ++i)
+		for (unsigned i = 0; i < players + vehicles; ++i)
 		{
-			const bool vehicle = i >= kCrowdObservers;
-			const unsigned driver = i - kCrowdObservers;
-			positions.push_back(vehicle ? positions[driver] : Spread(i, kCrowdObservers, 0x5eed));
+			const bool vehicle = i >= players;
+			const unsigned driver = i - players;
+			positions.push_back(vehicle ? positions[driver] : Spread(i, players, 0x5eed, world));
 			const uint32_t hash = (i + 7) * 2246822519u;
 			const float speed = vehicle ? 1.0f : 0.15f;
 			steps.push_back({(static_cast<float>(hash & 0xff) / 127.5f - 1) * speed, (static_cast<float>((hash >> 8) & 0xff) / 127.5f - 1) * speed});
 		}
 		// Drivers ride with their vehicle.
-		for (unsigned i = 0; i < kCrowdVehicles; ++i)
-			steps[i] = steps[kCrowdObservers + i];
+		for (unsigned i = 0; i < vehicles; ++i)
+			steps[i] = steps[players + i];
 	}
 	static NetworkID Id(unsigned i) { return i + 1; }
 	static PeerGuid Observer(unsigned i) { return PeerGuid{i + 1}; }
@@ -155,9 +159,9 @@ struct Crowd
 		{
 			auto &p = positions[i];
 			auto &s = steps[i];
-			if (p.x + s.x < 0 || p.x + s.x > kCrowdWorld)
+			if (p.x + s.x < 0 || p.x + s.x > world)
 				s.x = -s.x;
-			if (p.y + s.y < 0 || p.y + s.y > kCrowdWorld)
+			if (p.y + s.y < 0 || p.y + s.y > world)
 				s.y = -s.y;
 			p.x += s.x;
 			p.y += s.y;
@@ -262,19 +266,39 @@ struct CrowdState
 	void Write(BitStream &out) const { out.Write(value); }
 	bool Read(BitStream &in) { return in.Read(value); }
 };
+// State records applied by the clients, counting what the server actually sent.
+uint64_t crowdStatesReceived = 0;
 struct CrowdReplica : SnapshotReplica<CrowdState>
 {
+	void Deserialize(DeserializeParameters *parameters) override
+	{
+		if (parameters->bitstreamWrittenTo[0])
+			++crowdStatesReceived;
+		SnapshotReplica<CrowdState>::Deserialize(parameters);
+	}
 };
 constexpr ReplicaTypeId kCrowdType{78};
 
-// The same crowd behind a server Tick on the simulated network, 800 Active clients. The arg picks how replicas enter
-// the grid: 0 Reference(replica, scope); 1 Reference(replica) then GetInterestGrid().Track(), the path that keeps the
-// replica on the runtime's list of ordinary replicas. Ticks are 33 ms of virtual time apart; the network steps
-// between ticks, untimed.
-void InterestGridCrowdServerTick(benchmark::State &state)
+struct CrowdTickOptions
 {
+	unsigned players = kCrowdObservers;
+	float world = kCrowdWorld;
+	// Reference(replica) then GetInterestGrid().Track() instead of Reference(replica, scope).
+	bool track = false;
+	// Every replica's state changes every tick, so each visible replica has state to send to each observer.
+	bool changing = false;
+	// InterestGrid::SetObserverRefresh(4, 0.5).
+	bool refresh = false;
+};
+
+// The crowd behind a server Tick on the simulated network, one Active client per player, each observing at its
+// avatar. Ticks are 33 ms of virtual time apart; the network steps between ticks, untimed.
+void RunCrowdServerTick(benchmark::State &state, const CrowdTickOptions &options)
+{
+	Crowd crowd(options.players, options.world);
+	const unsigned players = crowd.players;
 	SimulatedNetwork net;
-	RakPeer *server = net.AddPeer(kCrowdObservers, kCrowdObservers);
+	RakPeer *server = net.AddPeer(players, players);
 	auto &host = server->GetReplication();
 	if (!host.SetRole(ReplicationRole::Server) || !host.RegisterReplica<CrowdReplica>(kCrowdType, 1))
 	{
@@ -284,9 +308,9 @@ void InterestGridCrowdServerTick(benchmark::State &state)
 	std::vector<RakPeer *> clients;
 	std::vector<PeerGuid> guids;
 	constexpr unsigned kBatch = 16;
-	for (unsigned first = 0; first < kCrowdObservers; first += kBatch)
+	for (unsigned first = 0; first < players; first += kBatch)
 	{
-		for (unsigned i = first; i < first + kBatch && i < kCrowdObservers; ++i)
+		for (unsigned i = first; i < first + kBatch && i < players; ++i)
 		{
 			RakPeer *client = net.AddPeer(1);
 			if (!client->GetReplication().SetRole(ReplicationRole::Client) || !client->GetReplication().RegisterReplica<CrowdReplica>(kCrowdType, 1) || net.StartConnect(client, server) != CONNECTION_ATTEMPT_STARTED)
@@ -310,16 +334,17 @@ void InterestGridCrowdServerTick(benchmark::State &state)
 		}
 	}
 	InterestGrid &grid = host.GetInterestGrid();
-	grid.Configure({{0, 0}, {kCrowdWorld, kCrowdWorld}, 50});
-	Crowd crowd;
-	for (unsigned i = 0; i < kCrowdObservers; ++i)
+	grid.Configure({{0, 0}, {crowd.world, crowd.world}, 50});
+	if (options.refresh)
+		grid.SetObserverRefresh(4, 0.5f);
+	for (unsigned i = 0; i < players; ++i)
 		grid.SetObserverRadius(guids[i], crowd.positions[i], 200, 250);
 	std::vector<std::unique_ptr<CrowdReplica>> replicas;
 	std::vector<NetworkID> ids;
 	for (unsigned i = 0; i < crowd.positions.size(); ++i)
 	{
 		replicas.push_back(std::make_unique<CrowdReplica>());
-		const bool referenced = state.range(0) == 0 ? host.Reference(replicas.back().get(), SpatialScope{crowd.positions[i]}) : host.Reference(replicas.back().get()) && grid.Track(replicas.back()->GetNetworkID(), {crowd.positions[i]});
+		const bool referenced = !options.track ? host.Reference(replicas.back().get(), SpatialScope{crowd.positions[i]}) : host.Reference(replicas.back().get()) && grid.Track(replicas.back()->GetNetworkID(), {crowd.positions[i]});
 		if (!referenced)
 		{
 			state.SkipWithError("replica setup failed");
@@ -327,24 +352,62 @@ void InterestGridCrowdServerTick(benchmark::State &state)
 		}
 		ids.push_back(replicas.back()->GetNetworkID());
 	}
-	for (unsigned i = 0; i < kCrowdVehicles; ++i)
-		grid.SetDependency(ids[i], ids[kCrowdObservers + i]);
+	for (unsigned i = 0; i < crowd.vehicles; ++i)
+		grid.SetDependency(ids[i], ids[players + i]);
 	net.Step(3000);
 	host.SetTickMode(ReplicationTickMode::Manual);
+	const auto gridBefore = grid.GetStatistics();
+	const auto hostBefore = host.GetStatistics();
+	const auto receivedBefore = crowdStatesReceived;
 	for (auto _ : state)
 	{
 		crowd.Step();
 		for (unsigned i = 0; i < crowd.positions.size(); ++i)
 			grid.SetPosition(ids[i], crowd.positions[i]);
-		for (unsigned i = 0; i < kCrowdObservers; ++i)
+		for (unsigned i = 0; i < players; ++i)
 			grid.SetObserverPosition(guids[i], crowd.positions[i]);
+		if (options.changing)
+		{
+			for (auto &replica : replicas)
+				++replica->state.value;
+		}
 		host.Tick();
 		state.PauseTiming();
 		net.Step(33);
 		state.ResumeTiming();
 	}
+	const auto gridAfter = grid.GetStatistics();
+	const auto hostAfter = host.GetStatistics();
+	const double ticks = static_cast<double>(state.iterations());
+	state.counters["rebuilds/tick"] = static_cast<double>(gridAfter.observersRebuilt - gridBefore.observersRebuilt) / ticks;
+	state.counters["deferred/tick"] = static_cast<double>(gridAfter.observersDeferred - gridBefore.observersDeferred) / ticks;
+	state.counters["states/tick"] = static_cast<double>(crowdStatesReceived - receivedBefore) / ticks;
+	state.counters["stateKB/tick"] = static_cast<double>(hostAfter.stateBytes - hostBefore.stateBytes) / 1024.0 / ticks;
 	for (auto &replica : replicas)
 		host.Dereference(replica.get());
 }
+
+// 800 players on the 4,000 x 4,000 world, state unchanged. The arg picks how replicas enter the grid: 0
+// Reference(replica, scope); 1 Reference(replica) then GetInterestGrid().Track(), the path that keeps the replica on the
+// runtime's list of ordinary replicas.
+void InterestGridCrowdServerTick(benchmark::State &state)
+{
+	CrowdTickOptions options;
+	options.track = state.range(0) != 0;
+	RunCrowdServerTick(state, options);
+}
 BENCHMARK(InterestGridCrowdServerTick)->ArgName("track")->DenseRange(0, 1)->Unit(benchmark::kMicrosecond)->Iterations(200);
+
+// Every replica's state changes every tick. players 800 or 1,500 on the 4,000 x 4,000 world (dense 0), or 300 on a
+// 400 x 400 square where most players see most of the others (dense 1). mode 0: defaults; 1: SetObserverRefresh(4, 0.5).
+void InterestGridCrowdServerTickRefresh(benchmark::State &state)
+{
+	CrowdTickOptions options;
+	options.players = static_cast<unsigned>(state.range(0));
+	options.world = state.range(1) ? 400.0f : kCrowdWorld;
+	options.changing = true;
+	options.refresh = (state.range(2) & 1) != 0;
+	RunCrowdServerTick(state, options);
+}
+BENCHMARK(InterestGridCrowdServerTickRefresh)->ArgNames({"players", "dense", "mode"})->ArgsProduct({{800, 1500}, {0}, {0, 1}})->ArgsProduct({{300}, {1}, {0, 1}})->Unit(benchmark::kMicrosecond)->Iterations(200);
 }

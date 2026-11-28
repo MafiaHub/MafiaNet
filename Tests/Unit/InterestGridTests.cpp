@@ -894,12 +894,13 @@ TEST(InterestGrid, RadiusObserversNearWalksOnlyTheCellsInRange)
 // drives two grids. The reference invalidates every observer before each read, so it always rebuilds from scratch;
 // the incremental grid must return the same visible sets while rebuilding only the observers it dirtied. Sets, not
 // orders: a rebuild with unchanged inputs can reorder (a newcomer gains the incumbent's 5% distance bonus once held),
-// so an observer that is rightly left clean keeps its previous order, as it always has.
+// so an observer that is rightly left clean keeps its previous order, as it always has. A third grid sets the default
+// observer refresh (1, 0) explicitly and must match the incremental grid exactly, order and rebuild count included.
 TEST(InterestGrid, IncrementalDirtyingMatchesFullRebuilds)
 {
 	for (uint32_t seed : {1u, 7u, 42u, 1234u})
 	{
-		InterestGrid grid, reference;
+		InterestGrid grid, reference, defaults;
 		uint32_t state = seed;
 		auto next = [&]
 		{
@@ -916,12 +917,14 @@ TEST(InterestGrid, IncrementalDirtyingMatchesFullRebuilds)
 		};
 		auto both = [&](auto &&action)
 		{
-			const bool a = action(grid), b = action(reference);
+			const bool a = action(grid), b = action(reference), c = action(defaults);
 			EXPECT_EQ(a, b);
+			EXPECT_EQ(a, c);
 			return a;
 		};
 		both([](InterestGrid &g)
 		     { return g.Configure({{0, 0}, {400, 400}, 25}); });
+		defaults.SetObserverRefresh(1, 0);
 		constexpr unsigned kObservers = 12, kObjects = 60;
 		std::map<NetworkID, SpatialScope> objects;
 		std::map<PeerGuid, SpatialPoint> radius;
@@ -969,7 +972,7 @@ TEST(InterestGrid, IncrementalDirtyingMatchesFullRebuilds)
 		}
 		both([&](InterestGrid &g)
 		     { return g.SetAlwaysVisible(kObjects, true); });
-		std::vector<NetworkID> a, b;
+		std::vector<NetworkID> a, b, c;
 		for (unsigned step = 0; step < 1500; ++step)
 		{
 			const NetworkID id = 1 + next() % kObjects;
@@ -1070,10 +1073,15 @@ TEST(InterestGrid, IncrementalDirtyingMatchesFullRebuilds)
 					reference.GetVisible(observer, b);
 					ASSERT_EQ(a.size(), std::set<NetworkID>(a.begin(), a.end()).size());
 					ASSERT_EQ(std::set<NetworkID>(a.begin(), a.end()), std::set<NetworkID>(b.begin(), b.end())) << "seed " << seed << " step " << step << " observer " << i;
+					defaults.GetVisible(observer, c);
+					ASSERT_EQ(c, a) << "seed " << seed << " step " << step << " observer " << i;
 				}
 			}
 		}
 		EXPECT_LT(grid.GetStatistics().observersRebuilt, reference.GetStatistics().observersRebuilt);
+		EXPECT_EQ(defaults.GetStatistics().observersRebuilt, grid.GetStatistics().observersRebuilt);
+		EXPECT_EQ(defaults.GetStatistics().observersDeferred, 0u);
+		EXPECT_EQ(grid.GetStatistics().observersDeferred, 0u);
 	}
 }
 
@@ -1271,4 +1279,561 @@ TEST(InterestGrid, TrackingListenerFollowsTrackRemoveClearAndReconfigure)
 	grid.Remove(1);
 	grid.Clear();
 	EXPECT_EQ(events, (std::vector<std::pair<NetworkID, bool>>{{1, true}, {2, true}, {1, false}, {2, false}}));
+}
+
+TEST(InterestGrid, ObserverRefreshSettingsAreSanitised)
+{
+	InterestGrid grid;
+	EXPECT_EQ(grid.GetObserverRefresh().maxStaleEvaluations, 1u);
+	EXPECT_EQ(grid.GetObserverRefresh().moveFraction, 0.0f);
+	grid.SetObserverRefresh(0, std::numeric_limits<float>::quiet_NaN());
+	EXPECT_EQ(grid.GetObserverRefresh().maxStaleEvaluations, 1u);
+	EXPECT_EQ(grid.GetObserverRefresh().moveFraction, 0.0f);
+	grid.SetObserverRefresh(3, -1);
+	EXPECT_EQ(grid.GetObserverRefresh().maxStaleEvaluations, 3u);
+	EXPECT_EQ(grid.GetObserverRefresh().moveFraction, 0.0f);
+	grid.SetObserverRefresh(4, std::numeric_limits<float>::infinity());
+	EXPECT_EQ(grid.GetObserverRefresh().moveFraction, 1.0f);
+	grid.SetObserverRefresh(4, 0.5f);
+	EXPECT_EQ(grid.GetObserverRefresh().maxStaleEvaluations, 4u);
+	EXPECT_EQ(grid.GetObserverRefresh().moveFraction, 0.5f);
+	// Reconfiguring keeps the setting.
+	ASSERT_TRUE(grid.Configure({{0, 0}, {100, 100}, 10}));
+	EXPECT_EQ(grid.GetObserverRefresh().maxStaleEvaluations, 4u);
+	EXPECT_EQ(grid.GetObserverRefresh().moveFraction, 0.5f);
+}
+
+namespace
+{
+// One radius observer (enter 40, leave 50: a 10-unit margin, so moves under 5 units can wait with fraction 0.5) at
+// (112.5, 112.5) in 25-unit cells. Its leave rectangle edges sit mid-cell, so moves of a few units keep its cells.
+struct RefreshedObserver
+{
+	InterestGrid grid;
+	const PeerGuid camera{1};
+	SpatialPoint position{112.5f, 112.5f};
+	void SetUp(unsigned maxStale, float fraction)
+	{
+		ASSERT_TRUE(grid.Configure({{0, 0}, {1000, 1000}, 25}));
+		grid.SetObserverRefresh(maxStale, fraction);
+		ASSERT_TRUE(grid.SetObserverRadius(camera, position, 40, 50));
+		ASSERT_TRUE(grid.Track(1, {{130, 112.5f}}));
+		Visible(grid, camera);
+	}
+	uint64_t Rebuilt() const { return grid.GetStatistics().observersRebuilt; }
+	// Reports the unchanged position (the observer turns stale) and reads it until its refresh slot rebuilds it, so the
+	// next three calls are off its slot.
+	void PassSlot()
+	{
+		for (unsigned i = 0; i < 4; ++i)
+		{
+			ASSERT_TRUE(grid.SetObserverPosition(camera, position));
+			const auto before = Rebuilt();
+			Visible(grid, camera);
+			if (Rebuilt() != before)
+			{
+				return;
+			}
+		}
+		FAIL() << "no refresh slot within 4 calls";
+	}
+	// True when the next read rebuilds the observer.
+	bool NextReadRebuilds()
+	{
+		const auto before = Rebuilt();
+		Visible(grid, camera);
+		return Rebuilt() != before;
+	}
+};
+}
+
+TEST(InterestGrid, ObserverRefreshRebuildsSmallOwnMovesOnceEveryMaxStaleCalls)
+{
+	RefreshedObserver o;
+	ASSERT_NO_FATAL_FAILURE(o.SetUp(4, 0.5f));
+	std::vector<unsigned> rebuiltAt;
+	for (unsigned call = 1; call <= 16; ++call)
+	{
+		// 0.25 a call: at most 1 unit between two rebuilds, and the cells stay the same.
+		o.position.x += 0.25f;
+		ASSERT_TRUE(o.grid.SetObserverPosition(o.camera, o.position));
+		const auto before = o.Rebuilt();
+		EXPECT_EQ(Visible(o.grid, o.camera), std::vector<NetworkID>{1});
+		if (o.Rebuilt() != before)
+		{
+			rebuiltAt.push_back(call);
+		}
+	}
+	// At least once and at most once every 4 calls.
+	ASSERT_EQ(rebuiltAt.size(), 4u);
+	EXPECT_LE(rebuiltAt[0], 4u);
+	for (size_t i = 1; i < rebuiltAt.size(); ++i)
+	{
+		EXPECT_EQ(rebuiltAt[i] - rebuiltAt[i - 1], 4u);
+	}
+	EXPECT_EQ(o.grid.GetStatistics().observersDeferred, 12u);
+}
+
+TEST(InterestGrid, ObserverRefreshShowsWhatSmallMovesReachWithinMaxStaleCalls)
+{
+	RefreshedObserver o;
+	ASSERT_NO_FATAL_FAILURE(o.SetUp(4, 0.5f));
+	// 41 from the observer, out of its enter radius; 39 after a 2-unit move toward it.
+	ASSERT_TRUE(o.grid.Track(2, {{153.5f, 112.5f}}));
+	EXPECT_EQ(VisibleSet(o.grid, o.camera), (std::set<NetworkID>{1}));
+	ASSERT_NO_FATAL_FAILURE(o.PassSlot());
+	o.position.x += 2;
+	ASSERT_TRUE(o.grid.SetObserverPosition(o.camera, o.position));
+	unsigned calls = 0;
+	while (calls < 4 && !VisibleSet(o.grid, o.camera).count(2))
+	{
+		++calls;
+	}
+	// Deferred off the slot, then seen on it.
+	EXPECT_GE(calls, 1u);
+	EXPECT_LT(calls, 4u);
+	EXPECT_EQ(VisibleSet(o.grid, o.camera), (std::set<NetworkID>{1, 2}));
+}
+
+TEST(InterestGrid, ObserverRefreshRebuildsAtOnceForLargeMovesCellChangesAndRadii)
+{
+	RefreshedObserver o;
+	ASSERT_NO_FATAL_FAILURE(o.SetUp(4, 0.5f));
+	// Control: off the slot, a small move waits.
+	ASSERT_NO_FATAL_FAILURE(o.PassSlot());
+	o.position.x += 1;
+	ASSERT_TRUE(o.grid.SetObserverPosition(o.camera, o.position));
+	EXPECT_FALSE(o.NextReadRebuilds());
+	// 6 units from the last rebuild, beyond half the margin, the cells unchanged.
+	ASSERT_NO_FATAL_FAILURE(o.PassSlot());
+	o.position.x += 6;
+	ASSERT_TRUE(o.grid.SetObserverPosition(o.camera, o.position));
+	EXPECT_TRUE(o.NextReadRebuilds());
+	// A 1-unit move that moves the leave rectangle's left edge from x cell 2 to 3.
+	o.position.x = 124.5f;
+	ASSERT_TRUE(o.grid.SetObserverPosition(o.camera, o.position));
+	Visible(o.grid, o.camera);
+	ASSERT_NO_FATAL_FAILURE(o.PassSlot());
+	o.position.x = 125.5f;
+	ASSERT_TRUE(o.grid.SetObserverPosition(o.camera, o.position));
+	EXPECT_TRUE(o.NextReadRebuilds());
+	// A radius change.
+	ASSERT_NO_FATAL_FAILURE(o.PassSlot());
+	ASSERT_TRUE(o.grid.SetObserverRadius(o.camera, o.position, 41, 50));
+	EXPECT_TRUE(o.NextReadRebuilds());
+	// Look-ahead: a small velocity change moves the second focus 2 units and waits; a large one rebuilds.
+	o.grid.SetLookaheadSeconds(1);
+	ASSERT_TRUE(o.grid.SetObserverVelocity(o.camera, {10, 0}));
+	EXPECT_TRUE(o.NextReadRebuilds());
+	ASSERT_NO_FATAL_FAILURE(o.PassSlot());
+	ASSERT_TRUE(o.grid.SetObserverVelocity(o.camera, {12, 0}));
+	EXPECT_FALSE(o.NextReadRebuilds());
+	ASSERT_NO_FATAL_FAILURE(o.PassSlot());
+	ASSERT_TRUE(o.grid.SetObserverVelocity(o.camera, {20, 0}));
+	EXPECT_TRUE(o.NextReadRebuilds());
+	// Turning look-ahead off is not the observer's own move.
+	ASSERT_NO_FATAL_FAILURE(o.PassSlot());
+	o.grid.SetLookaheadSeconds(0);
+	EXPECT_TRUE(o.NextReadRebuilds());
+	// Without deferral (a zero fraction), every move rebuilds.
+	o.grid.SetObserverRefresh(4, 0);
+	for (unsigned i = 0; i < 4; ++i)
+	{
+		o.position.y += 0.25f;
+		ASSERT_TRUE(o.grid.SetObserverPosition(o.camera, o.position));
+		EXPECT_TRUE(o.NextReadRebuilds());
+	}
+}
+
+TEST(InterestGrid, ObserverRefreshDoesNotDeferObjectChanges)
+{
+	RefreshedObserver o;
+	ASSERT_NO_FATAL_FAILURE(o.SetUp(4, 0.5f));
+	auto stale = [&]
+	{
+		ASSERT_NO_FATAL_FAILURE(o.PassSlot());
+		o.position.y += 0.25f;
+		ASSERT_TRUE(o.grid.SetObserverPosition(o.camera, o.position));
+	};
+	// Tracked within range.
+	ASSERT_NO_FATAL_FAILURE(stale());
+	ASSERT_TRUE(o.grid.Track(3, {{100, 100}}));
+	EXPECT_EQ(VisibleSet(o.grid, o.camera), (std::set<NetworkID>{1, 3}));
+	// Untracked.
+	ASSERT_NO_FATAL_FAILURE(stale());
+	o.grid.Remove(3);
+	EXPECT_EQ(VisibleSet(o.grid, o.camera), (std::set<NetworkID>{1}));
+	// Crossing cells into range, then within its cell out of range.
+	ASSERT_TRUE(o.grid.Track(4, {{400, 400}}));
+	ASSERT_NO_FATAL_FAILURE(stale());
+	ASSERT_TRUE(o.grid.SetPosition(4, {120, 120}));
+	EXPECT_EQ(VisibleSet(o.grid, o.camera), (std::set<NetworkID>{1, 4}));
+	ASSERT_NO_FATAL_FAILURE(stale());
+	ASSERT_TRUE(o.grid.SetPosition(4, {400, 400}));
+	EXPECT_EQ(VisibleSet(o.grid, o.camera), (std::set<NetworkID>{1}));
+	// A world change.
+	ASSERT_NO_FATAL_FAILURE(stale());
+	o.grid.SetObserverWorld(o.camera, 1, VIRTUAL_WORLD_DEFAULT);
+	EXPECT_TRUE(Visible(o.grid, o.camera).empty());
+	o.grid.SetObserverWorld(o.camera, 0, VIRTUAL_WORLD_DEFAULT);
+	EXPECT_EQ(VisibleSet(o.grid, o.camera), (std::set<NetworkID>{1}));
+	EXPECT_GT(o.grid.GetStatistics().observersDeferred, 0u);
+}
+
+TEST(InterestGrid, ObserverRefreshForcedRebuildMatchesAFreshGrid)
+{
+	RefreshedObserver o;
+	ASSERT_NO_FATAL_FAILURE(o.SetUp(8, 1));
+	InterestGrid fresh;
+	ASSERT_TRUE(fresh.Configure({{0, 0}, {1000, 1000}, 25}));
+	ASSERT_TRUE(fresh.Track(1, {{130, 112.5f}}));
+	// Just inside the enter radius once the observer has moved 4 units: 39.5 away.
+	ASSERT_TRUE(o.grid.Track(2, {{156, 112.5f}}));
+	ASSERT_TRUE(fresh.Track(2, {{156, 112.5f}}));
+	ASSERT_NO_FATAL_FAILURE(o.PassSlot());
+	o.position.x += 4;
+	ASSERT_TRUE(o.grid.SetObserverPosition(o.camera, o.position));
+	EXPECT_EQ(VisibleSet(o.grid, o.camera), (std::set<NetworkID>{1}));
+	o.grid.InvalidateObserver(o.camera);
+	ASSERT_TRUE(fresh.SetObserverRadius(o.camera, o.position, 40, 50));
+	EXPECT_EQ(VisibleSet(o.grid, o.camera), (std::set<NetworkID>{1, 2}));
+	EXPECT_EQ(VisibleSet(o.grid, o.camera), VisibleSet(fresh, o.camera));
+	// Turning refresh off rebuilds a stale observer at its next call.
+	ASSERT_NO_FATAL_FAILURE(o.PassSlot());
+	o.position.x -= 4;
+	ASSERT_TRUE(o.grid.SetObserverPosition(o.camera, o.position));
+	o.grid.SetObserverRefresh(1, 0);
+	EXPECT_TRUE(o.NextReadRebuilds());
+}
+
+TEST(InterestGrid, ObserverRefreshSlotsSpreadObserversOverCalls)
+{
+	InterestGrid grid;
+	ASSERT_TRUE(grid.Configure({{0, 0}, {1000, 1000}, 25}));
+	grid.SetObserverRefresh(4, 0.5f);
+	std::vector<SpatialPoint> positions;
+	for (unsigned i = 0; i < 100; ++i)
+	{
+		positions.push_back({62.5f + 100.0f * static_cast<float>(i % 10), 62.5f + 100.0f * static_cast<float>(i / 10)});
+		ASSERT_TRUE(grid.SetObserverRadius(PeerGuid{i + 1}, positions.back(), 40, 50));
+		ASSERT_TRUE(grid.Track(i + 1, {positions.back()}));
+	}
+	std::map<PeerGuid, unsigned> perObserver;
+	for (unsigned tick = 0; tick <= 8; ++tick)
+	{
+		unsigned rebuilt = 0;
+		for (unsigned i = 0; i < 100; ++i)
+		{
+			const PeerGuid guid{i + 1};
+			positions[i].x += 0.25f;
+			ASSERT_TRUE(grid.SetObserverPosition(guid, positions[i]));
+			const auto before = grid.GetStatistics().observersRebuilt;
+			EXPECT_EQ(Visible(grid, guid), std::vector<NetworkID>{i + 1});
+			if (grid.GetStatistics().observersRebuilt != before)
+			{
+				++rebuilt;
+				perObserver[guid] += tick ? 1 : 0;
+			}
+		}
+		if (tick == 0)
+		{
+			// New observers are dirty.
+			EXPECT_EQ(rebuilt, 100u);
+			continue;
+		}
+		// About a quarter each call, never all of them.
+		EXPECT_GE(rebuilt, 15u) << "tick " << tick;
+		EXPECT_LE(rebuilt, 35u) << "tick " << tick;
+	}
+	for (unsigned i = 0; i < 100; ++i)
+	{
+		EXPECT_EQ(perObserver[PeerGuid{i + 1}], 2u) << "observer " << i;
+	}
+}
+
+namespace
+{
+// A radius observer at (500, 500), enter 100 and leave 120, holding two objects: A at 30 and B at 60 along x.
+struct HeldObjects
+{
+	InterestGrid grid, fresh;
+	const PeerGuid camera{1};
+	void SetUp(unsigned maxStale, unsigned visibleLimit = 0)
+	{
+		for (InterestGrid *g : {&grid, &fresh})
+		{
+			ASSERT_TRUE(g->Configure({{0, 0}, {1000, 1000}, 50}));
+			ASSERT_TRUE(g->SetObserverRadius(camera, {500, 500}, 100, 120));
+			g->SetObserverLimits(camera, visibleLimit, 0);
+		}
+		grid.SetObserverRefresh(maxStale, 0.5f);
+		Move(1, {530, 500});
+		Move(2, {560, 500});
+		Visible(grid, camera);
+	}
+	void Move(NetworkID id, SpatialPoint p)
+	{
+		for (InterestGrid *g : {&grid, &fresh})
+		{
+			if (g->Contains(id))
+			{
+				ASSERT_TRUE(g->SetPosition(id, p));
+			}
+			else
+			{
+				ASSERT_TRUE(g->Track(id, {p}));
+			}
+		}
+	}
+	uint64_t Rebuilt() const { return grid.GetStatistics().observersRebuilt; }
+	std::vector<NetworkID> Fresh()
+	{
+		fresh.InvalidateObserver(camera);
+		return Visible(fresh, camera);
+	}
+	// Reads until a refresh slot rebuilds the observer (moving nothing), so the next three calls are off its slot.
+	void PassSlot()
+	{
+		for (unsigned i = 0; i < 4; ++i)
+		{
+			const auto before = Rebuilt();
+			ASSERT_TRUE(grid.SetObserverPosition(camera, {500, 500}));
+			Visible(grid, camera);
+			if (Rebuilt() != before)
+			{
+				return;
+			}
+		}
+		FAIL() << "no refresh slot within 4 calls";
+	}
+};
+}
+
+TEST(InterestGrid, HeldObjectsMovingInsideLeaveWaitForTheRefreshSlot)
+{
+	HeldObjects o;
+	ASSERT_NO_FATAL_FAILURE(o.SetUp(4));
+	EXPECT_EQ(Visible(o.grid, o.camera), (std::vector<NetworkID>{1, 2}));
+	ASSERT_NO_FATAL_FAILURE(o.PassSlot());
+	// A and B swap their distances: the set is unchanged, the order changes at the next slot.
+	o.Move(1, {580, 500});
+	o.Move(2, {520, 500});
+	EXPECT_EQ(o.Fresh(), (std::vector<NetworkID>{2, 1}));
+	const auto before = o.Rebuilt();
+	unsigned calls = 0;
+	while (calls < 4 && Visible(o.grid, o.camera) != std::vector<NetworkID>{2, 1})
+	{
+		EXPECT_EQ(VisibleSet(o.grid, o.camera), (std::set<NetworkID>{1, 2}));
+		++calls;
+	}
+	EXPECT_GE(calls, 1u);
+	EXPECT_LT(calls, 4u);
+	EXPECT_EQ(o.Rebuilt(), before + 1);
+	EXPECT_GT(o.grid.GetStatistics().observersDeferred, 0u);
+	// Within the leave radius but beyond enter (115): still held, still deferred.
+	ASSERT_NO_FATAL_FAILURE(o.PassSlot());
+	const auto held = o.Rebuilt();
+	o.Move(1, {615, 500});
+	EXPECT_EQ(VisibleSet(o.grid, o.camera), (std::set<NetworkID>{1, 2}));
+	EXPECT_EQ(o.Rebuilt(), held);
+}
+
+TEST(InterestGrid, HeldObjectsLeavingAndNewObjectsEnteringRebuildAtOnce)
+{
+	HeldObjects o;
+	ASSERT_NO_FATAL_FAILURE(o.SetUp(4));
+	// Beyond the leave radius: dropped at the next call.
+	ASSERT_NO_FATAL_FAILURE(o.PassSlot());
+	o.Move(1, {625, 500});
+	EXPECT_EQ(Visible(o.grid, o.camera), o.Fresh());
+	EXPECT_EQ(VisibleSet(o.grid, o.camera), (std::set<NetworkID>{2}));
+	// An object moving into the enter radius: seen at the next call.
+	ASSERT_NO_FATAL_FAILURE(o.PassSlot());
+	o.Move(1, {590, 500});
+	EXPECT_EQ(VisibleSet(o.grid, o.camera), (std::set<NetworkID>{1, 2}));
+	// A newly tracked object within range: seen at the next call.
+	ASSERT_NO_FATAL_FAILURE(o.PassSlot());
+	o.Move(3, {500, 540});
+	EXPECT_EQ(VisibleSet(o.grid, o.camera), (std::set<NetworkID>{1, 2, 3}));
+}
+
+TEST(InterestGrid, HeldObjectMovesRebuildAtOnceWhileACapBinds)
+{
+	// Visible limit 2 with a third candidate waiting: the nearest two win, so a move can change the set.
+	HeldObjects o;
+	ASSERT_NO_FATAL_FAILURE(o.SetUp(4, 2));
+	o.Move(3, {500, 590});
+	EXPECT_EQ(VisibleSet(o.grid, o.camera), (std::set<NetworkID>{1, 2}));
+	ASSERT_NO_FATAL_FAILURE(o.PassSlot());
+	// B moves to 100 (still within leave): object 3 at 90 now outranks it, with the incumbent margin (100^2 * 0.9025 > 90^2).
+	o.Move(2, {600, 500});
+	EXPECT_EQ(VisibleSet(o.grid, o.camera), (std::set<NetworkID>{1, 3}));
+	EXPECT_EQ(VisibleSet(o.grid, o.camera), VisibleSet(o.fresh, o.camera));
+	// A category limit binds the same way.
+	HeldObjects c;
+	ASSERT_NO_FATAL_FAILURE(c.SetUp(4));
+	for (InterestGrid *g : {&c.grid, &c.fresh})
+	{
+		ASSERT_TRUE(g->SetScope(1, {{530, 500}, 0, VIRTUAL_WORLD_DEFAULT, 0, 5}));
+		ASSERT_TRUE(g->SetScope(2, {{560, 500}, 0, VIRTUAL_WORLD_DEFAULT, 0, 5}));
+		ASSERT_TRUE(g->Track(3, {{500, 590}, 0, VIRTUAL_WORLD_DEFAULT, 0, 5}));
+		ASSERT_TRUE(g->SetCategoryLimit(5, 2));
+	}
+	EXPECT_EQ(VisibleSet(c.grid, c.camera), (std::set<NetworkID>{1, 2}));
+	ASSERT_NO_FATAL_FAILURE(c.PassSlot());
+	for (InterestGrid *g : {&c.grid, &c.fresh})
+	{
+		ASSERT_TRUE(g->SetScope(2, {{600, 500}, 0, VIRTUAL_WORLD_DEFAULT, 0, 5}));
+	}
+	EXPECT_EQ(VisibleSet(c.grid, c.camera), (std::set<NetworkID>{1, 3}));
+	// Without a refresh policy, every held move rebuilds as before.
+	HeldObjects d;
+	ASSERT_NO_FATAL_FAILURE(d.SetUp(1));
+	const auto before = d.Rebuilt();
+	d.Move(1, {531, 500});
+	Visible(d.grid, d.camera);
+	EXPECT_EQ(d.Rebuilt(), before + 1);
+}
+
+// With a refresh policy that defers only object moves (fraction 0: an observer's own moves still rebuild), and no
+// limits, the visible sets must equal a fresh evaluation at every call; only the order may lag until the refresh.
+TEST(InterestGrid, DeferredHeldMovesKeepVisibleSetsExact)
+{
+	for (uint32_t seed : {3u, 11u, 99u, 2024u})
+	{
+		InterestGrid grid, reference;
+		uint32_t state = seed;
+		auto next = [&]
+		{
+			state = 1664525u * state + 1013904223u;
+			return state >> 8;
+		};
+		auto point = [&]
+		{ return SpatialPoint{static_cast<float>(next() % 4001) / 10.0f, static_cast<float>(next() % 4001) / 10.0f}; };
+		auto nudge = [&](SpatialPoint p)
+		{
+			p.x = std::clamp(p.x + static_cast<float>(int(next() % 81) - 40) / 10.0f, 0.0f, 400.0f);
+			p.y = std::clamp(p.y + static_cast<float>(int(next() % 81) - 40) / 10.0f, 0.0f, 400.0f);
+			return p;
+		};
+		auto both = [&](auto &&action)
+		{
+			const bool a = action(grid), b = action(reference);
+			EXPECT_EQ(a, b);
+			return a;
+		};
+		both([](InterestGrid &g)
+		     { return g.Configure({{0, 0}, {400, 400}, 25}); });
+		grid.SetObserverRefresh(4, 0);
+		constexpr unsigned kObservers = 12, kObjects = 60;
+		std::map<NetworkID, SpatialScope> objects;
+		std::map<PeerGuid, SpatialPoint> radius;
+		for (unsigned i = 0; i < kObservers; ++i)
+		{
+			const PeerGuid guid{i + 1};
+			const auto p = point();
+			if (i % 4 == 3)
+			{
+				const std::vector<GridCell> cells{{static_cast<int>(next() % 16), static_cast<int>(next() % 16)}};
+				both([&](InterestGrid &g)
+				     { return g.SetObserverCells(guid, cells); });
+			}
+			else
+			{
+				radius[guid] = p;
+				both([&](InterestGrid &g)
+				     { return g.SetObserverRadius(guid, p, 40, 50); });
+				const SpatialPoint velocity{static_cast<float>(int(next() % 41) - 20), static_cast<float>(int(next() % 41) - 20)};
+				both([&](InterestGrid &g)
+				     { return g.SetObserverVelocity(guid, velocity); });
+			}
+		}
+		both([](InterestGrid &g)
+		     { g.SetLookaheadSeconds(0.5f); return true; });
+		for (NetworkID id = 1; id <= kObjects; ++id)
+		{
+			SpatialScope scope{point()};
+			scope.priority = static_cast<int>(id % 2);
+			objects[id] = scope;
+			both([&](InterestGrid &g)
+			     { return g.Track(id, scope); });
+		}
+		std::vector<NetworkID> a, b;
+		for (unsigned step = 0; step < 2000; ++step)
+		{
+			const NetworkID id = 1 + next() % kObjects;
+			const PeerGuid guid{1 + next() % kObservers};
+			const unsigned roll = next() % 100;
+			if (roll < 70 && objects.count(id))
+			{
+				auto &scope = objects[id];
+				scope.position = next() % 8 ? nudge(scope.position) : point();
+				both([&](InterestGrid &g)
+				     { return g.SetPosition(id, scope.position); });
+			}
+			else if (roll < 74 && objects.count(id))
+			{
+				auto &scope = objects[id];
+				scope.world = static_cast<uint8_t>(next() % 4 == 0);
+				scope.range = next() % 3 == 0 ? 90.0f : 0.0f;
+				both([&](InterestGrid &g)
+				     { return g.SetScope(id, scope); });
+			}
+			else if (roll < 80)
+			{
+				const NetworkID parent = next() % 4 ? 1 + next() % kObjects : UNASSIGNED_NETWORK_ID;
+				both([&](InterestGrid &g)
+				     { return g.SetDependency(id, parent); });
+			}
+			else if (roll < 88 && radius.count(guid))
+			{
+				radius[guid] = next() % 4 ? nudge(radius[guid]) : point();
+				both([&](InterestGrid &g)
+				     { return g.SetObserverPosition(guid, radius[guid]); });
+			}
+			else if (roll < 91)
+			{
+				const PeerGuid holder = next() % 2 ? guid : UNASSIGNED_PEER_GUID;
+				both([&](InterestGrid &g)
+				     { InterestGridTestAccess::Require(g, id, holder); return true; });
+			}
+			else if (roll < 95)
+			{
+				if (objects.erase(id))
+				{
+					both([&](InterestGrid &g)
+					     { g.Remove(id); return true; });
+				}
+				else
+				{
+					SpatialScope scope{point()};
+					objects[id] = scope;
+					both([&](InterestGrid &g)
+					     { return g.Track(id, scope); });
+				}
+			}
+			else if (roll < 98 && radius.count(guid))
+			{
+				const SpatialPoint velocity{static_cast<float>(int(next() % 41) - 20), static_cast<float>(int(next() % 41) - 20)};
+				both([&](InterestGrid &g)
+				     { return g.SetObserverVelocity(guid, velocity); });
+			}
+			else if (roll >= 98)
+			{
+				const NetworkID always = 1 + next() % kObjects;
+				const bool enabled = next() % 2 != 0;
+				both([&](InterestGrid &g)
+				     { return g.SetAlwaysVisible(always, enabled); });
+			}
+			for (unsigned i = 0; i < kObservers; ++i)
+			{
+				const PeerGuid observer{i + 1};
+				reference.InvalidateObserver(observer);
+				grid.GetVisible(observer, a);
+				reference.GetVisible(observer, b);
+				ASSERT_EQ(std::set<NetworkID>(a.begin(), a.end()), std::set<NetworkID>(b.begin(), b.end())) << "seed " << seed << " step " << step << " observer " << i;
+			}
+		}
+		EXPECT_GT(grid.GetStatistics().observersDeferred, 0u);
+	}
 }

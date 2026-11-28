@@ -54,6 +54,15 @@ public:
 		std::set<NetworkID> required;
 		// The cell holding a radius observer's position, filed in observersAt; -1 when not filed.
 		int at = -1;
+		// A stale observer's own small moves wait for its refresh slot (see SetObserverRefresh); dirty overrides it.
+		bool stale = false;
+		// GetVisible calls for this observer, which place its refresh slots.
+		uint64_t calls = 0;
+		// The foci of the last rebuild, which the move fraction is measured from.
+		SpatialPoint evaluated[2];
+		int evaluatedCount = 0;
+		// The last rebuild reached the visible limit or a category limit, so its selection depended on distance order.
+		bool capped = false;
 	};
 	InterestGridConfig config{};
 	int width = 0, height = 0;
@@ -68,6 +77,7 @@ public:
 	};
 	std::map<uint16_t, CategoryLimit> categoryLimits;
 	float lookaheadSeconds = 0;
+	ObserverRefresh refresh;
 	static constexpr double kMinLookaheadDist = 5;
 	std::set<NetworkID> alwaysVisible;
 	std::map<NetworkID, NetworkID> parents;
@@ -322,6 +332,9 @@ public:
 	// held the object nor can see it now is unaffected: dropping or moving a candidate that was not selected leaves the
 	// selection unchanged. Other holders do not depend on the position: a dependency child is pulled in wherever it is,
 	// an always-visible object dirties everyone and SetScope() invalidates the holder of a required object.
+	// With a refresh policy (maxStaleEvaluations > 1), a radius holder whose last rebuild bound no cap and that still has
+	// the object within its leave radius is only marked stale: without a cap each candidate is selected on its own
+	// distance alone, so the set cannot change, only its order and band intervals.
 	void DirtyMove(NetworkID id, int from, int to, SpatialPoint position)
 	{
 		auto visit = [&](int cell, bool reaching)
@@ -342,7 +355,21 @@ public:
 				{
 					observer.dirty = from != to;
 				}
-				else if (observer.visible.count(id) || (reaching && NearestDistSq(FociOf(observer), position) <= static_cast<double>(observer.enter) * observer.enter))
+				else if (observer.visible.count(id))
+				{
+					// Still within the leave radius and no cap binding: the visible set cannot change, only its order and
+					// distance-band intervals, so with a refresh policy the holder waits for its slot.
+					const double leave = observer.leave;
+					if (refresh.maxStaleEvaluations > 1 && !observer.capped && NearestDistSq(FociOf(observer), position) <= leave * leave)
+					{
+						observer.stale = true;
+					}
+					else
+					{
+						observer.dirty = true;
+					}
+				}
+				else if (reaching && NearestDistSq(FociOf(observer), position) <= static_cast<double>(observer.enter) * observer.enter)
 				{
 					observer.dirty = true;
 				}
@@ -408,17 +435,72 @@ public:
 		observer.at = cell;
 		observersAt[observer.at][guid] = observer.position;
 	}
+	// True when every focus is less than the refresh fraction of the leave margin from where it was at the last rebuild.
+	bool MovedWithinRefresh(const Observer &observer, const Foci &foci) const
+	{
+		if (refresh.maxStaleEvaluations <= 1 || foci.count != observer.evaluatedCount)
+		{
+			return false;
+		}
+		const double limit = static_cast<double>(refresh.moveFraction) * (static_cast<double>(observer.leave) - observer.enter);
+		for (int i = 0; i < foci.count; ++i)
+		{
+			const double dx = static_cast<double>(foci.points[i].x) - observer.evaluated[i].x;
+			const double dy = static_cast<double>(foci.points[i].y) - observer.evaluated[i].y;
+			if (!(dx * dx + dy * dy < limit * limit))
+			{
+				return false;
+			}
+		}
+		return true;
+	}
 	// Subscribes a radius observer to the cells around its foci and dirties it. The cell sets are diffed only when
-	// the rectangles changed, so a move that keeps them costs no set walk and no allocation.
-	void SubscribeRadius(PeerGuid guid, Observer &observer)
+	// the rectangles changed, so a move that keeps them costs no set walk and no allocation. A deferrable update (the
+	// observer's own move, radii unchanged) that keeps the rectangles and stays within the refresh fraction only
+	// marks a clean observer stale.
+	void SubscribeRadius(PeerGuid guid, Observer &observer, bool deferrable)
 	{
 		const CellSpans next = SpansOf(observer);
 		if (observer.spans.count == 0 || !(next == observer.spans))
 		{
 			Subscribe(guid, observer, CellsOf(next));
 			observer.spans = next;
+			return;
+		}
+		if (deferrable && !observer.dirty && MovedWithinRefresh(observer, FociOf(observer)))
+		{
+			observer.stale = true;
+			return;
 		}
 		observer.dirty = true;
+	}
+	// The observer's refresh slot offset in [0, maxStaleEvaluations), from a stable hash (splitmix64) of its guid.
+	uint64_t RefreshOffset(PeerGuid guid) const
+	{
+		uint64_t z = static_cast<uint64_t>(guid) + 0x9e3779b97f4a7c15ull;
+		z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9ull;
+		z = (z ^ (z >> 27)) * 0x94d049bb133111ebull;
+		return (z ^ (z >> 31)) % refresh.maxStaleEvaluations;
+	}
+	// GetVisible's rebuild decision: a dirty observer is rebuilt; a stale one only on its slot, once every
+	// maxStaleEvaluations calls, so it is never more than maxStaleEvaluations - 1 calls behind its own moves. The slot
+	// follows the call count, not the last rebuild, so observers rebuilt together by some change keep their spread.
+	void Refresh(PeerGuid guid, Observer &observer)
+	{
+		++observer.calls;
+		if (!observer.dirty)
+		{
+			if (!observer.stale)
+			{
+				return;
+			}
+			if (refresh.maxStaleEvaluations > 1 && (observer.calls + RefreshOffset(guid)) % refresh.maxStaleEvaluations != 0)
+			{
+				++stats.observersDeferred;
+				return;
+			}
+		}
+		Evaluate(guid, observer);
 	}
 	// Subscribes an observer to exactly next and dirties it; forgets any radius rectangles.
 	void Subscribe(PeerGuid guid, Observer &observer, std::set<int> next)
@@ -552,8 +634,6 @@ public:
 	}
 	void Evaluate(PeerGuid guid, Observer &observer)
 	{
-		if (!observer.dirty)
-			return;
 		++stats.observersRebuilt;
 		// Entries are ranked uncounted first (required by an authority holder, always visible), then spatial candidates.
 		// Uncounted entries bypass the distance test, the category limits and the observer limit.
@@ -602,6 +682,11 @@ public:
 			stagedVisible.insert(item.id);
 			stagedOrdered.push_back(item.id);
 		}
+		bool capped = observer.limit && counted >= observer.limit;
+		for (const auto &entry : categoryLimits)
+		{
+			capped = capped || entry.second.used >= entry.second.limit;
+		}
 		// Dependency children of every visible object follow it, uncounted, while eligible.
 		if (!children.empty())
 		{
@@ -627,7 +712,11 @@ public:
 		// Publish only now: an audience predicate that threw above leaves the previous membership (and dirty) intact.
 		observer.visible.swap(stagedVisible);
 		observer.ordered.swap(stagedOrdered);
+		observer.capped = capped;
 		observer.dirty = false;
+		observer.stale = false;
+		std::copy(foci.points, foci.points + foci.count, observer.evaluated);
+		observer.evaluatedCount = foci.count;
 	}
 };
 
@@ -647,6 +736,7 @@ bool InterestGrid::Configure(InterestGridConfig config)
 	next.width = static_cast<int>(w);
 	next.height = static_cast<int>(h);
 	next.lookaheadSeconds = impl->lookaheadSeconds;
+	next.refresh = impl->refresh;
 	if (!next.index.Init(1, 1, 0, 0, static_cast<float>(w), static_cast<float>(h)))
 		return false;
 	for (const auto &[id, record] : impl->objects)
@@ -812,12 +902,14 @@ bool InterestGrid::SetObserverRadius(PeerGuid guid, SpatialPoint p, float enter,
 	if (guid == UNASSIGNED_PEER_GUID || !impl->Valid(p) || !(enter >= 0 && leave >= enter && std::isfinite(leave)))
 		return false;
 	auto &o = impl->observers[guid];
+	// Only a move of a radius observer whose radii are unchanged may wait for its refresh slot.
+	const bool deferrable = o.radius && o.enter == enter && o.leave == leave;
 	o.radius = true;
 	o.position = p;
 	o.enter = enter;
 	o.leave = leave;
 	impl->File(guid, o);
-	impl->SubscribeRadius(guid, o);
+	impl->SubscribeRadius(guid, o, deferrable);
 	return true;
 }
 bool InterestGrid::SetObserverPosition(PeerGuid guid, SpatialPoint p)
@@ -838,7 +930,7 @@ bool InterestGrid::SetObserverVelocity(PeerGuid guid, SpatialPoint velocity)
 	// SetLookaheadSeconds resubscribes every radius observer with its stored velocity when it turns look-ahead on.
 	if (impl->lookaheadSeconds > 0)
 	{
-		impl->SubscribeRadius(guid, it->second);
+		impl->SubscribeRadius(guid, it->second, true);
 	}
 	return true;
 }
@@ -855,7 +947,7 @@ void InterestGrid::SetLookaheadSeconds(float seconds)
 	{
 		if (observer.radius)
 		{
-			impl->SubscribeRadius(guid, observer);
+			impl->SubscribeRadius(guid, observer, false);
 		}
 	}
 }
@@ -899,6 +991,24 @@ void InterestGrid::SetObserverLimits(PeerGuid guid, unsigned limit, unsigned bud
 	o.limit = limit;
 	o.budget = budget;
 	o.dirty = true;
+}
+void InterestGrid::SetObserverRefresh(unsigned maxStaleEvaluations, float moveFraction)
+{
+	impl->CheckWritable();
+	impl->refresh.maxStaleEvaluations = (std::max)(maxStaleEvaluations, 1u);
+	impl->refresh.moveFraction = moveFraction > 0 ? (std::min)(moveFraction, 1.0f) : 0.0f;
+	// A stale observer is rebuilt at its next call, so the new setting applies from a fresh rebuild.
+	for (auto &entry : impl->observers)
+	{
+		if (entry.second.stale)
+		{
+			entry.second.dirty = true;
+		}
+	}
+}
+ObserverRefresh InterestGrid::GetObserverRefresh() const
+{
+	return impl->refresh;
 }
 bool InterestGrid::SetCategoryLimit(uint16_t category, unsigned maxCount)
 {
@@ -1022,7 +1132,7 @@ void InterestGrid::GetVisible(PeerGuid guid, std::vector<NetworkID> &out)
 	auto it = impl->observers.find(guid);
 	if (it == impl->observers.end())
 		return;
-	impl->Evaluate(guid, it->second);
+	impl->Refresh(guid, it->second);
 	out = it->second.ordered;
 }
 InterestStatistics InterestGrid::GetStatistics() const

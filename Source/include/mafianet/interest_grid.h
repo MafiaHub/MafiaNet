@@ -40,6 +40,14 @@ struct InterestStatistics
 	uint64_t alwaysVisiblePulls = 0, categoryCapped = 0;
 	/// Dependency children added to an observer's visible set because their parent was visible.
 	uint64_t dependencyPulls = 0;
+	/// GetVisible calls that returned a stale observer's previous visible set instead of rebuilding it (SetObserverRefresh).
+	uint64_t observersDeferred = 0;
+};
+/// How often a radius observer's own small moves rebuild its visible set (InterestGrid::SetObserverRefresh).
+struct ObserverRefresh
+{
+	unsigned maxStaleEvaluations = 1;
+	float moveFraction = 0;
 };
 /// A bounded two-dimensional grid. Coordinates include the outer maximum.
 class RAK_DLL_EXPORT InterestGrid
@@ -65,6 +73,16 @@ public:
 	void SetObserverDimension(PeerGuid guid, VirtualWorldId dimension);
 	void SetObserverWorld(PeerGuid guid, uint8_t world, VirtualWorldId dimension);
 	void SetObserverLimits(PeerGuid guid, unsigned visibleLimit, unsigned constructionBudget);
+	/// Lets a radius observer's own small moves wait for a later rebuild. An update through SetObserverRadius (same radii), SetObserverPosition or SetObserverVelocity (with look-ahead)
+	/// that keeps the observer's cells and moves every focus less than moveFraction * (leave - enter) from where it was at its last rebuild marks the observer stale instead of
+	/// dirty. GetVisible rebuilds a stale observer once every maxStaleEvaluations calls for it, on a slot offset by a hash of its guid so observers spread over calls, and returns its
+	/// previous visible set on the other calls (InterestStatistics::observersDeferred). With maxStaleEvaluations above 1, a move of an object the observer holds that keeps it
+	/// within the leave radius (nearest focus) also only marks it stale while no cap bound at its last rebuild (visible limit or a category limit reached): the visible set
+	/// cannot change then, only its order and distance-band intervals, which may be up to maxStaleEvaluations - 1 calls old. Every other change (cells, radii, a held object
+	/// leaving, an object coming within the enter radius, tracking, limits, worlds, dependencies, ...) still rebuilds at the next call. Trade-off: an object the observer comes
+	/// into range of by its own small moves can appear up to maxStaleEvaluations - 1 calls later (and one it leaves can stay as long). The default (1, 0) never defers. maxStaleEvaluations 0 is 1; a NaN or negative moveFraction is 0 and one above 1 is 1. A call rebuilds every stale observer at its next GetVisible.
+	void SetObserverRefresh(unsigned maxStaleEvaluations, float moveFraction);
+	ObserverRefresh GetObserverRefresh() const;
 	/// Caps how many objects of a category any observer sees at once; highest priority first, then nearest. 0 removes the limit. False for category 0.
 	bool SetCategoryLimit(uint16_t category, unsigned maxCount);
 	/// Objects of this category are seen within their own SpatialScope::range instead of the observer radius. False for category 0.
