@@ -1,6 +1,11 @@
 // Copyright (c) 2026, MafiaHub. MIT license.
 #include "mafianet/interest_grid.h"
+#include "mafianet/replication_manager.h"
+#include "mafianet/snapshot_replica.h"
+#include "SimulatedNetwork.h"
 #include <benchmark/benchmark.h>
+#include <memory>
+#include <vector>
 
 using namespace MafiaNet;
 
@@ -102,4 +107,191 @@ void InterestGridParityFeatures(benchmark::State &state)
 	state.counters["depPulls/tick"] = double(after.dependencyPulls - before.dependencyPulls) / state.iterations();
 }
 BENCHMARK(InterestGridParityFeatures);
+
+// A crowd moving every tick: 800 radius observers on 800 avatars and 200 vehicles in a 4,000 x 4,000 world, 25% of
+// the avatars being drivers, dependency children of their vehicle. Every replica moves, then every observer is
+// evaluated, as a 30 Hz server tick does. The arg sets whether observers follow their avatar (1, every observer is
+// rebuilt every tick) or stay put (0, only the observers a move can affect are rebuilt).
+constexpr unsigned kCrowdObservers = 800;
+constexpr unsigned kCrowdVehicles = 200;
+constexpr float kCrowdWorld = 4000;
+
+struct Crowd
+{
+	std::vector<SpatialPoint> positions, steps;
+	// Spreads index i of count over the world on a jittered lattice, deterministic.
+	static SpatialPoint Spread(unsigned i, unsigned count, uint32_t salt)
+	{
+		unsigned side = 1;
+		while (side * side < count)
+			++side;
+		const float cell = kCrowdWorld / static_cast<float>(side);
+		uint32_t hash = (i + 1) * 2654435761u ^ salt;
+		hash ^= hash >> 15;
+		const float jx = static_cast<float>(hash & 0xff) / 255.0f, jy = static_cast<float>((hash >> 8) & 0xff) / 255.0f;
+		return {(static_cast<float>(i % side) + jx) * cell, (static_cast<float>(i / side) + jy) * cell};
+	}
+	// Replica ids: avatars 1..800, vehicles 801..1000; avatar i (i <= 200) drives vehicle 800 + i.
+	Crowd()
+	{
+		for (unsigned i = 0; i < kCrowdObservers + kCrowdVehicles; ++i)
+		{
+			const bool vehicle = i >= kCrowdObservers;
+			const unsigned driver = i - kCrowdObservers;
+			positions.push_back(vehicle ? positions[driver] : Spread(i, kCrowdObservers, 0x5eed));
+			const uint32_t hash = (i + 7) * 2246822519u;
+			const float speed = vehicle ? 1.0f : 0.15f;
+			steps.push_back({(static_cast<float>(hash & 0xff) / 127.5f - 1) * speed, (static_cast<float>((hash >> 8) & 0xff) / 127.5f - 1) * speed});
+		}
+		// Drivers ride with their vehicle.
+		for (unsigned i = 0; i < kCrowdVehicles; ++i)
+			steps[i] = steps[kCrowdObservers + i];
+	}
+	static NetworkID Id(unsigned i) { return i + 1; }
+	static PeerGuid Observer(unsigned i) { return PeerGuid{i + 1}; }
+	void Step()
+	{
+		for (size_t i = 0; i < positions.size(); ++i)
+		{
+			auto &p = positions[i];
+			auto &s = steps[i];
+			if (p.x + s.x < 0 || p.x + s.x > kCrowdWorld)
+				s.x = -s.x;
+			if (p.y + s.y < 0 || p.y + s.y > kCrowdWorld)
+				s.y = -s.y;
+			p.x += s.x;
+			p.y += s.y;
+		}
+	}
+};
+
+void InterestGridCrowdWithDrivers(benchmark::State &state)
+{
+	InterestGrid grid;
+	grid.Configure({{0, 0}, {kCrowdWorld, kCrowdWorld}, 50});
+	Crowd crowd;
+	for (unsigned i = 0; i < crowd.positions.size(); ++i)
+		grid.Track(Crowd::Id(i), {crowd.positions[i]});
+	for (unsigned i = 0; i < kCrowdVehicles; ++i)
+		grid.SetDependency(Crowd::Id(i), Crowd::Id(kCrowdObservers + i));
+	std::vector<NetworkID> visible;
+	for (unsigned i = 0; i < kCrowdObservers; ++i)
+	{
+		grid.SetObserverRadius(Crowd::Observer(i), crowd.positions[i], 200, 250);
+		grid.GetVisible(Crowd::Observer(i), visible);
+	}
+	const auto before = grid.GetStatistics();
+	for (auto _ : state)
+	{
+		crowd.Step();
+		for (unsigned i = 0; i < crowd.positions.size(); ++i)
+			grid.SetPosition(Crowd::Id(i), crowd.positions[i]);
+		if (state.range(0))
+		{
+			for (unsigned i = 0; i < kCrowdObservers; ++i)
+				grid.SetObserverPosition(Crowd::Observer(i), crowd.positions[i]);
+		}
+		for (unsigned i = 0; i < kCrowdObservers; ++i)
+		{
+			grid.GetVisible(Crowd::Observer(i), visible);
+			benchmark::DoNotOptimize(visible);
+		}
+	}
+	const auto after = grid.GetStatistics();
+	state.counters["rebuilds/tick"] = double(after.observersRebuilt - before.observersRebuilt) / state.iterations();
+	state.counters["depPulls/tick"] = double(after.dependencyPulls - before.dependencyPulls) / state.iterations();
+}
+BENCHMARK(InterestGridCrowdWithDrivers)->ArgName("observers")->DenseRange(0, 1)->Unit(benchmark::kMicrosecond);
+
+struct CrowdState
+{
+	uint8_t value = 0;
+	void Write(BitStream &out) const { out.Write(value); }
+	bool Read(BitStream &in) { return in.Read(value); }
+};
+struct CrowdReplica : SnapshotReplica<CrowdState>
+{
+};
+constexpr ReplicaTypeId kCrowdType{78};
+
+// The same crowd behind a server Tick on the simulated network, 800 Active clients. The arg picks how replicas enter
+// the grid: 0 Reference(replica, scope); 1 Reference(replica) then GetInterestGrid().Track(), the path that keeps the
+// replica on the runtime's list of ordinary replicas. Ticks are 33 ms of virtual time apart; the network steps
+// between ticks, untimed.
+void InterestGridCrowdServerTick(benchmark::State &state)
+{
+	SimulatedNetwork net;
+	RakPeer *server = net.AddPeer(kCrowdObservers, kCrowdObservers);
+	auto &host = server->GetReplication();
+	if (!host.SetRole(ReplicationRole::Server) || !host.RegisterReplica<CrowdReplica>(kCrowdType, 1))
+	{
+		state.SkipWithError("server setup failed");
+		return;
+	}
+	std::vector<RakPeer *> clients;
+	std::vector<PeerGuid> guids;
+	constexpr unsigned kBatch = 16;
+	for (unsigned first = 0; first < kCrowdObservers; first += kBatch)
+	{
+		for (unsigned i = first; i < first + kBatch && i < kCrowdObservers; ++i)
+		{
+			RakPeer *client = net.AddPeer(1);
+			if (!client->GetReplication().SetRole(ReplicationRole::Client) || !client->GetReplication().RegisterReplica<CrowdReplica>(kCrowdType, 1) || net.StartConnect(client, server) != CONNECTION_ATTEMPT_STARTED)
+			{
+				state.SkipWithError("client setup failed");
+				return;
+			}
+			clients.push_back(client);
+			guids.push_back(ToPeerGuid(client->GetMyGUID()));
+		}
+		const bool active = net.RunUntil([&]
+		                                 {
+			for (unsigned i = first; i < guids.size(); ++i)
+				if (host.GetPeerStatus(guids[i]) != ReplicationPeerStatus::Active)
+					return false;
+			return true; }, 10000, 5);
+		if (!active)
+		{
+			state.SkipWithError("clients did not become active");
+			return;
+		}
+	}
+	InterestGrid &grid = host.GetInterestGrid();
+	grid.Configure({{0, 0}, {kCrowdWorld, kCrowdWorld}, 50});
+	Crowd crowd;
+	for (unsigned i = 0; i < kCrowdObservers; ++i)
+		grid.SetObserverRadius(guids[i], crowd.positions[i], 200, 250);
+	std::vector<std::unique_ptr<CrowdReplica>> replicas;
+	std::vector<NetworkID> ids;
+	for (unsigned i = 0; i < crowd.positions.size(); ++i)
+	{
+		replicas.push_back(std::make_unique<CrowdReplica>());
+		const bool referenced = state.range(0) == 0 ? host.Reference(replicas.back().get(), SpatialScope{crowd.positions[i]}) : host.Reference(replicas.back().get()) && grid.Track(replicas.back()->GetNetworkID(), {crowd.positions[i]});
+		if (!referenced)
+		{
+			state.SkipWithError("replica setup failed");
+			return;
+		}
+		ids.push_back(replicas.back()->GetNetworkID());
+	}
+	for (unsigned i = 0; i < kCrowdVehicles; ++i)
+		grid.SetDependency(ids[i], ids[kCrowdObservers + i]);
+	net.Step(3000);
+	host.SetTickMode(ReplicationTickMode::Manual);
+	for (auto _ : state)
+	{
+		crowd.Step();
+		for (unsigned i = 0; i < crowd.positions.size(); ++i)
+			grid.SetPosition(ids[i], crowd.positions[i]);
+		for (unsigned i = 0; i < kCrowdObservers; ++i)
+			grid.SetObserverPosition(guids[i], crowd.positions[i]);
+		host.Tick();
+		state.PauseTiming();
+		net.Step(33);
+		state.ResumeTiming();
+	}
+	for (auto &replica : replicas)
+		host.Dereference(replica.get());
+}
+BENCHMARK(InterestGridCrowdServerTick)->ArgName("track")->DenseRange(0, 1)->Unit(benchmark::kMicrosecond)->Iterations(200);
 }
