@@ -1642,6 +1642,27 @@ TEST(InterestGrid, DistanceIntervalsFollowDistanceAsAFractionOfTheEnterRadius)
 	EXPECT_EQ(grid.GetUpdateInterval(camera, 2), 1u);
 }
 
+TEST(InterestGrid, DistanceIntervalsOfASpatiallyVisibleDependencyChildFollowItsParent)
+{
+	InterestGrid grid;
+	const PeerGuid camera{1};
+	ASSERT_TRUE(grid.Configure({{0, 0}, {1000, 1000}, 50}));
+	ASSERT_TRUE(grid.SetObserverRadius(camera, {500, 500}, 100, 120));
+	ASSERT_TRUE(grid.SetDistanceIntervals({{0.5f, 2}, {0.8f, 3}}));
+	// A near parent with a far child, and a far parent with a near child: both children are visible on their own.
+	ASSERT_TRUE(grid.Track(1, {{530, 500}}));
+	ASSERT_TRUE(grid.Track(2, {{590, 500}}));
+	ASSERT_TRUE(grid.Track(3, {{410, 500}}));
+	ASSERT_TRUE(grid.Track(4, {{470, 500}}));
+	ASSERT_TRUE(grid.SetDependency(2, 1));
+	ASSERT_TRUE(grid.SetDependency(4, 3));
+	EXPECT_EQ(VisibleSet(grid, camera), (std::set<NetworkID>{1, 2, 3, 4}));
+	EXPECT_EQ(grid.GetUpdateInterval(camera, 1), 1u);
+	EXPECT_EQ(grid.GetUpdateInterval(camera, 2), 1u);
+	EXPECT_EQ(grid.GetUpdateInterval(camera, 3), 3u);
+	EXPECT_EQ(grid.GetUpdateInterval(camera, 4), 3u);
+}
+
 TEST(InterestGrid, DistanceIntervalsUseTheNearerLookaheadFocus)
 {
 	InterestGrid grid;

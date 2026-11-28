@@ -730,7 +730,23 @@ public:
 				const unsigned ticks = parentInterval == stagedIntervals.end() ? 1 : parentInterval->second;
 				for (auto child : found->second)
 				{
-					if (stagedVisible.count(child) || !Eligible(guid, observer, objects.at(child)))
+					if (stagedVisible.count(child))
+					{
+						// Already visible on its own: a spatial pick still follows its parent's interval; a required or always-visible one keeps 1.
+						if (banded && !observer.required.count(child) && !alwaysVisible.count(child))
+						{
+							if (ticks > 1)
+							{
+								stagedIntervals.insert_or_assign(child, ticks);
+							}
+							else
+							{
+								stagedIntervals.erase(child);
+							}
+						}
+						continue;
+					}
+					if (!Eligible(guid, observer, objects.at(child)))
 					{
 						continue;
 					}
