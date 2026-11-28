@@ -64,6 +64,9 @@ file(GLOB UNIT_TEST_SOURCES CONFIGURE_DEPENDS
 )
 add_executable(UnitTests ${UNIT_TEST_SOURCES})
 target_link_libraries(UnitTests PRIVATE TestSupport GTest::gtest_main)
+# RakVoice tests read encoder settings back through the Opus API. The library already links
+# Opus statically, so only its headers are added (linking opus again duplicates libopus.a).
+target_include_directories(UnitTests PRIVATE $<TARGET_PROPERTY:opus,INTERFACE_INCLUDE_DIRECTORIES>)
 # Mirror the library's Debug definition (Source/CMakeLists.txt) so tests can
 # tell whether the library was built with RakAssert live — some tests exercise
 # release-only backstops that would trip the assert in Debug.

@@ -84,6 +84,11 @@ Configuration
    // Set signal type hint for Opus encoder
    rakVoice.SetSignalType(OPUS_SIGNAL_VOICE);  // or OPUS_SIGNAL_MUSIC
 
+   // Opus encoder complexity, 0 (cheapest) to 10. Lower trades quality for CPU,
+   // e.g. on a load-test bot or a low-end client. Above 10 is clamped; negative
+   // restores the Opus default (9) for channels opened later.
+   rakVoice.SetEncoderComplexity(5);  // Default: not set (Opus default, 9)
+
 Ordering Channels
 -----------------
 

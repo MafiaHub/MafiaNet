@@ -6,6 +6,10 @@ All notable changes to MafiaNet are documented here.
 Unreleased
 ----------
 
+* ``RakVoice::SetEncoderComplexity()`` sets the Opus encoder complexity, 0 (cheapest) to 10, on every open encoding
+  channel and on channels opened later. Lower complexity trades quality for encoder CPU, for a load-test bot or a
+  low-end client. Values above 10 are clamped; a negative value restores the Opus default (9) for channels opened
+  later. Encoders keep the Opus default until it is called. See :doc:`plugins/rakvoice`.
 * ``ReplicaManager3`` finds a connection by GUID in constant time. Each world keeps a hash index beside its connection
   list, so ``GetConnectionByGUID()`` and the lookup made for every received replication message no longer scan all
   connections. The list and its order are unchanged.

@@ -77,6 +77,7 @@ RakVoice::RakVoice()
 	defaultVADState = true;
 	defaultDENOISEState = false;
 	defaultBitrate = 0;
+	defaultComplexity = -1;
 	defaultVBRState = false;
 	defaultSignalType = OPUS_SIGNAL_VOICE;
 	loopbackMode = false;
@@ -988,6 +989,8 @@ void RakVoice::OpenChannel(Packet *packet)
 		opus_encoder_ctl(channel->encoder, OPUS_SET_SIGNAL(defaultSignalType));
 		if (defaultBitrate > 0)
 			opus_encoder_ctl(channel->encoder, OPUS_SET_BITRATE(defaultBitrate));
+		if (defaultComplexity >= 0)
+			opus_encoder_ctl(channel->encoder, OPUS_SET_COMPLEXITY(defaultComplexity));
 
 		// In-band FEC: every frame carries a low-bitrate copy of the one before, which
 		// DecodeIntoChannel's receiver decodes when that one never arrives.
@@ -1060,6 +1063,21 @@ void RakVoice::SetEncoderBitrate(int bitsPerSecond)
 			continue;
 		if (bitsPerSecond > 0)
 			opus_encoder_ctl(voiceChannels[index]->encoder, OPUS_SET_BITRATE(bitsPerSecond));
+	}
+}
+
+void RakVoice::SetEncoderComplexity(int complexity)
+{
+	std::lock_guard<std::recursive_mutex> lock(codecMutex);
+	// Opus rejects values above 10; clamp so a caller asking for "best" gets it.
+	defaultComplexity = complexity > 10 ? 10 : complexity;
+	for (unsigned int index = 0; index < voiceChannels.size(); index++)
+	{
+		// Decode-only relay channels have no encoder.
+		if (voiceChannels[index]->encoder == nullptr)
+			continue;
+		if (defaultComplexity >= 0)
+			opus_encoder_ctl(voiceChannels[index]->encoder, OPUS_SET_COMPLEXITY(defaultComplexity));
 	}
 }
 
