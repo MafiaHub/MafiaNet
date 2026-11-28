@@ -124,6 +124,51 @@ While look-ahead is off, ``SetObserverVelocity`` only stores the velocity and
 does not mark the observer for a rebuild, so a server can report every player's
 velocity each tick at no cost; turning look-ahead on uses the stored velocities.
 
+Observer refresh
+~~~~~~~~~~~~~~~~
+
+By default every ``SetObserverPosition`` rebuilds the observer's view at its
+next ``GetVisible``, so a server that reports each player every tick rebuilds
+every moving player every tick. ``SetObserverRefresh(maxStaleEvaluations,
+moveFraction)`` lets small moves wait. An observer's own update
+(``SetObserverPosition``, ``SetObserverRadius`` with the same radii, or
+``SetObserverVelocity`` with look-ahead on) that keeps its cells and moves
+every focus less than ``moveFraction * (leave - enter)`` from where it was at
+its last rebuild marks it stale instead of dirty. The leave margin is what the
+fraction scales: hysteresis already tolerates that much error. A stale observer
+is rebuilt once every ``maxStaleEvaluations`` calls, on a slot offset by a hash
+of its guid, so the rebuilds spread over calls instead of all landing on one
+tick; on the other calls ``GetVisible`` returns its previous visible set and
+``InterestStatistics::observersDeferred`` counts the call.
+
+With ``maxStaleEvaluations`` above 1, the objects an observer holds may also
+move without rebuilding it at once. A held object that moves but stays within
+the leave radius of the observer's nearer focus only marks the observer stale,
+as long as no cap bound at its last rebuild (it had fewer visible objects than
+its limit and reached no category limit). Without a binding cap every
+candidate is kept or dropped on its own distance, so the visible set is still
+exact; only the order of the visible list and the distance-band intervals
+below can be up to ``maxStaleEvaluations - 1`` passes old. A held object that
+moves beyond the leave radius, any object coming within the enter radius, and
+every held move while a cap binds still rebuild at the next call. This is what
+makes refresh pay off for a player observing at its own moving avatar among
+moving neighbours.
+
+.. code-block:: cpp
+
+   grid.SetObserverRefresh(4, 0.5f); // small moves: rebuilt at most every 4th pass
+
+The trade-off: an object the observer comes into range of by its own small
+moves can appear up to ``maxStaleEvaluations - 1`` serialization passes later,
+and one it moves away from can stay that long. In exchange the observer's own
+small moves no longer rebuild its view every pass. Everything else still
+rebuilds at the next call: a change of cells or radii, a larger move, objects
+being tracked, removed or rescoped, object moves other than the held ones
+above, limits, worlds, dimensions,
+audience, dependencies, look-ahead and ``Configure``. The default ``(1, 0)``
+never defers. ``maxStaleEvaluations`` 0 is 1; a NaN or negative fraction is 0
+and one above 1 is 1.
+
 Dependencies and always-visible objects
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -388,6 +433,32 @@ and repair traffic progress independently. ``GetStatistics(observer).deferredSta
 counts eligible candidates held back by the budget on the last serialization
 pass. The streaming benchmark reports delivered state age in server ticks
 for the frequent and infrequent groups.
+
+Distance bands set the interval from the interest grid instead of by hand:
+
+.. code-block:: cpp
+
+   // Within half the enter radius: every pass. From 0.5: every 2nd. From 0.8: every 3rd.
+   grid.SetDistanceIntervals({{0.5f, 2}, {0.8f, 3}});
+
+Each rebuild gives a counted spatial object visible to a radius observer the
+ticks of the last band whose ``fraction * enter`` radius is within its
+distance from the nearer focus, and 1 when none is. Required and
+always-visible objects get 1, and a dependency child gets its parent's
+interval. Bands are fractions of the observer's enter radius in strictly
+ascending order, finite and above 0, with ticks of at least 1; an invalid list
+returns false and keeps the current bands. Empty, the default, leaves every
+interval at 1. ``grid.GetUpdateInterval(observer, id)`` reads the interval.
+While the grid has bands, every server connection uses the scheduler above,
+and an explicit ``SetUpdateInterval`` wins over the band (setting it back to 1
+returns the replica to its band). A newly visible replica is still served on
+its first pass, and construction, removal, grants, owner corrections and
+repair traffic are not delayed. Intervals are as fresh as the observer's last
+rebuild, which ``SetObserverRefresh`` can make a few passes old.
+``GetStatistics(observer).notDueState`` counts the visible replicas not yet due
+on the last pass, whether held back by a band or by ``SetUpdateInterval``.
+Receivers that interpolate these objects need an interpolation delay of at
+least the largest band's ticks (see ``GetRenderTick`` below).
 
 Interpolation and driver prediction
 -----------------------------------

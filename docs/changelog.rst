@@ -6,6 +6,23 @@ All notable changes to MafiaNet are documented here.
 Unreleased
 ----------
 
+* ``InterestGrid::SetDistanceIntervals()`` scales how often visible objects are considered for state with their
+  distance, in bands of the observer's enter radius (``{{0.5f, 2}, {0.8f, 3}}``: from half the radius every 2nd pass,
+  from 0.8 every 3rd). Required and always-visible objects stay at 1 and dependency children follow their parent.
+  ``GetUpdateInterval()`` reads an observer's interval for an object. While the grid has bands, the server's
+  connections use the ``SetUpdateInterval()`` scheduler, an explicit interval wins over the band, and a newly visible
+  replica still gets its first pass at once; construction, removal, grants, owner corrections and repairs are not
+  delayed. ``ReplicationStatistics::notDueState`` counts the replicas not yet due on the last pass. Receivers that
+  interpolate need a delay of at least the largest band's ticks. Empty bands, the default, keep today's behaviour.
+* ``InterestGrid::SetObserverRefresh(maxStaleEvaluations, moveFraction)`` lets a radius observer's own small moves
+  wait for a later rebuild. A move that keeps its cells and moves every focus less than ``moveFraction`` of the leave
+  margin from its last rebuild marks it stale; ``GetVisible`` rebuilds a stale observer once every
+  ``maxStaleEvaluations`` calls, staggered by its guid, and counts the other calls in
+  ``InterestStatistics::observersDeferred``. A held object that moves but stays within the leave radius also only
+  marks the observer stale while no visible or category cap binds, so the visible set stays exact and only its order
+  and distance-band intervals lag. Every other cause still rebuilds at the next call. An object the observer
+  approaches by its own small moves can appear up to ``maxStaleEvaluations - 1`` passes later. The default ``(1, 0)``
+  keeps today's behaviour. See :doc:`guide/replication`.
 * ``RakVoice::SetEncoderComplexity()`` sets the Opus encoder complexity, 0 (cheapest) to 10, on every open encoding
   channel and on channels opened later. Lower complexity trades quality for encoder CPU, for a load-test bot or a
   low-end client. Values above 10 are clamped; a negative value restores the Opus default (9) for channels opened

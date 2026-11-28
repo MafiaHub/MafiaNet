@@ -83,6 +83,8 @@ struct ReplicationStatistics
 {
 	uint64_t desired = 0, constructed = 0, deferred = 0;
 	uint64_t deferredState = 0;
+	/// Visible replicas not yet due on the last serialization pass, held back by SetUpdateInterval or the interest grid's distance bands.
+	uint64_t notDueState = 0;
 	uint64_t enters = 0, leaves = 0, destroys = 0;
 	uint64_t lifecycleBytes = 0, stateBytes = 0, clockBytes = 0;
 	/// Owner reports from this peer dropped by SetOwnerUpdateRateLimit() before the accept callback.

@@ -65,6 +65,9 @@ public:
 	void EnableSchedule() { independentStateCache = true; }
 	bool QuerySerializationList(std::vector<Replica3 *> &out) override
 	{
+		// The grid's distance bands are applied through the schedule, as SetUpdateInterval is.
+		if (!independentStateCache && runtime.owner.GetRole() != ReplicationRole::Client && !runtime.interest.GetDistanceIntervals().empty())
+			EnableSchedule();
 		if (!refusedStates.empty())
 			return true;
 		const bool supplied = runtime.serializationList && runtime.serializationList(ToPeerGuid(guid), out);
@@ -93,15 +96,30 @@ public:
 		// not bank credit and newly eligible objects get an immediate first turn.
 		debt = byteBudget && debt > byteBudget ? debt - byteBudget : 0;
 		stats.deferredState = 0;
+		stats.notDueState = 0;
 		for (auto *object : out)
 			serviceAge.try_emplace(object->GetNetworkID(), ServiceAge{pass, false});
+		// The grid's distance-band intervals for this observer, looked up once per pass; null without bands.
+		const auto *banded = runtime.interest.GetDistanceIntervals().empty() ? nullptr : runtime.interest.UpdateIntervalsOf(ToPeerGuid(guid));
 		OrderByDescendingRank(out, rankScratch, [&](Replica3 *object) -> uint64_t
 		                      {
 			const auto id = object->GetNetworkID();
 			const auto &age = serviceAge.at(id);
+			// An explicit SetUpdateInterval wins over the grid's distance band.
 			const auto interval = intervals.find(id);
-			const auto period = interval == intervals.end() ? 1u : interval->second;
-			return (pass - age.since) / period + (age.served ? 0u : 1u); });
+			unsigned period = 1;
+			if (interval != intervals.end())
+				period = interval->second;
+			else if (banded)
+			{
+				const auto band = banded->find(id);
+				if (band != banded->end())
+					period = band->second;
+			}
+			const uint64_t rank = (pass - age.since) / period + (age.served ? 0u : 1u);
+			if (!rank)
+				++stats.notDueState;
+			return rank; });
 		return true;
 	}
 	SendSerializeIfChangedResult SendSerializeIfChanged(LastSerializationResult *record, SerializeParameters *params, RakPeerInterface *peer, unsigned char world, ReplicaManager3 *manager, Time now) override
@@ -663,6 +681,7 @@ ReplicationStatistics ManagedReplication::Statistics(PeerGuid guid)
 		sum.constructed += s.constructed;
 		sum.deferred += s.deferred;
 		sum.deferredState += s.deferredState;
+		sum.notDueState += s.notDueState;
 		sum.enters += s.enters;
 		sum.leaves += s.leaves;
 		sum.destroys += s.destroys;
