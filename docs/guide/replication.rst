@@ -120,6 +120,9 @@ fast driver sees the road ahead. A focus point less than 5 units from the
 observer is ignored; 5 units or more is used. Look-ahead widens the area
 considered for visibility, but the visible limit and category limits still apply
 afterwards, so a newly reachable object can displace one that was visible.
+While look-ahead is off, ``SetObserverVelocity`` only stores the velocity and
+does not mark the observer for a rebuild, so a server can report every player's
+velocity each tick at no cost; turning look-ahead on uses the stored velocities.
 
 Dependencies and always-visible objects
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

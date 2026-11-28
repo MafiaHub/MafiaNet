@@ -203,6 +203,59 @@ void InterestGridCrowdWithDrivers(benchmark::State &state)
 }
 BENCHMARK(InterestGridCrowdWithDrivers)->ArgName("observers")->DenseRange(0, 1)->Unit(benchmark::kMicrosecond);
 
+// Observers report their position and velocity every tick, as a server does for each player, moving a little (0.15
+// units a tick in 50-unit cells, so most stay in their cell and keep their cell set). Objects stand still at the
+// observers' start positions. The first arg is the observer count; the second picks whether the tick then evaluates
+// every observer (1) or only applies the updates (0). Look-ahead is off, so the velocity cannot change any result.
+void InterestGridObserverUpdates(benchmark::State &state)
+{
+	const auto count = static_cast<unsigned>(state.range(0));
+	InterestGrid grid;
+	grid.Configure({{0, 0}, {kCrowdWorld, kCrowdWorld}, 50});
+	std::vector<SpatialPoint> positions, steps;
+	for (unsigned i = 0; i < count; ++i)
+	{
+		positions.push_back(Crowd::Spread(i, count, 0x0b5e));
+		const uint32_t hash = (i + 7) * 2246822519u;
+		steps.push_back({(static_cast<float>(hash & 0xff) / 127.5f - 1) * 0.15f, (static_cast<float>((hash >> 8) & 0xff) / 127.5f - 1) * 0.15f});
+		grid.Track(Crowd::Id(i), {positions[i]});
+	}
+	std::vector<NetworkID> visible;
+	for (unsigned i = 0; i < count; ++i)
+	{
+		grid.SetObserverRadius(Crowd::Observer(i), positions[i], 200, 250);
+		grid.GetVisible(Crowd::Observer(i), visible);
+	}
+	const auto before = grid.GetStatistics();
+	for (auto _ : state)
+	{
+		for (unsigned i = 0; i < count; ++i)
+		{
+			auto &p = positions[i];
+			auto &s = steps[i];
+			if (p.x + s.x < 0 || p.x + s.x > kCrowdWorld)
+				s.x = -s.x;
+			if (p.y + s.y < 0 || p.y + s.y > kCrowdWorld)
+				s.y = -s.y;
+			p.x += s.x;
+			p.y += s.y;
+			grid.SetObserverPosition(Crowd::Observer(i), p);
+			grid.SetObserverVelocity(Crowd::Observer(i), {s.x * 30, s.y * 30});
+		}
+		if (state.range(1))
+		{
+			for (unsigned i = 0; i < count; ++i)
+			{
+				grid.GetVisible(Crowd::Observer(i), visible);
+				benchmark::DoNotOptimize(visible);
+			}
+		}
+	}
+	const auto after = grid.GetStatistics();
+	state.counters["rebuilds/tick"] = double(after.observersRebuilt - before.observersRebuilt) / state.iterations();
+}
+BENCHMARK(InterestGridObserverUpdates)->ArgNames({"observers", "evaluate"})->ArgsProduct({{800, 1500}, {0, 1}})->Unit(benchmark::kMicrosecond);
+
 struct CrowdState
 {
 	uint8_t value = 0;

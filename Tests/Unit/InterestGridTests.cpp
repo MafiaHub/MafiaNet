@@ -1046,6 +1046,19 @@ TEST(InterestGrid, IncrementalDirtyingMatchesFullRebuilds)
 					     { return g.Track(id, scope); });
 				}
 			}
+			else if (roll < 98 && radius.count(guid))
+			{
+				const SpatialPoint velocity{static_cast<float>(int(next() % 41) - 20), static_cast<float>(int(next() % 41) - 20)};
+				both([&](InterestGrid &g)
+				     { return g.SetObserverVelocity(guid, velocity); });
+			}
+			else if (roll >= 98)
+			{
+				// Look-ahead off and on again, so velocities stored while it is off must reach the foci later.
+				const float seconds = next() % 2 ? 0.5f : 0.0f;
+				both([&](InterestGrid &g)
+				     { g.SetLookaheadSeconds(seconds); return true; });
+			}
 			// Reads at varying times, so stale (undirtied) sets would surface later too.
 			if (step % 3 == 0)
 			{
@@ -1128,6 +1141,118 @@ TEST(InterestGrid, MovingWithinACellRebuildsOnlyObserversItCanReach)
 	EXPECT_TRUE(Visible(grid, nearby).empty());
 	EXPECT_TRUE(Visible(grid, edge).empty());
 	EXPECT_EQ(grid.GetStatistics().observersRebuilt, rebuilt + 2);
+}
+
+namespace
+{
+// The cells an observer is subscribed to, read through the grid: a priority change of an object dirties the
+// subscribers of its cell. Tracks one probe object at the centre of every cell of a 10 x 10 grid of 50-unit cells.
+std::set<int> SubscribedCells(InterestGrid &grid, PeerGuid guid)
+{
+	std::set<int> cells;
+	for (int cell = 0; cell < 100; ++cell)
+	{
+		const NetworkID probe = 1000 + static_cast<NetworkID>(cell);
+		SpatialScope scope{{25.0f + 50.0f * static_cast<float>(cell % 10), 25.0f + 50.0f * static_cast<float>(cell / 10)}};
+		if (!grid.Contains(probe))
+		{
+			EXPECT_TRUE(grid.Track(probe, scope));
+		}
+		Visible(grid, guid);
+		const auto rebuilt = grid.GetStatistics().observersRebuilt;
+		scope.priority = 1;
+		EXPECT_TRUE(grid.SetScope(probe, scope));
+		Visible(grid, guid);
+		if (grid.GetStatistics().observersRebuilt != rebuilt)
+		{
+			cells.insert(cell);
+		}
+		scope.priority = 0;
+		EXPECT_TRUE(grid.SetScope(probe, scope));
+	}
+	return cells;
+}
+std::set<NetworkID> VisibleSet(InterestGrid &grid, PeerGuid guid)
+{
+	const auto visible = Visible(grid, guid);
+	return {visible.begin(), visible.end()};
+}
+}
+
+TEST(InterestGrid, ObserverMoveKeepingItsCellsKeepsSubscriptionsAndRebuilds)
+{
+	InterestGrid grid, reference, fresh;
+	const PeerGuid camera{1};
+	for (InterestGrid *g : {&grid, &reference, &fresh})
+	{
+		ASSERT_TRUE(g->Configure({{0, 0}, {500, 500}, 50}));
+		// 56 from the start, 61 after the move: held by hysteresis. 55 after the move: newly entered.
+		ASSERT_TRUE(g->Track(1, {{184, 240}}));
+		ASSERT_TRUE(g->Track(2, {{300, 242}}));
+		ASSERT_TRUE(g->Track(3, {{400, 400}}));
+	}
+	// Leave radius 80 around (240, 240) and (245, 242) covers cells 3..6 on both axes; both points are in cell (4, 4).
+	ASSERT_TRUE(grid.SetObserverRadius(camera, {240, 240}, 60, 80));
+	ASSERT_TRUE(reference.SetObserverRadius(camera, {240, 240}, 60, 80));
+	ASSERT_TRUE(fresh.SetObserverRadius(camera, {245, 242}, 60, 80));
+	EXPECT_EQ(VisibleSet(grid, camera), (std::set<NetworkID>{1}));
+	Visible(reference, camera);
+	const auto rebuilt = grid.GetStatistics().observersRebuilt;
+	ASSERT_TRUE(grid.SetObserverPosition(camera, {245, 242}));
+	ASSERT_TRUE(reference.SetObserverPosition(camera, {245, 242}));
+	// The move still dirties the observer, so its result is a full rebuild's.
+	reference.InvalidateObserver(camera);
+	EXPECT_EQ(VisibleSet(grid, camera), (std::set<NetworkID>{1, 2}));
+	EXPECT_EQ(grid.GetStatistics().observersRebuilt, rebuilt + 1);
+	EXPECT_EQ(VisibleSet(grid, camera), VisibleSet(reference, camera));
+	// The filed position moved too, within the cell: 55 from (300, 242) now, 60 before.
+	EXPECT_EQ(InterestGridTestAccess::Near(grid, {300, 242}, 56), (std::set<PeerGuid>{camera}));
+	std::set<int> expected;
+	for (int y = 3; y <= 6; ++y)
+	{
+		for (int x = 3; x <= 6; ++x)
+		{
+			expected.insert(y * 10 + x);
+		}
+	}
+	EXPECT_EQ(SubscribedCells(grid, camera), expected);
+	EXPECT_EQ(SubscribedCells(fresh, camera), expected);
+	// A move that changes the cell set still resubscribes: the leave radius around (280, 242) covers x cells 4..7.
+	ASSERT_TRUE(grid.SetObserverPosition(camera, {280, 242}));
+	ASSERT_TRUE(fresh.SetObserverPosition(camera, {280, 242}));
+	EXPECT_EQ(SubscribedCells(grid, camera), SubscribedCells(fresh, camera));
+	EXPECT_EQ(SubscribedCells(grid, camera).count(37), 1u);
+	EXPECT_EQ(SubscribedCells(grid, camera).count(33), 0u);
+}
+
+TEST(InterestGrid, ObserverVelocityDirtiesOnlyWithLookahead)
+{
+	InterestGrid grid;
+	const PeerGuid camera{1};
+	ASSERT_TRUE(grid.Configure({{-100, -100}, {300, 100}, 50}));
+	ASSERT_TRUE(grid.SetObserverRadius(camera, {0, 0}, 20, 20));
+	ASSERT_TRUE(grid.Track(1, {{70, 0}}));
+	ASSERT_TRUE(grid.Track(2, {{-15, 0}}));
+	EXPECT_EQ(Visible(grid, camera), std::vector<NetworkID>{2});
+	auto rebuilt = grid.GetStatistics().observersRebuilt;
+	// Look-ahead off: the velocity cannot move a focus, so the observer stays clean.
+	ASSERT_TRUE(grid.SetObserverVelocity(camera, {30, 0}));
+	EXPECT_EQ(Visible(grid, camera), std::vector<NetworkID>{2});
+	EXPECT_EQ(grid.GetStatistics().observersRebuilt, rebuilt);
+	EXPECT_FALSE(grid.SetObserverVelocity(camera, {std::numeric_limits<float>::infinity(), 0}));
+	// Turning look-ahead on uses the velocity stored while it was off: the focus at (60, 0) sees object 1.
+	grid.SetLookaheadSeconds(2);
+	EXPECT_EQ(VisibleSet(grid, camera), (std::set<NetworkID>{1, 2}));
+	EXPECT_EQ(grid.GetStatistics().observersRebuilt, rebuilt + 1);
+	// Look-ahead on: a velocity update dirties the observer as before.
+	rebuilt = grid.GetStatistics().observersRebuilt;
+	ASSERT_TRUE(grid.SetObserverVelocity(camera, {0, 0}));
+	EXPECT_EQ(Visible(grid, camera), std::vector<NetworkID>{2});
+	EXPECT_EQ(grid.GetStatistics().observersRebuilt, rebuilt + 1);
+	// Off again: the stored velocity is kept but ignored.
+	grid.SetLookaheadSeconds(0);
+	ASSERT_TRUE(grid.SetObserverVelocity(camera, {30, 0}));
+	EXPECT_EQ(Visible(grid, camera), std::vector<NetworkID>{2});
 }
 
 TEST(InterestGrid, TrackingListenerFollowsTrackRemoveClearAndReconfigure)
