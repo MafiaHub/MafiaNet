@@ -33,6 +33,12 @@ Unreleased
   no longer scans every observer for its parent's viewers, and relinking a child to its current parent is a no-op.
   The server's per-connection visible set walks only the replicas referenced without a scope that the grid does not
   track, instead of every such replica. Visible sets are unchanged.
+* ``InterestGrid`` observer updates skip unchanged work. ``SetObserverPosition()`` and ``SetObserverRadius()`` compare
+  the observer's cell rectangles before touching its cell subscriptions, so a move that keeps the same cells no longer
+  rebuilds or diffs them, and a move within the observer's own cell updates its filed position in place. With
+  look-ahead off, ``SetObserverVelocity()`` only stores the velocity and no longer marks the observer for a rebuild;
+  ``SetLookaheadSeconds()`` uses the stored velocity when look-ahead is turned on. Moved observers are still rebuilt,
+  and visible sets are unchanged.
 * Delegated simulation: ``ReplicationManager::SetDelegation()`` hands each opted-in replica to the nearest
   eligible client to simulate, through ``SetAuthority()``. ``DelegationPolicy`` sets the acquire and release
   ranges, a weight and the veto's grace. The incumbent keeps the replica unless a challenger's squared distance

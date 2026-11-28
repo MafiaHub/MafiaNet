@@ -25,6 +25,18 @@ public:
 		// A ranged record's cell in rangedCells is not stored (a smaller record keeps the rebuild's cache footprint down):
 		// RangedCell(scope.position) recomputes it, since the position only changes while unfiled and every cell size change refiles all.
 	};
+	// Inclusive cell rectangles, one per focus.
+	struct CellSpan
+	{
+		int left = 0, right = -1, low = 0, high = -1;
+		bool operator==(const CellSpan &other) const { return std::tie(left, right, low, high) == std::tie(other.left, other.right, other.low, other.high); }
+	};
+	struct CellSpans
+	{
+		CellSpan spans[2];
+		int count = 0;
+		bool operator==(const CellSpans &other) const { return count == other.count && std::equal(spans, spans + count, other.spans); }
+	};
 	struct Observer
 	{
 		bool radius = false, dirty = true;
@@ -34,6 +46,9 @@ public:
 		VirtualWorldId dimension = VIRTUAL_WORLD_DEFAULT;
 		unsigned limit = 0, budget = 0;
 		std::set<int> cells;
+		// The rectangles cells was built from for a radius observer (count 0 for explicit cells), so an update can tell
+		// that the cell set is unchanged without building it.
+		CellSpans spans;
 		std::set<NetworkID> visible;
 		std::vector<NetworkID> ordered;
 		std::set<NetworkID> required;
@@ -173,22 +188,29 @@ public:
 		}
 		return best;
 	}
-	// The cells within the leave radius of any focus.
-	std::set<int> CellsOf(const Observer &observer) const
+	// The cell rectangles within the leave radius of each focus.
+	CellSpans SpansOf(const Observer &observer) const
 	{
 		const Foci foci = FociOf(observer);
 		const double radius = observer.leave;
-		std::set<int> cells;
+		CellSpans spans;
+		spans.count = foci.count;
 		for (int i = 0; i < foci.count; ++i)
 		{
 			const SpatialPoint p = foci.points[i];
-			const int left = Axis(p.x - radius, config.minimum.x, width);
-			const int right = Axis(p.x + radius, config.minimum.x, width);
-			const int low = Axis(p.y - radius, config.minimum.y, height);
-			const int high = Axis(p.y + radius, config.minimum.y, height);
-			for (int y = low; y <= high; ++y)
+			spans.spans[i] = {Axis(p.x - radius, config.minimum.x, width), Axis(p.x + radius, config.minimum.x, width), Axis(p.y - radius, config.minimum.y, height), Axis(p.y + radius, config.minimum.y, height)};
+		}
+		return spans;
+	}
+	std::set<int> CellsOf(const CellSpans &spans) const
+	{
+		std::set<int> cells;
+		for (int i = 0; i < spans.count; ++i)
+		{
+			const CellSpan &span = spans.spans[i];
+			for (int y = span.low; y <= span.high; ++y)
 			{
-				for (int x = left; x <= right; ++x)
+				for (int x = span.left; x <= span.right; ++x)
 				{
 					cells.insert(y * width + x);
 				}
@@ -376,12 +398,37 @@ public:
 	}
 	void File(PeerGuid guid, Observer &observer)
 	{
+		const int cell = Cell(observer.position);
+		if (cell == observer.at)
+		{
+			observersAt.find(cell)->second.find(guid)->second = observer.position;
+			return;
+		}
 		Unfile(guid, observer);
-		observer.at = Cell(observer.position);
+		observer.at = cell;
 		observersAt[observer.at][guid] = observer.position;
 	}
+	// Subscribes a radius observer to the cells around its foci and dirties it. The cell sets are diffed only when
+	// the rectangles changed, so a move that keeps them costs no set walk and no allocation.
+	void SubscribeRadius(PeerGuid guid, Observer &observer)
+	{
+		const CellSpans next = SpansOf(observer);
+		if (observer.spans.count == 0 || !(next == observer.spans))
+		{
+			Subscribe(guid, observer, CellsOf(next));
+			observer.spans = next;
+		}
+		observer.dirty = true;
+	}
+	// Subscribes an observer to exactly next and dirties it; forgets any radius rectangles.
 	void Subscribe(PeerGuid guid, Observer &observer, std::set<int> next)
 	{
+		observer.spans.count = 0;
+		observer.dirty = true;
+		if (next == observer.cells)
+		{
+			return;
+		}
 		for (int cell : observer.cells)
 			if (!next.count(cell))
 			{
@@ -394,7 +441,6 @@ public:
 			if (!observer.cells.count(cell))
 				subscriptions[cell].insert(guid);
 		observer.cells = std::move(next);
-		observer.dirty = true;
 	}
 	bool Eligible(PeerGuid guid, const Observer &observer, const Record &record) const
 	{
@@ -771,7 +817,7 @@ bool InterestGrid::SetObserverRadius(PeerGuid guid, SpatialPoint p, float enter,
 	o.enter = enter;
 	o.leave = leave;
 	impl->File(guid, o);
-	impl->Subscribe(guid, o, impl->CellsOf(o));
+	impl->SubscribeRadius(guid, o);
 	return true;
 }
 bool InterestGrid::SetObserverPosition(PeerGuid guid, SpatialPoint p)
@@ -788,7 +834,12 @@ bool InterestGrid::SetObserverVelocity(PeerGuid guid, SpatialPoint velocity)
 		return false;
 	}
 	it->second.velocity = velocity;
-	impl->Subscribe(guid, it->second, impl->CellsOf(it->second));
+	// Without look-ahead the velocity does not reach the foci, so nothing the observer sees can change;
+	// SetLookaheadSeconds resubscribes every radius observer with its stored velocity when it turns look-ahead on.
+	if (impl->lookaheadSeconds > 0)
+	{
+		impl->SubscribeRadius(guid, it->second);
+	}
 	return true;
 }
 void InterestGrid::SetLookaheadSeconds(float seconds)
@@ -804,7 +855,7 @@ void InterestGrid::SetLookaheadSeconds(float seconds)
 	{
 		if (observer.radius)
 		{
-			impl->Subscribe(guid, observer, impl->CellsOf(observer));
+			impl->SubscribeRadius(guid, observer);
 		}
 	}
 }
