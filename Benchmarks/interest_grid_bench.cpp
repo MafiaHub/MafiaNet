@@ -4,6 +4,7 @@
 #include "mafianet/snapshot_replica.h"
 #include "SimulatedNetwork.h"
 #include <benchmark/benchmark.h>
+#include <chrono>
 #include <memory>
 #include <vector>
 
@@ -380,11 +381,15 @@ void RunCrowdServerTick(benchmark::State &state, const CrowdTickOptions &options
 	const auto hostBefore = host.GetStatistics();
 	const auto receivedBefore = crowdStatesReceived;
 	uint64_t notDue = 0, budgetDeferred = 0;
+	std::chrono::steady_clock::duration moving{};
 	for (auto _ : state)
 	{
 		crowd.Step();
+		// The object-move path (SetPosition, which dirties or marks stale the observers a move can affect), timed apart.
+		const auto movesStart = std::chrono::steady_clock::now();
 		for (unsigned i = 0; i < crowd.positions.size(); ++i)
 			grid.SetPosition(ids[i], crowd.positions[i]);
+		moving += std::chrono::steady_clock::now() - movesStart;
 		for (unsigned i = 0; i < players; ++i)
 			grid.SetObserverPosition(guids[i], crowd.positions[i]);
 		if (options.changing)
@@ -409,6 +414,7 @@ void RunCrowdServerTick(benchmark::State &state, const CrowdTickOptions &options
 	state.counters["stateKB/tick"] = static_cast<double>(hostAfter.stateBytes - hostBefore.stateBytes) / 1024.0 / ticks;
 	state.counters["notDue/tick"] = static_cast<double>(notDue) / ticks;
 	state.counters["deferredState/tick"] = static_cast<double>(budgetDeferred) / ticks;
+	state.counters["movesUs/tick"] = std::chrono::duration<double, std::micro>(moving).count() / ticks;
 	for (auto &replica : replicas)
 		host.Dereference(replica.get());
 }

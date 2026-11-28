@@ -141,30 +141,30 @@ of its guid, so the rebuilds spread over calls instead of all landing on one
 tick; on the other calls ``GetVisible`` returns its previous visible set and
 ``InterestStatistics::observersDeferred`` counts the call.
 
-With ``maxStaleEvaluations`` above 1, the objects an observer holds may also
-move without rebuilding it at once. A held object that moves but stays within
-the leave radius of the observer's nearer focus only marks the observer stale,
-as long as no cap bound at its last rebuild (it had fewer visible objects than
-its limit and reached no category limit). Without a binding cap every
-candidate is kept or dropped on its own distance, so the visible set is still
-exact; only the order of the visible list and the distance-band intervals
-below can be up to ``maxStaleEvaluations - 1`` passes old. A held object that
-moves beyond the leave radius, any object coming within the enter radius, and
-every held move while a cap binds still rebuild at the next call. This is what
-makes refresh pay off for a player observing at its own moving avatar among
-moving neighbours.
+With ``maxStaleEvaluations`` above 1, objects moving near an observer
+(``SetPosition``, or ``SetScope`` changing only the position) also only mark
+it stale, as long as no cap bound at its last rebuild (it had fewer visible
+objects than its limit and reached no category limit). The move is not even
+inspected: an object moving into range appears, and one moving out leaves, at
+the observer's next slot, up to ``maxStaleEvaluations - 1`` passes late, and
+the order of the visible list and the distance-band intervals below can be
+that old too. A capped observer still rebuilds at the next call when a move
+can change which objects win the cap (a held object moved, or one came within
+its enter radius). This is what makes refresh pay off for a player observing
+at its own moving avatar among moving neighbours: a tick of moves costs each
+observer one flag, and its rebuild waits for its slot.
 
 .. code-block:: cpp
 
    grid.SetObserverRefresh(4, 0.5f); // small moves: rebuilt at most every 4th pass
 
-The trade-off: an object the observer comes into range of by its own small
-moves can appear up to ``maxStaleEvaluations - 1`` serialization passes later,
-and one it moves away from can stay that long. In exchange the observer's own
-small moves no longer rebuild its view every pass. Everything else still
-rebuilds at the next call: a change of cells or radii, a larger move, objects
-being tracked, removed or rescoped, object moves other than the held ones
-above, limits, worlds, dimensions,
+The trade-off: an object that comes into range, by its own move or the
+observer's small moves, can appear up to ``maxStaleEvaluations - 1``
+serialization passes later, and one that leaves can stay that long. In
+exchange moves no longer rebuild every observer every pass. Everything else
+still rebuilds at the next call: a change of cells or radii, a larger own move,
+objects being tracked, removed or rescoped (other than a move), object moves
+seen by a capped observer as above, limits, worlds, dimensions,
 audience, dependencies, look-ahead and ``Configure``. The default ``(1, 0)``
 never defers. ``maxStaleEvaluations`` 0 is 1; a NaN or negative fraction is 0
 and one above 1 is 1.

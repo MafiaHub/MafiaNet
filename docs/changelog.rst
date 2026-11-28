@@ -18,10 +18,11 @@ Unreleased
   wait for a later rebuild. A move that keeps its cells and moves every focus less than ``moveFraction`` of the leave
   margin from its last rebuild marks it stale; ``GetVisible`` rebuilds a stale observer once every
   ``maxStaleEvaluations`` calls, staggered by its guid, and counts the other calls in
-  ``InterestStatistics::observersDeferred``. A held object that moves but stays within the leave radius also only
-  marks the observer stale while no visible or category cap binds, so the visible set stays exact and only its order
-  and distance-band intervals lag. Every other cause still rebuilds at the next call. An object the observer
-  approaches by its own small moves can appear up to ``maxStaleEvaluations - 1`` passes later. The default ``(1, 0)``
+  ``InterestStatistics::observersDeferred``. Object moves near an observer also only mark it stale while no visible
+  or category cap binds, without inspecting the move, so a crowd's moves cost each observer a flag; a capped observer
+  still reacts at the next call. Every other cause still rebuilds at the next call. An object coming into or out of
+  range can show up to ``maxStaleEvaluations - 1`` passes late, and the order and distance-band intervals can lag as
+  long. The default ``(1, 0)``
   keeps today's behaviour. See :doc:`guide/replication`.
 * ``RakVoice::SetEncoderComplexity()`` sets the Opus encoder complexity, 0 (cheapest) to 10, on every open encoding
   channel and on channels opened later. Lower complexity trades quality for encoder CPU, for a load-test bot or a

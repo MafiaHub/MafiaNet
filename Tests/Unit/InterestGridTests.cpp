@@ -1445,7 +1445,7 @@ TEST(InterestGrid, ObserverRefreshRebuildsAtOnceForLargeMovesCellChangesAndRadii
 	}
 }
 
-TEST(InterestGrid, ObserverRefreshDoesNotDeferObjectChanges)
+TEST(InterestGrid, ObserverRefreshDefersObjectMovesButNotOtherObjectChanges)
 {
 	RefreshedObserver o;
 	ASSERT_NO_FATAL_FAILURE(o.SetUp(4, 0.5f));
@@ -1463,14 +1463,33 @@ TEST(InterestGrid, ObserverRefreshDoesNotDeferObjectChanges)
 	ASSERT_NO_FATAL_FAILURE(stale());
 	o.grid.Remove(3);
 	EXPECT_EQ(VisibleSet(o.grid, o.camera), (std::set<NetworkID>{1}));
-	// Crossing cells into range, then within its cell out of range.
+	// Moves wait for the observer's slot: crossing cells into range, then out of range, each shows within 4 calls, and
+	// not on the call right after the slot.
+	auto callsUntil = [&](const std::set<NetworkID> &expected)
+	{
+		unsigned calls = 1;
+		while (calls <= 4 && VisibleSet(o.grid, o.camera) != expected)
+		{
+			++calls;
+		}
+		return calls;
+	};
 	ASSERT_TRUE(o.grid.Track(4, {{400, 400}}));
 	ASSERT_NO_FATAL_FAILURE(stale());
 	ASSERT_TRUE(o.grid.SetPosition(4, {120, 120}));
-	EXPECT_EQ(VisibleSet(o.grid, o.camera), (std::set<NetworkID>{1, 4}));
+	unsigned calls = callsUntil({1, 4});
+	EXPECT_GT(calls, 1u);
+	EXPECT_LE(calls, 4u);
 	ASSERT_NO_FATAL_FAILURE(stale());
 	ASSERT_TRUE(o.grid.SetPosition(4, {400, 400}));
+	calls = callsUntil({1});
+	EXPECT_GT(calls, 1u);
+	EXPECT_LE(calls, 4u);
+	// A scope change other than a move is not deferred.
+	ASSERT_NO_FATAL_FAILURE(stale());
+	ASSERT_TRUE(o.grid.SetScope(4, {{120, 120}, 1}));
 	EXPECT_EQ(VisibleSet(o.grid, o.camera), (std::set<NetworkID>{1}));
+	o.grid.Remove(4);
 	// A world change.
 	ASSERT_NO_FATAL_FAILURE(stale());
 	o.grid.SetObserverWorld(o.camera, 1, VIRTUAL_WORLD_DEFAULT);
@@ -1767,20 +1786,33 @@ TEST(InterestGrid, HeldObjectsMovingInsideLeaveWaitForTheRefreshSlot)
 	EXPECT_EQ(o.Rebuilt(), held);
 }
 
-TEST(InterestGrid, HeldObjectsLeavingAndNewObjectsEnteringRebuildAtOnce)
+TEST(InterestGrid, ObjectsLeavingAndEnteringByTheirMovesShowWithinMaxStaleCalls)
 {
 	HeldObjects o;
 	ASSERT_NO_FATAL_FAILURE(o.SetUp(4));
-	// Beyond the leave radius: dropped at the next call.
+	auto callsUntil = [&](const std::set<NetworkID> &expected)
+	{
+		unsigned calls = 1;
+		while (calls <= 4 && VisibleSet(o.grid, o.camera) != expected)
+		{
+			++calls;
+		}
+		return calls;
+	};
+	// Beyond the leave radius: dropped at the observer's next slot, within 4 calls, not at once.
 	ASSERT_NO_FATAL_FAILURE(o.PassSlot());
 	o.Move(1, {625, 500});
+	unsigned calls = callsUntil({2});
+	EXPECT_GT(calls, 1u);
+	EXPECT_LE(calls, 4u);
 	EXPECT_EQ(Visible(o.grid, o.camera), o.Fresh());
-	EXPECT_EQ(VisibleSet(o.grid, o.camera), (std::set<NetworkID>{2}));
-	// An object moving into the enter radius: seen at the next call.
+	// An object moving into the enter radius: seen within 4 calls.
 	ASSERT_NO_FATAL_FAILURE(o.PassSlot());
 	o.Move(1, {590, 500});
-	EXPECT_EQ(VisibleSet(o.grid, o.camera), (std::set<NetworkID>{1, 2}));
-	// A newly tracked object within range: seen at the next call.
+	calls = callsUntil({1, 2});
+	EXPECT_GT(calls, 1u);
+	EXPECT_LE(calls, 4u);
+	// A newly tracked object within range: tracking is not deferred, so it is seen at the next call.
 	ASSERT_NO_FATAL_FAILURE(o.PassSlot());
 	o.Move(3, {500, 540});
 	EXPECT_EQ(VisibleSet(o.grid, o.camera), (std::set<NetworkID>{1, 2, 3}));
@@ -1797,6 +1829,11 @@ TEST(InterestGrid, HeldObjectMovesRebuildAtOnceWhileACapBinds)
 	// B moves to 100 (still within leave): object 3 at 90 now outranks it, with the incumbent margin (100^2 * 0.9025 > 90^2).
 	o.Move(2, {600, 500});
 	EXPECT_EQ(VisibleSet(o.grid, o.camera), (std::set<NetworkID>{1, 3}));
+	EXPECT_EQ(VisibleSet(o.grid, o.camera), VisibleSet(o.fresh, o.camera));
+	// A non-held object moving within the enter radius of a capped observer can win the cap: next call too.
+	ASSERT_NO_FATAL_FAILURE(o.PassSlot());
+	o.Move(2, {510, 500});
+	EXPECT_EQ(VisibleSet(o.grid, o.camera), (std::set<NetworkID>{1, 2}));
 	EXPECT_EQ(VisibleSet(o.grid, o.camera), VisibleSet(o.fresh, o.camera));
 	// A category limit binds the same way.
 	HeldObjects c;
@@ -1824,9 +1861,9 @@ TEST(InterestGrid, HeldObjectMovesRebuildAtOnceWhileACapBinds)
 	EXPECT_EQ(d.Rebuilt(), before + 1);
 }
 
-// With a refresh policy that defers only object moves (fraction 0: an observer's own moves still rebuild), and no
-// limits, the visible sets must equal a fresh evaluation at every call; only the order may lag until the refresh.
-TEST(InterestGrid, DeferredHeldMovesKeepVisibleSetsExact)
+// With a refresh policy and no limits, object moves and small own moves only mark observers stale, so a read between
+// rebuilds can lag; every rebuild (on the observer's slot, or forced) must equal a fresh evaluation.
+TEST(InterestGrid, DeferredMovesMatchAFreshEvaluationAfterEachRebuild)
 {
 	for (uint32_t seed : {3u, 11u, 99u, 2024u})
 	{
@@ -1853,7 +1890,7 @@ TEST(InterestGrid, DeferredHeldMovesKeepVisibleSetsExact)
 		};
 		both([](InterestGrid &g)
 		     { return g.Configure({{0, 0}, {400, 400}, 25}); });
-		grid.SetObserverRefresh(4, 0);
+		grid.SetObserverRefresh(4, 0.5f);
 		constexpr unsigned kObservers = 12, kObjects = 60;
 		std::map<NetworkID, SpatialScope> objects;
 		std::map<PeerGuid, SpatialPoint> radius;
@@ -1888,6 +1925,7 @@ TEST(InterestGrid, DeferredHeldMovesKeepVisibleSetsExact)
 			     { return g.Track(id, scope); });
 		}
 		std::vector<NetworkID> a, b;
+		unsigned compared = 0;
 		for (unsigned step = 0; step < 2000; ++step)
 		{
 			const NetworkID id = 1 + next() % kObjects;
@@ -1957,12 +1995,23 @@ TEST(InterestGrid, DeferredHeldMovesKeepVisibleSetsExact)
 			for (unsigned i = 0; i < kObservers; ++i)
 			{
 				const PeerGuid observer{i + 1};
-				reference.InvalidateObserver(observer);
+				if (next() % 16 == 0)
+				{
+					grid.InvalidateObserver(observer);
+				}
+				const auto rebuilt = grid.GetStatistics().observersRebuilt;
 				grid.GetVisible(observer, a);
+				if (grid.GetStatistics().observersRebuilt == rebuilt)
+				{
+					continue;
+				}
+				++compared;
+				reference.InvalidateObserver(observer);
 				reference.GetVisible(observer, b);
 				ASSERT_EQ(std::set<NetworkID>(a.begin(), a.end()), std::set<NetworkID>(b.begin(), b.end())) << "seed " << seed << " step " << step << " observer " << i;
 			}
 		}
 		EXPECT_GT(grid.GetStatistics().observersDeferred, 0u);
+		EXPECT_GT(compared, 2000u);
 	}
 }
