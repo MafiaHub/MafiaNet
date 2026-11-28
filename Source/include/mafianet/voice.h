@@ -221,6 +221,16 @@ public:
 	/// \param[in] bitsPerSecond target bitrate, or 0 for the Opus default
 	void SetEncoderBitrate(int bitsPerSecond);
 
+	/// \brief Sets the Opus encoder complexity, from 0 (cheapest) to 10 (best quality).
+	/// Lower complexity trades audio quality for encoder CPU, for example on a load-test bot
+	/// or a low-end client. Applied immediately to every open encoding channel and to
+	/// channels opened later. A value above 10 is clamped to 10. A negative value leaves
+	/// Opus at its own default (9) for future channels; encoders already open keep the
+	/// complexity last applied, as with SetEncoderBitrate(0). Until this is called,
+	/// encoders use the Opus default.
+	/// \param[in] complexity 0 to 10, or negative for the Opus default
+	void SetEncoderComplexity(int complexity);
+
 	/// \brief Returns current state of VAD (DTX).
 	/// \return true if VAD is enabled, false otherwise
 	bool IsVADActive(void);
@@ -444,6 +454,8 @@ protected:
 	bool defaultDENOISEState;
 	/// Target encoder bitrate in bits per second; 0 leaves Opus at its own default.
 	int defaultBitrate;
+	/// Encoder complexity, 0 to 10; negative leaves Opus at its own default.
+	int defaultComplexity;
 	bool defaultVBRState;
 	int defaultSignalType;
 	bool loopbackMode;
