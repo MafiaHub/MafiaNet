@@ -336,11 +336,14 @@ public:
 	// held the object nor can see it now is unaffected: dropping or moving a candidate that was not selected leaves the
 	// selection unchanged. Other holders do not depend on the position: a dependency child is pulled in wherever it is,
 	// an always-visible object dirties everyone and SetScope() invalidates the holder of a required object.
-	// With a refresh policy (maxStaleEvaluations > 1), a radius holder whose last rebuild bound no cap and that still has
-	// the object within its leave radius is only marked stale: without a cap each candidate is selected on its own
-	// distance alone, so the set cannot change, only its order and band intervals.
+	// With a refresh policy (maxStaleEvaluations > 1), a radius observer whose last rebuild bound no cap is only marked
+	// stale, whatever the move: entering, leaving and reordering all wait for its next slot, at most
+	// maxStaleEvaluations - 1 calls. A capped observer keeps the rules above, since a move can change who wins the cap.
 	void DirtyMove(NetworkID id, int from, int to, SpatialPoint position)
 	{
+		// With a refresh policy, an uncapped radius observer takes any move it is visited for at its next slot: no lookup
+		// and no distance, so a crowd of observers holding each other costs a flag per visit.
+		const bool deferring = refresh.maxStaleEvaluations > 1;
 		auto visit = [&](int cell, bool reaching)
 		{
 			auto it = subscriptions.find(cell);
@@ -359,19 +362,14 @@ public:
 				{
 					observer.dirty = from != to;
 				}
+				else if (deferring && !observer.capped)
+				{
+					observer.stale = true;
+				}
 				else if (observer.visible.count(id))
 				{
-					// Still within the leave radius and no cap binding: the visible set cannot change, only its order and
-					// distance-band intervals, so with a refresh policy the holder waits for its slot.
-					const double leave = observer.leave;
-					if (refresh.maxStaleEvaluations > 1 && !observer.capped && NearestDistSq(FociOf(observer), position) <= leave * leave)
-					{
-						observer.stale = true;
-					}
-					else
-					{
-						observer.dirty = true;
-					}
+					// A capped holder: the move can change which objects win the cap.
+					observer.dirty = true;
 				}
 				else if (reaching && NearestDistSq(FociOf(observer), position) <= static_cast<double>(observer.enter) * observer.enter)
 				{
